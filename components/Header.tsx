@@ -88,27 +88,27 @@ export default function Header() {
 
   // Determinar qué página de accounting estamos viendo
   const accountingPage = isAccountingSection
-    ? pathname.includes("/proveedores")
-      ? "proveedores"
-      : pathname.includes("/presupuesto")
-      ? "presupuesto"
-      : pathname.includes("/usuarios")
-      ? "usuarios"
-      : pathname.includes("/informes")
-      ? "informes"
+    ? pathname.includes("/suppliers")
+      ? "suppliers"
+      : pathname.includes("/budget")
+      ? "budget"
+      : pathname.includes("/users")
+      ? "users"
+      : pathname.includes("/reports")
+      ? "reports"
       : "panel"
     : null;
 
   // Determinar qué página de team estamos viendo
   const teamPage = isTeamSection
-    ? pathname.includes("/equipo")
-      ? "equipo"
-      : pathname.includes("/planificacion")
-      ? "planificacion"
-      : pathname.includes("/control-horario")
-      ? "control-horario"
-      : pathname.includes("/documentacion")
-      ? "documentacion"
+    ? pathname.includes("/members")
+      ? "members"
+      : pathname.includes("/planning")
+      ? "planning"
+      : pathname.includes("/time-tracking")
+      ? "time-tracking"
+      : pathname.includes("/documentation")
+      ? "documentation"
       : "panel"
     : null;
 
@@ -162,9 +162,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/accounting/proveedores`}
+            href={`/project/${projectId}/accounting/suppliers`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "proveedores"
+              accountingPage === "suppliers"
                 ? "text-indigo-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -174,9 +174,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/accounting/presupuesto`}
+            href={`/project/${projectId}/accounting/budget`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "presupuesto"
+              accountingPage === "budget"
                 ? "text-indigo-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -186,9 +186,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/accounting/usuarios`}
+            href={`/project/${projectId}/accounting/users`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "usuarios"
+              accountingPage === "users"
                 ? "text-indigo-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -198,9 +198,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/accounting/informes`}
+            href={`/project/${projectId}/accounting/reports`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "informes"
+              accountingPage === "reports"
                 ? "text-indigo-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -227,9 +227,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/team/equipo`}
+            href={`/project/${projectId}/team/members`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "equipo"
+              teamPage === "members"
                 ? "text-amber-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -239,9 +239,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/team/control-horario`}
+            href={`/project/${projectId}/team/time-tracking`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "control-horario"
+              teamPage === "time-tracking"
                 ? "text-amber-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -251,9 +251,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/team/planificacion`}
+            href={`/project/${projectId}/team/planning`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "planificacion"
+              teamPage === "planning"
                 ? "text-amber-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -263,9 +263,9 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/team/documentacion`}
+            href={`/project/${projectId}/team/documentation`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "documentacion"
+              teamPage === "documentation"
                 ? "text-amber-700 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
@@ -373,10 +373,10 @@ export default function Header() {
                   Panel principal
                 </Link>
                 <Link
-                  href={`/project/${projectId}/accounting/proveedores`}
+                  href={`/project/${projectId}/accounting/suppliers`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "proveedores"
+                    accountingPage === "suppliers"
                       ? "text-indigo-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -385,10 +385,10 @@ export default function Header() {
                   Proveedores
                 </Link>
                 <Link
-                  href={`/project/${projectId}/accounting/presupuesto`}
+                  href={`/project/${projectId}/accounting/budget`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "presupuesto"
+                    accountingPage === "budget"
                       ? "text-indigo-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -397,10 +397,10 @@ export default function Header() {
                   Presupuesto
                 </Link>
                 <Link
-                  href={`/project/${projectId}/accounting/usuarios`}
+                  href={`/project/${projectId}/accounting/users`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "usuarios"
+                    accountingPage === "users"
                       ? "text-indigo-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -409,10 +409,10 @@ export default function Header() {
                   Usuarios
                 </Link>
                 <Link
-                  href={`/project/${projectId}/accounting/informes`}
+                  href={`/project/${projectId}/accounting/reports`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "informes"
+                    accountingPage === "reports"
                       ? "text-indigo-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -455,10 +455,10 @@ export default function Header() {
                   Panel principal
                 </Link>
                 <Link
-                  href={`/project/${projectId}/team/equipo`}
+                  href={`/project/${projectId}/team/members`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "equipo"
+                    teamPage === "members"
                       ? "text-amber-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -467,10 +467,10 @@ export default function Header() {
                   Equipo
                 </Link>
                 <Link
-                  href={`/project/${projectId}/team/control-horario`}
+                  href={`/project/${projectId}/team/time-tracking`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "control-horario"
+                    teamPage === "time-tracking"
                       ? "text-amber-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -479,10 +479,10 @@ export default function Header() {
                   Control horario
                 </Link>
                 <Link
-                  href={`/project/${projectId}/team/planificacion`}
+                  href={`/project/${projectId}/team/planning`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "planificacion"
+                    teamPage === "planning"
                       ? "text-amber-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
@@ -491,10 +491,10 @@ export default function Header() {
                   Planificación
                 </Link>
                 <Link
-                  href={`/project/${projectId}/team/documentacion`}
+                  href={`/project/${projectId}/team/documentation`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "documentacion"
+                    teamPage === "documentation"
                       ? "text-amber-700 font-medium"
                       : "hover:text-slate-900"
                   }`}
