@@ -40,17 +40,16 @@ export default function LoginPage() {
       <AnimatedBackground />
 
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        {/* --- LOGO CON BORDE SEMICIRCULAR (Ruta y Alt actualizados) --- */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 w-24 h-12 overflow-hidden">
-          <div className="w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
+        
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 w-24 h-24">
+          <div className="w-full h-full rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
             <img
-              src="/logo.png" // RUTA ACTUALIZADA A logo.png
-              alt="Filma Workspace" // ALT ACTUALIZADO
+              src="/logo.png" 
+              alt="Filma Workspace"
               className="w-16 h-16 object-contain"
             />
           </div>
         </div>
-        {/* --- FIN DEL LOGO --- */}
 
         <Card className="pt-16">
           <div className="mb-6">
