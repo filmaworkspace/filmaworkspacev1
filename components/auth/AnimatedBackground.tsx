@@ -23,6 +23,16 @@ interface Word {
   duration: number;
 }
 
+interface LogoItem {
+  id: number;
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+  opacity: number;
+  duration: number;
+}
+
 export default function AnimatedBackground() {
   const [mounted, setMounted] = useState(false);
 
@@ -45,6 +55,14 @@ export default function AnimatedBackground() {
     { id: 3, text: "workspace", x: 55, y: 75, rotation: -7, scale: 0.95, opacity: 0.03, duration: 58 },
   ];
 
+  const logoItems: LogoItem[] = [
+    { id: 0, x: 5, y: 5, rotation: -5, scale: 0.6, opacity: 0.02, duration: 45 },
+    { id: 1, x: 80, y: 15, rotation: 10, scale: 0.7, opacity: 0.025, duration: 55 },
+    { id: 2, x: 15, y: 65, rotation: 15, scale: 0.8, opacity: 0.03, duration: 60 },
+    { id: 3, x: 90, y: 80, rotation: -12, scale: 0.75, opacity: 0.025, duration: 50 },
+    { id: 4, x: 45, y: 5, rotation: 8, scale: 0.65, opacity: 0.035, duration: 65 },
+  ];
+
   if (!mounted) {
     return <div className="fixed inset-0 bg-gradient-to-b from-white via-slate-50 to-blue-50/40 -z-10"></div>;
   }
@@ -53,6 +71,24 @@ export default function AnimatedBackground() {
     <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
       {/* Fondo base suave */}
       <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-blue-50/40"></div>
+      
+      {/* Logos sutiles añadidos */}
+      {logoItems.map((l) => (
+        <img
+          key={`logo-${l.id}`}
+          src="/logo.png"
+          alt="Filma Workspace background"
+          className="absolute w-24 h-auto select-none pointer-events-none"
+          style={{
+            left: `${l.x}%`,
+            top: `${l.y}%`,
+            opacity: l.opacity,
+            width: `${l.scale * 100}px`,
+            animation: `float-text-organic ${l.duration}s ease-in-out infinite`,
+            "--rotation": `${l.rotation}deg`,
+          } as CSSProperties & { "--rotation": string }}
+        />
+      ))}
 
       {/* Burbujas flotando orgánicamente */}
       {bubbles.map((b) => (
