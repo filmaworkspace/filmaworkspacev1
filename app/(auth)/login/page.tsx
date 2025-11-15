@@ -39,25 +39,19 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
       <AnimatedBackground />
 
-      <div className={`relative z-30 w-full max-w-md ${inter.className}`}>
-        {/* --- LOGO CON BORDE SEMICIRCULAR --- */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-24 h-12 overflow-hidden">
-          {/* Este div interno es el círculo completo.
-            El 'overflow-hidden' del padre lo corta por la mitad.
-            El 'bg-white/80 backdrop-blur-xl' es idéntico al de la tarjeta 
-            para "tapar" el borde recto de la tarjeta que queda detrás.
-          */}
+      <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
+        {/* --- LOGO CON BORDE SEMICIRCULAR (Ruta y Alt actualizados) --- */}
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 w-24 h-12 overflow-hidden">
           <div className="w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
             <img
-              src="/logo.png"
-              alt="Filma Workspace"
+              src="/logo.png" // RUTA ACTUALIZADA A logo.png
+              alt="Filma Workspace" // ALT ACTUALIZADO
               className="w-16 h-16 object-contain"
             />
           </div>
         </div>
         {/* --- FIN DEL LOGO --- */}
 
-        {/* Añadimos 'pt-16' (padding-top: 4rem) para dejar espacio al logo */}
         <Card className="pt-16">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
@@ -129,7 +123,7 @@ export default function LoginPage() {
               className="text-slate-800 hover:text-slate-900 font-medium hover:underline transition-colors"
             >
               Crear cuenta
-            </Link> {/* <-- AQUÍ ESTABA EL ERROR (decía /Kink) --> */}
+            </Link>
           </div>
         </Card>
       </div>
