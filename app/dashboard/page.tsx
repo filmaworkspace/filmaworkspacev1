@@ -358,7 +358,7 @@ export default function Dashboard() {
                   Tu espacio de trabajo
                 </h1>
                 <p className="text-slate-600">
-                  Gestiona todos tus proyectos en un solo lugar
+                  Gestiona todos tus proyectos
                 </p>
               </div>
             </div>
