@@ -1,4 +1,3 @@
-// New lighter animated wallpaper without grid
 "use client";
 
 import { useState, useEffect, CSSProperties } from "react";
@@ -32,18 +31,18 @@ export default function AnimatedBackground() {
   }, []);
 
   const bubbles: Bubble[] = [
-    { id: 0, x: 12, y: 18, size: 220, duration: 38, delay: 0, color: "from-white/40 to-blue-50/20" },
-    { id: 1, x: 70, y: 22, size: 170, duration: 46, delay: 2, color: "from-blue-100/30 to-indigo-50/20" },
-    { id: 2, x: 48, y: 60, size: 260, duration: 34, delay: 4, color: "from-white/35 to-slate-100/25" },
-    { id: 3, x: 20, y: 80, size: 150, duration: 42, delay: 1, color: "from-blue-50/30 to-indigo-50/25" },
-    { id: 4, x: 85, y: 70, size: 200, duration: 48, delay: 3, color: "from-slate-50/35 to-white/25" },
+    { id: 0, x: 12, y: 18, size: 220, duration: 55, delay: 0, color: "from-white/40 to-blue-50/20" },
+    { id: 1, x: 70, y: 22, size: 170, duration: 62, delay: 4, color: "from-blue-100/30 to-indigo-50/20" },
+    { id: 2, x: 48, y: 60, size: 260, duration: 58, delay: 3, color: "from-white/35 to-slate-100/25" },
+    { id: 3, x: 20, y: 80, size: 150, duration: 65, delay: 5, color: "from-blue-50/30 to-indigo-50/25" },
+    { id: 4, x: 85, y: 70, size: 200, duration: 70, delay: 2, color: "from-slate-50/35 to-white/25" },
   ];
 
   const words: Word[] = [
-    { id: 0, text: "filma", x: 18, y: 28, rotation: -10, scale: 1, opacity: 0.03, duration: 28 },
-    { id: 1, text: "workspace", x: 68, y: 22, rotation: 6, scale: 0.9, opacity: 0.035, duration: 35 },
-    { id: 2, text: "filma", x: 35, y: 55, rotation: 14, scale: 1.15, opacity: 0.03, duration: 30 },
-    { id: 3, text: "workspace", x: 55, y: 75, rotation: -7, scale: 0.95, opacity: 0.04, duration: 33 },
+    { id: 0, text: "filma", x: 18, y: 28, rotation: -10, scale: 1, opacity: 0.025, duration: 50 },
+    { id: 1, text: "workspace", x: 68, y: 22, rotation: 6, scale: 0.9, opacity: 0.03, duration: 60 },
+    { id: 2, text: "filma", x: 35, y: 55, rotation: 14, scale: 1.1, opacity: 0.025, duration: 52 },
+    { id: 3, text: "workspace", x: 55, y: 75, rotation: -7, scale: 0.95, opacity: 0.03, duration: 58 },
   ];
 
   if (!mounted) {
@@ -55,7 +54,7 @@ export default function AnimatedBackground() {
       {/* Fondo base suave */}
       <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-blue-50/40"></div>
 
-      {/* Burbujas más suaves */}
+      {/* Burbujas flotando orgánicamente */}
       {bubbles.map((b) => (
         <div
           key={b.id}
@@ -65,7 +64,7 @@ export default function AnimatedBackground() {
             top: `${b.y}%`,
             width: `${b.size}px`,
             height: `${b.size}px`,
-            animation: `float-bubble ${b.duration}s ease-in-out infinite`,
+            animation: `float-organic ${b.duration}s cubic-bezier(0.42, 0.0, 0.58, 1.0) infinite`,
             animationDelay: `${b.delay}s`,
             filter: "blur(35px)",
           }}
@@ -81,7 +80,7 @@ export default function AnimatedBackground() {
             left: `${w.x}%`,
             top: `${w.y}%`,
             opacity: w.opacity,
-            animation: `float-text ${w.duration}s ease-in-out infinite`,
+            animation: `float-text-organic ${w.duration}s ease-in-out infinite`,
             "--rotation": `${w.rotation}deg`,
           } as CSSProperties & { "--rotation": string }}
         >
@@ -101,23 +100,32 @@ export default function AnimatedBackground() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] border border-blue-100/40 rounded-full animate-ping-slow"></div>
 
       <style jsx>{`
-        @keyframes float-bubble {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(-25px, -45px) scale(1.05); }
+        @keyframes float-organic {
+          0%   { transform: translate(0px, 0px) scale(1); }
+          25%  { transform: translate(12px, -18px) scale(1.03); }
+          50%  { transform: translate(-22px, -28px) scale(1.05); }
+          75%  { transform: translate(-8px, 12px) scale(1.02); }
+          100% { transform: translate(0px, 0px) scale(1); }
         }
 
-        @keyframes float-text {
-          0%, 100% {
-            transform: translate(-50%, -50%) translateY(0) rotate(var(--rotation));
+        @keyframes float-text-organic {
+          0% {
+            transform: translate(-50%, -50%) translate(0, 0) rotate(var(--rotation));
           }
-          50% {
-            transform: translate(-50%, -50%) translateY(-18px) rotate(calc(var(--rotation) + 3deg));
+          33% {
+            transform: translate(-50%, -50%) translate(0, -10px) rotate(calc(var(--rotation) + 2deg));
+          }
+          66% {
+            transform: translate(-50%, -50%) translate(0, 6px) rotate(calc(var(--rotation) - 1deg));
+          }
+          100% {
+            transform: translate(-50%, -50%) translate(0, 0) rotate(var(--rotation));
           }
         }
 
         @keyframes ping-slow {
           0% { transform: scale(0.95); opacity: 0.9; }
-          50% { transform: scale(1.05); opacity: 0.4; }
+          50% { transform: scale(1.05); opacity: 0.35; }
           100% { transform: scale(0.95); opacity: 0.9; }
         }
       `}</style>
