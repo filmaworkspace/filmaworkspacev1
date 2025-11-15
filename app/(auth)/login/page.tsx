@@ -46,7 +46,7 @@ export default function LoginPage() {
             <img
               src="/logo.png" 
               alt="Filma Workspace"
-              className="w-16 h-16 object-contain"
+              className="w-20 h-20 object-contain"
             />
           </div>
         </div>
