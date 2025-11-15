@@ -58,7 +58,7 @@ export default function AnimatedBackground() {
       <img
         src="/logo.png"
         alt="Filma Workspace"
-        className="absolute top-8 left-8 w-24 h-auto select-none pointer-events-auto z-0" // w-24 es un tamaño adecuado
+        className="absolute top-6 left-6 w-20 h-auto select-none pointer-events-auto z-0" // w-24 es un tamaño adecuado
         style={{ opacity: 1 }} // Opacidad completa
       />
       
