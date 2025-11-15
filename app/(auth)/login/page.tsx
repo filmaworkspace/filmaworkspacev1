@@ -44,8 +44,8 @@ export default function LoginPage() {
           {/* --- LOGO AÑADIDO --- */}
           <div className="flex justify-center mb-6">
             <img
-              src="/logo.jpg" // Ruta al logo en la carpeta /public
-              alt="Logo de la Empresa"
+              src="/logo.png" // Ruta al logo en la carpeta /public
+              alt="Logo Filma"
               className="h-12 w-auto" // Puedes ajustar la altura (h-12) aquí
             />
           </div>
