@@ -39,7 +39,7 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
       <AnimatedBackground />
 
-      <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
+      <div className={`relative z-30 w-full max-w-md ${inter.className}`}>
         {/* --- LOGO CON BORDE SEMICIRCULAR --- */}
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-24 h-12 overflow-hidden">
           {/* Este div interno es el círculo completo.
