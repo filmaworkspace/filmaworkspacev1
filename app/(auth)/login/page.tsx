@@ -41,6 +41,16 @@ export default function LoginPage() {
 
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
         <Card>
+          {/* --- LOGO AÑADIDO --- */}
+          <div className="flex justify-center mb-6">
+            <img
+              src="/logo.jpg" // Ruta al logo en la carpeta /public
+              alt="Logo de la Empresa"
+              className="h-12 w-auto" // Puedes ajustar la altura (h-12) aquí
+            />
+          </div>
+          {/* --- FIN DEL LOGO --- */}
+
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Iniciar sesión
@@ -98,7 +108,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={loading}
-              loadingText="Iniciando sesión..."
+              loadingText="Iniciando sesión"
             >
               Iniciar sesión
             </Button>
