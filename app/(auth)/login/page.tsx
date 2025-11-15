@@ -40,17 +40,19 @@ export default function LoginPage() {
       <AnimatedBackground />
 
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        <Card>
-          {/* --- LOGO AÑADIDO --- */}
-          <div className="flex justify-center mb-6">
+        {/* --- CONTENEDOR PARA EL LOGO QUE SOBRESALE --- */}
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
+          <div className="relative w-32 h-32 rounded-full bg-white border-4 border-slate-200 flex items-center justify-center shadow-lg">
             <img
               src="/logo.png" // Ruta al logo en la carpeta /public
-              alt="Logo Filma"
-              className="h-12 w-auto" // Puedes ajustar la altura (h-12) aquí
+              alt="Filma Workspace"
+              className="w-24 h-24 object-contain rounded-full" // Ajusta el tamaño y el recorte circular
             />
           </div>
-          {/* --- FIN DEL LOGO --- */}
+        </div>
+        {/* --- FIN DEL CONTENEDOR DEL LOGO --- */}
 
+        <Card className="pt-20"> {/* Ajusta el padding superior de la tarjeta */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Iniciar sesión
