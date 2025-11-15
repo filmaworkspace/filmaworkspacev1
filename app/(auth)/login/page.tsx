@@ -57,9 +57,7 @@ export default function LoginPage() {
         </div>
         {/* --- FIN DEL LOGO --- */}
 
-        {/* Añadimos 'pt-16' (padding-top: 4rem) para dejar espacio al logo, 
-          que mide h-12 (3rem) 
-        */}
+        {/* Añadimos 'pt-16' (padding-top: 4rem) para dejar espacio al logo */}
         <Card className="pt-16">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
@@ -131,7 +129,7 @@ export default function LoginPage() {
               className="text-slate-800 hover:text-slate-900 font-medium hover:underline transition-colors"
             >
               Crear cuenta
-            </Kink>
+            </Link> {/* <-- AQUÍ ESTABA EL ERROR (decía /Kink) --> */}
           </div>
         </Card>
       </div>
