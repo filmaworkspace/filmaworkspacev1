@@ -17,6 +17,9 @@ import {
   Check,
   X as XIcon,
   Sparkles,
+  Building2,
+  User,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -49,6 +52,9 @@ interface Project {
   id: string;
   name: string;
   phase: string;
+  description?: string;
+  producerId?: string;
+  producerName?: string;
   role: string;
   department?: string;
   position?: string;
@@ -59,6 +65,7 @@ interface Project {
   };
   createdAt: Timestamp | null;
   addedAt: Timestamp | null;
+  memberCount?: number;
 }
 
 interface Invitation {
@@ -105,7 +112,8 @@ export default function Dashboard() {
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userRole = userDoc.exists() ? userDoc.data().role : "user";
+        const userData = userDoc.data();
+        const userRole = userData?.role || "user";
 
         if (userRole === "admin") {
           router.push("/admindashboard");
@@ -113,7 +121,7 @@ export default function Dashboard() {
         }
 
         setUserId(user.uid);
-        setUserName(user.displayName || user.email?.split("@")[0] || "Usuario");
+        setUserName(userData?.name || user.displayName || user.email?.split("@")[0] || "Usuario");
         setUserEmail(user.email || "");
       } catch (error) {
         console.error("Error verificando usuario:", error);
@@ -148,10 +156,25 @@ export default function Dashboard() {
           if (projectSnapshot.exists()) {
             const projectData = projectSnapshot.data();
 
+            // Get producer info if exists
+            let producerName = undefined;
+            if (projectData.producer) {
+              const producerDoc = await getDoc(doc(db, "producers", projectData.producer));
+              if (producerDoc.exists()) {
+                producerName = producerDoc.data().name;
+              }
+            }
+
+            // Get member count
+            const membersSnapshot = await getDocs(collection(db, `projects/${projectId}/members`));
+
             projectsData.push({
               id: projectSnapshot.id,
               name: projectData.name,
               phase: projectData.phase,
+              description: projectData.description || "",
+              producerId: projectData.producer,
+              producerName,
               role: userProjectData.role,
               department: userProjectData.department,
               position: userProjectData.position,
@@ -162,6 +185,7 @@ export default function Dashboard() {
               },
               createdAt: projectData.createdAt || null,
               addedAt: userProjectData.addedAt || null,
+              memberCount: membersSnapshot.size,
             });
           }
         }
@@ -180,7 +204,7 @@ export default function Dashboard() {
         const invitationsRef = collection(db, "invitations");
         const q = query(
           invitationsRef,
-          where("invitedUserId", "==", userId),
+          where("invitedEmail", "==", userEmail),
           where("status", "==", "pending")
         );
 
@@ -215,7 +239,7 @@ export default function Dashboard() {
     };
 
     loadData();
-  }, [userId]);
+  }, [userId, userEmail]);
 
   // Filter and sort projects
   useEffect(() => {
@@ -223,7 +247,8 @@ export default function Dashboard() {
 
     if (searchTerm) {
       filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.producerName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -355,10 +380,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight mb-2">
-                  Tu espacio de trabajo
+                  Hola, {userName}
                 </h1>
                 <p className="text-slate-600">
-                  Gestiona todos tus proyectos
+                  Gestiona todos tus proyectos desde aquí
                 </p>
               </div>
             </div>
@@ -436,7 +461,7 @@ export default function Dashboard() {
                   >
                     <div className="absolute -top-3 left-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-md flex items-center gap-1">
                       <Sparkles size={12} />
-                      Invitación pendiente
+                      Nueva invitación
                     </div>
 
                     <div className="mb-5">
@@ -450,7 +475,8 @@ export default function Dashboard() {
                       </div>
 
                       <div className="space-y-2 text-sm">
-                        <p className="text-slate-700">
+                        <p className="text-slate-700 flex items-center gap-2">
+                          <User size={14} className="text-slate-500" />
                           <span className="font-medium">Invitado por:</span>{" "}
                           {invitation.invitedByName}
                         </p>
@@ -463,16 +489,23 @@ export default function Dashboard() {
                         {(invitation.permissions.accounting ||
                           invitation.permissions.team ||
                           invitation.permissions.config) && (
-                          <p className="text-xs text-slate-600">
-                            <span className="font-medium">Permisos:</span>{" "}
-                            {[
-                              invitation.permissions.config && "Configuración",
-                              invitation.permissions.accounting && "Contabilidad",
-                              invitation.permissions.team && "Equipo",
-                            ]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {invitation.permissions.config && (
+                              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
+                                Config
+                              </span>
+                            )}
+                            {invitation.permissions.accounting && (
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
+                                Accounting
+                              </span>
+                            )}
+                            {invitation.permissions.team && (
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                                Team
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -540,7 +573,7 @@ export default function Dashboard() {
                     />
                     <input
                       type="text"
-                      placeholder="Buscar proyectos..."
+                      placeholder="Buscar por nombre o productora..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm"
@@ -622,7 +655,7 @@ export default function Dashboard() {
                             key={project.id}
                             className="group bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1"
                           >
-                            <div className="flex items-start justify-between mb-5">
+                            <div className="flex items-start justify-between mb-4">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                   <div className="bg-slate-900 text-white p-2 rounded-lg shadow-md group-hover:scale-110 transition-transform">
@@ -633,23 +666,49 @@ export default function Dashboard() {
                                   </h2>
                                 </div>
 
-                                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                {project.description && (
+                                  <p className="text-xs text-slate-600 mb-3 line-clamp-2">
+                                    {project.description}
+                                  </p>
+                                )}
+
+                                {/* Producer info */}
+                                {project.producerName && (
+                                  <div className="flex items-center gap-1.5 mb-3">
+                                    <Building2 size={14} className="text-amber-600" />
+                                    <span className="text-xs text-slate-700 font-medium">
+                                      {project.producerName}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {project.role && (
-                                    <span className="text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5">
+                                    <span className="text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-full px-3 py-1">
                                       {project.role}
                                     </span>
                                   )}
                                   {project.position && project.department && (
-                                    <span className="text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5">
-                                      {project.position} - {project.department}
+                                    <span className="text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-full px-3 py-1">
+                                      {project.position} · {project.department}
                                     </span>
                                   )}
                                   <span
-                                    className={`text-xs font-medium text-white rounded-full px-3 py-1.5 bg-gradient-to-r ${phaseColors[project.phase]} shadow-sm`}
+                                    className={`text-xs font-medium text-white rounded-full px-3 py-1 bg-gradient-to-r ${phaseColors[project.phase]} shadow-sm`}
                                   >
                                     {project.phase}
                                   </span>
                                 </div>
+
+                                {/* Member count */}
+                                {project.memberCount !== undefined && (
+                                  <div className="flex items-center gap-1.5 mt-3">
+                                    <Users size={14} className="text-slate-400" />
+                                    <span className="text-xs text-slate-600">
+                                      {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
