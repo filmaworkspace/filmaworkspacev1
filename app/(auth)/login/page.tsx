@@ -40,22 +40,7 @@ export default function LoginPage() {
       <AnimatedBackground />
 
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        {/* --- CONTENEDOR DEL LOGO --- */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
-          <img
-            src="/logo.png"
-            alt="Filma Workspace"
-            className="w-20 h-20 object-contain"
-          />
-        </div>
-
-        {/* --- TARJETA DEL FORMULARIO --- */}
-        {/*
-          El padding superior (pt-16) deja espacio para el logo.
-          La clase 'overflow-hidden' en la tarjeta es CLAVE aquí:
-          cortará el borde inferior del círculo del logo, haciendo que parezca una continuación.
-        */}
-        <Card className="pt-16 overflow-hidden">
+        <Card>
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Iniciar sesión
