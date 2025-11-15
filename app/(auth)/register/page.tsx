@@ -38,17 +38,7 @@ export default function RegisterPage() {
       <AnimatedBackground />
       
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        {/* --- CONTENEDOR DEL LOGO (Mismo estilo que LoginPage) --- */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
-          <img
-            src="/logo.png" // Ruta del logo
-            alt="Filma Workspace" // Alt del logo
-            className="w-20 h-20 object-contain"
-          />
-        </div>
-
-        {/* --- TARJETA DEL FORMULARIO --- */}
-        <Card className="pt-16 overflow-hidden">
+        <Card>
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Crear cuenta
