@@ -49,9 +49,9 @@ export default function LoginPage() {
           */}
           <div className="w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
             <img
-              src="/logo.jpg" // Ruta al logo en la carpeta /public
-              alt="Logo de la Empresa"
-              className="w-16 h-16 object-contain" // Tamaño del logo dentro del círculo
+              src="/logo.png"
+              alt="Filma Workspace"
+              className="w-16 h-16 object-contain"
             />
           </div>
         </div>
