@@ -40,19 +40,27 @@ export default function LoginPage() {
       <AnimatedBackground />
 
       <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        {/* --- CONTENEDOR PARA EL LOGO QUE SOBRESALE --- */}
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
-          <div className="relative w-32 h-32 rounded-full bg-white border-4 border-slate-200 flex items-center justify-center shadow-lg">
+        {/* --- LOGO CON BORDE SEMICIRCULAR --- */}
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-24 h-12 overflow-hidden">
+          {/* Este div interno es el círculo completo.
+            El 'overflow-hidden' del padre lo corta por la mitad.
+            El 'bg-white/80 backdrop-blur-xl' es idéntico al de la tarjeta 
+            para "tapar" el borde recto de la tarjeta que queda detrás.
+          */}
+          <div className="w-24 h-24 rounded-full border border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-center shadow-lg">
             <img
-              src="/logo.png" // Ruta al logo en la carpeta /public
-              alt="Filma Workspace"
-              className="w-24 h-24 object-contain rounded-full" // Ajusta el tamaño y el recorte circular
+              src="/logo.jpg" // Ruta al logo en la carpeta /public
+              alt="Logo de la Empresa"
+              className="w-16 h-16 object-contain" // Tamaño del logo dentro del círculo
             />
           </div>
         </div>
-        {/* --- FIN DEL CONTENEDOR DEL LOGO --- */}
+        {/* --- FIN DEL LOGO --- */}
 
-        <Card className="pt-20"> {/* Ajusta el padding superior de la tarjeta */}
+        {/* Añadimos 'pt-16' (padding-top: 4rem) para dejar espacio al logo, 
+          que mide h-12 (3rem) 
+        */}
+        <Card className="pt-16">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Iniciar sesión
@@ -123,7 +131,7 @@ export default function LoginPage() {
               className="text-slate-800 hover:text-slate-900 font-medium hover:underline transition-colors"
             >
               Crear cuenta
-            </Link>
+            </Kink>
           </div>
         </Card>
       </div>
