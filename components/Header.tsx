@@ -19,6 +19,7 @@ import {
   Briefcase,
   Info,
   UserCog,
+  Building2,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { auth } from "@/lib/firebase";
@@ -227,7 +228,7 @@ export default function Header() {
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Users size={16} />
+            <Building2 size={16} />
             <span>Proveedores</span>
           </Link>
 
