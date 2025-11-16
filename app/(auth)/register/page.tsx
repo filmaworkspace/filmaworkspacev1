@@ -87,7 +87,7 @@ export default function RegisterPage() {
               type="submit"
               variant="secondary"
               loading={loading}
-              loadingText="Creando cuenta"
+              loadingText="Creando cuenta..."
             >
               Crear cuenta
             </Button>
