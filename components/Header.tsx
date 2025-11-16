@@ -18,6 +18,7 @@ import {
   Clock,
   Briefcase,
   Info,
+  UserCog,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { auth } from "@/lib/firebase";
@@ -73,7 +74,7 @@ export default function Header() {
 
   // Determinar la sección actual
   const isAccountingSection = pathname.includes("/accounting");
-  const isTeamSection = pathname.includes("/team");
+  const isTeamSection = pathname.includes("/team") && !pathname.includes("/config");
   const isConfigSection = pathname.includes("/config");
 
   const currentSection = isAccountingSection
@@ -121,8 +122,8 @@ export default function Header() {
 
   // Determinar qué tab de config estamos viendo
   const configTab = isConfigSection
-    ? pathname.includes("/team")
-      ? "team"
+    ? pathname.includes("/users")
+      ? "users"
       : pathname.includes("/departments")
       ? "departments"
       : "general"
@@ -178,15 +179,15 @@ export default function Header() {
           </Link>
 
           <Link
-            href={`/project/${projectId}/config/team`}
+            href={`/project/${projectId}/config/users`}
             className={`flex items-center gap-2 transition-colors duration-200 ${
-              configTab === "team"
+              configTab === "users"
                 ? "text-slate-900 font-medium"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Users size={16} />
-            <span>Equipo</span>
+            <UserCog size={16} />
+            <span>Usuarios</span>
           </Link>
 
           <Link
@@ -430,16 +431,16 @@ export default function Header() {
                   General
                 </Link>
                 <Link
-                  href={`/project/${projectId}/config/team`}
+                  href={`/project/${projectId}/config/users`}
                   onClick={() => setMenuOpen(false)}
                   className={`py-2 flex items-center justify-center gap-2 ${
-                    configTab === "team"
+                    configTab === "users"
                       ? "text-slate-900 font-medium"
                       : "hover:text-slate-900"
                   }`}
                 >
-                  <Users size={16} />
-                  Equipo
+                  <UserCog size={16} />
+                  Usuarios
                 </Link>
                 <Link
                   href={`/project/${projectId}/config/departments`}
