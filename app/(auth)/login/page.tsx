@@ -98,7 +98,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={loading}
-              loadingText="Iniciando sesión"
+              loadingText="Iniciando sesión..."
             >
               Iniciar sesión
             </Button>
