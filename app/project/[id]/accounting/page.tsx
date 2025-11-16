@@ -4,27 +4,39 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import {
   Folder,
   FileText,
   Receipt,
   DollarSign,
-  CheckCircle,
-  Clock,
-  TrendingUp,
   ArrowRight,
-  Users,
-  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+  User,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
-interface BudgetStats {
-  totalBudget: number;
-  totalSpent: number;
-  totalPending: number;
-  totalAvailable: number;
+interface PO {
+  id: string;
+  number: string;
+  supplier: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: Date;
+}
+
+interface Invoice {
+  id: string;
+  number: string;
+  supplier: string;
+  amount: number;
+  status: "pending" | "paid" | "overdue";
+  dueDate: Date;
+  createdAt: Date;
 }
 
 interface POStats {
@@ -44,14 +56,10 @@ export default function AccountingPage() {
   const id = params?.id as string;
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
-
-  // Estados para estadísticas
-  const [stats, setStats] = useState<BudgetStats>({
-    totalBudget: 0,
-    totalSpent: 0,
-    totalPending: 0,
-    totalAvailable: 0,
-  });
+  const [recentPOs, setRecentPOs] = useState<PO[]>([]);
+  const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
+  const [posLimit, setPosLimit] = useState(5);
+  const [invoicesLimit, setInvoicesLimit] = useState(5);
 
   const [poStats, setPoStats] = useState<POStats>({
     total: 0,
@@ -65,7 +73,7 @@ export default function AccountingPage() {
     paid: 0,
   });
 
-  // Cargar datos del proyecto
+  // Cargar datos del proyecto y estadísticas
   useEffect(() => {
     const loadProjectData = async () => {
       try {
@@ -73,8 +81,56 @@ export default function AccountingPage() {
         if (projectDoc.exists()) {
           setProjectName(projectDoc.data().name || "Proyecto");
         }
+
+        // Cargar POs recientes
+        const posQuery = query(
+          collection(db, `projects/${id}/pos`),
+          orderBy("createdAt", "desc"),
+          limit(posLimit)
+        );
+        const posSnapshot = await getDocs(posQuery);
+        const posData = posSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate(),
+        })) as PO[];
+        setRecentPOs(posData);
+
+        // Calcular estadísticas de POs
+        const allPosSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
+        const allPOs = allPosSnapshot.docs.map(doc => doc.data());
+        setPoStats({
+          total: allPOs.length,
+          pending: allPOs.filter(po => po.status === "pending").length,
+          approved: allPOs.filter(po => po.status === "approved").length,
+        });
+
+        // Cargar facturas recientes
+        const invoicesQuery = query(
+          collection(db, `projects/${id}/invoices`),
+          orderBy("createdAt", "desc"),
+          limit(invoicesLimit)
+        );
+        const invoicesSnapshot = await getDocs(invoicesQuery);
+        const invoicesData = invoicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate(),
+          dueDate: doc.data().dueDate?.toDate(),
+        })) as Invoice[];
+        setRecentInvoices(invoicesData);
+
+        // Calcular estadísticas de facturas
+        const allInvoicesSnapshot = await getDocs(collection(db, `projects/${id}/invoices`));
+        const allInvoices = allInvoicesSnapshot.docs.map(doc => doc.data());
+        setInvoiceStats({
+          total: allInvoices.length,
+          pending: allInvoices.filter(inv => inv.status === "pending").length,
+          paid: allInvoices.filter(inv => inv.status === "paid").length,
+        });
+
       } catch (error) {
-        console.error("Error cargando proyecto:", error);
+        console.error("Error cargando datos:", error);
       } finally {
         setLoading(false);
       }
@@ -83,7 +139,52 @@ export default function AccountingPage() {
     if (id) {
       loadProjectData();
     }
-  }, [id]);
+  }, [id, posLimit, invoicesLimit]);
+
+  const getStatusBadge = (status: string, type: "po" | "invoice") => {
+    const styles = {
+      po: {
+        pending: "bg-amber-100 text-amber-700 border-amber-200",
+        approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        rejected: "bg-red-100 text-red-700 border-red-200",
+      },
+      invoice: {
+        pending: "bg-amber-100 text-amber-700 border-amber-200",
+        paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        overdue: "bg-red-100 text-red-700 border-red-200",
+      },
+    };
+
+    const labels = {
+      po: {
+        pending: "Pendiente",
+        approved: "Aprobada",
+        rejected: "Rechazada",
+      },
+      invoice: {
+        pending: "Pendiente",
+        paid: "Pagada",
+        overdue: "Vencida",
+      },
+    };
+
+    const style = type === "po" ? styles.po[status as keyof typeof styles.po] : styles.invoice[status as keyof typeof styles.invoice];
+    const label = type === "po" ? labels.po[status as keyof typeof labels.po] : labels.invoice[status as keyof typeof labels.invoice];
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${style}`}>
+        {label}
+      </span>
+    );
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(date);
+  };
 
   if (loading) {
     return (
@@ -137,199 +238,116 @@ export default function AccountingPage() {
             </div>
           </header>
 
-          {/* Estadísticas generales */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="bg-blue-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                  <DollarSign size={20} />
-                </div>
-                <div className="text-2xl font-bold text-blue-700">
-                  {stats.totalBudget.toLocaleString()} €
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold text-blue-900 mb-1">
-                Presupuesto total
-              </h3>
-              <p className="text-xs text-blue-700">Del proyecto</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="bg-emerald-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                  <CheckCircle size={20} />
-                </div>
-                <div className="text-2xl font-bold text-emerald-700">
-                  {stats.totalSpent.toLocaleString()} €
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold text-emerald-900 mb-1">
-                Gastado
-              </h3>
-              <p className="text-xs text-emerald-700">Facturas pagadas</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="bg-amber-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                  <Clock size={20} />
-                </div>
-                <div className="text-2xl font-bold text-amber-700">
-                  {stats.totalPending.toLocaleString()} €
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold text-amber-900 mb-1">
-                Pendiente de pago
-              </h3>
-              <p className="text-xs text-amber-700">Por liquidar</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="bg-purple-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                  <TrendingUp size={20} />
-                </div>
-                <div className="text-2xl font-bold text-purple-700">
-                  {stats.totalAvailable.toLocaleString()} €
-                </div>
-              </div>
-              <h3 className="text-sm font-semibold text-purple-900 mb-1">
-                Disponible
-              </h3>
-              <p className="text-xs text-purple-700">Del presupuesto</p>
-            </div>
-          </div>
-
-          {/* Secciones de navegación */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Proveedores */}
-            <Link href={`/project/${id}/accounting/suppliers`}>
-              <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 hover:border-indigo-400 hover:shadow-xl transition-all group cursor-pointer h-full">
-                <div className="flex flex-col items-center text-center">
-                  <div className="bg-indigo-100 text-indigo-700 p-4 rounded-xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-all group-hover:scale-110">
-                    <Users size={28} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    Proveedores
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Gestiona tus proveedores
-                  </p>
-                  <ArrowRight size={20} className="text-indigo-600 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </Link>
-
-            {/* Presupuesto */}
-            <Link href={`/project/${id}/accounting/budget`}>
-              <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 hover:border-blue-400 hover:shadow-xl transition-all group cursor-pointer h-full">
-                <div className="flex flex-col items-center text-center">
-                  <div className="bg-blue-100 text-blue-700 p-4 rounded-xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110">
-                    <DollarSign size={28} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    Presupuesto
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Gestiona el presupuesto
-                  </p>
-                  <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </Link>
-
-            {/* Usuarios */}
-            <Link href={`/project/${id}/accounting/users`}>
-              <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 hover:border-emerald-400 hover:shadow-xl transition-all group cursor-pointer h-full">
-                <div className="flex flex-col items-center text-center">
-                  <div className="bg-emerald-100 text-emerald-700 p-4 rounded-xl mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all group-hover:scale-110">
-                    <Users size={28} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    Usuarios
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Control de accesos
-                  </p>
-                  <ArrowRight size={20} className="text-emerald-600 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </Link>
-
-            {/* Informes */}
-            <Link href={`/project/${id}/accounting/reports`}>
-              <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 hover:border-purple-400 hover:shadow-xl transition-all group cursor-pointer h-full">
-                <div className="flex flex-col items-center text-center">
-                  <div className="bg-purple-100 text-purple-700 p-4 rounded-xl mb-4 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110">
-                    <BarChart3 size={28} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    Informes
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Reportes financieros
-                  </p>
-                  <ArrowRight size={20} className="text-purple-600 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </Link>
-          </div>
-
           {/* Paneles de POs y Facturas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Panel de POs */}
             <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-indigo-300 hover:shadow-xl transition-all">
               <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                    <FileText size={28} className="text-white" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                      <FileText size={28} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">
+                        Órdenes de compra
+                      </h2>
+                      <p className="text-indigo-100 text-sm">
+                        Purchase orders del proyecto
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">
-                      Órdenes de compra
-                    </h2>
-                    <p className="text-indigo-100 text-sm">
-                      Purchase orders del proyecto
-                    </p>
-                  </div>
+                  <select
+                    value={posLimit}
+                    onChange={(e) => setPosLimit(Number(e.target.value))}
+                    className="bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50"
+                  >
+                    <option value={5} className="text-slate-900">Últimas 5</option>
+                    <option value={10} className="text-slate-900">Últimas 10</option>
+                    <option value={20} className="text-slate-900">Últimas 20</option>
+                  </select>
                 </div>
               </div>
 
               <div className="p-6">
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="text-2xl font-bold text-slate-900 mb-1">
                       {poStats.total}
                     </div>
-                    <p className="text-xs text-slate-600">Total</p>
+                    <p className="text-xs text-slate-600 font-medium">Total</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
                     <div className="text-2xl font-bold text-amber-600 mb-1">
                       {poStats.pending}
                     </div>
-                    <p className="text-xs text-slate-600">Pendientes</p>
+                    <p className="text-xs text-amber-700 font-medium">Pendientes</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                     <div className="text-2xl font-bold text-emerald-600 mb-1">
                       {poStats.approved}
                     </div>
-                    <p className="text-xs text-slate-600">Aprobadas</p>
+                    <p className="text-xs text-emerald-700 font-medium">Aprobadas</p>
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <Clock size={16} className="text-slate-600" />
                     Actividad reciente
                   </h3>
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                    <p className="text-xs text-slate-500 text-center">
-                      No hay órdenes de compra creadas todavía
-                    </p>
-                  </div>
+                  
+                  {recentPOs.length === 0 ? (
+                    <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 text-center">
+                      <FileText size={48} className="text-slate-300 mx-auto mb-3" />
+                      <p className="text-sm text-slate-500 font-medium">
+                        No hay órdenes de compra creadas todavía
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Crea tu primera PO para empezar
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentPOs.map((po) => (
+                        <div
+                          key={po.id}
+                          className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg p-4 transition-all group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg">
+                                <FileText size={16} />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-slate-900">
+                                  PO-{po.number}
+                                </h4>
+                                <p className="text-xs text-slate-600 flex items-center gap-1">
+                                  <User size={12} />
+                                  {po.supplier}
+                                </p>
+                              </div>
+                            </div>
+                            {getStatusBadge(po.status, "po")}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} />
+                              {formatDate(po.createdAt)}
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {po.amount.toLocaleString()} €
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Link href={`/project/${id}/accounting/pos`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-md">
+                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
                     Gestionar órdenes de compra
                     <ArrowRight size={16} />
                   </button>
@@ -340,54 +358,109 @@ export default function AccountingPage() {
             {/* Panel de Facturas */}
             <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-emerald-300 hover:shadow-xl transition-all">
               <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                    <Receipt size={28} className="text-white" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                      <Receipt size={28} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Facturas</h2>
+                      <p className="text-emerald-100 text-sm">
+                        Gestión de facturas del proyecto
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Facturas</h2>
-                    <p className="text-emerald-100 text-sm">
-                      Gestión de facturas del proyecto
-                    </p>
-                  </div>
+                  <select
+                    value={invoicesLimit}
+                    onChange={(e) => setInvoicesLimit(Number(e.target.value))}
+                    className="bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50"
+                  >
+                    <option value={5} className="text-slate-900">Últimas 5</option>
+                    <option value={10} className="text-slate-900">Últimas 10</option>
+                    <option value={20} className="text-slate-900">Últimas 20</option>
+                  </select>
                 </div>
               </div>
 
               <div className="p-6">
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="text-2xl font-bold text-slate-900 mb-1">
                       {invoiceStats.total}
                     </div>
-                    <p className="text-xs text-slate-600">Total</p>
+                    <p className="text-xs text-slate-600 font-medium">Total</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
                     <div className="text-2xl font-bold text-amber-600 mb-1">
                       {invoiceStats.pending}
                     </div>
-                    <p className="text-xs text-slate-600">Pendientes</p>
+                    <p className="text-xs text-amber-700 font-medium">Pendientes</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                     <div className="text-2xl font-bold text-emerald-600 mb-1">
                       {invoiceStats.paid}
                     </div>
-                    <p className="text-xs text-slate-600">Pagadas</p>
+                    <p className="text-xs text-emerald-700 font-medium">Pagadas</p>
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <Clock size={16} className="text-slate-600" />
                     Facturas recientes
                   </h3>
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                    <p className="text-xs text-slate-500 text-center">
-                      No hay facturas registradas todavía
-                    </p>
-                  </div>
+                  
+                  {recentInvoices.length === 0 ? (
+                    <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 text-center">
+                      <Receipt size={48} className="text-slate-300 mx-auto mb-3" />
+                      <p className="text-sm text-slate-500 font-medium">
+                        No hay facturas registradas todavía
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Sube tu primera factura para empezar
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentInvoices.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg p-4 transition-all group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-emerald-100 text-emerald-700 p-2 rounded-lg">
+                                <Receipt size={16} />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-slate-900">
+                                  INV-{invoice.number}
+                                </h4>
+                                <p className="text-xs text-slate-600 flex items-center gap-1">
+                                  <User size={12} />
+                                  {invoice.supplier}
+                                </p>
+                              </div>
+                            </div>
+                            {getStatusBadge(invoice.status, "invoice")}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} />
+                              Vence: {formatDate(invoice.dueDate)}
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {invoice.amount.toLocaleString()} €
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Link href={`/project/${id}/accounting/invoices`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-md">
+                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
                     Gestionar facturas
                     <ArrowRight size={16} />
                   </button>
