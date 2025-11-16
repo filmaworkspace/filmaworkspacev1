@@ -16,6 +16,8 @@ import {
   BarChart3,
   List,
   Clock,
+  Briefcase,
+  Info,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { auth } from "@/lib/firebase";
@@ -72,11 +74,14 @@ export default function Header() {
   // Determinar la sección actual
   const isAccountingSection = pathname.includes("/accounting");
   const isTeamSection = pathname.includes("/team");
+  const isConfigSection = pathname.includes("/config");
 
   const currentSection = isAccountingSection
     ? "accounting"
     : isTeamSection
     ? "team"
+    : isConfigSection
+    ? "config"
     : null;
 
   const sectionColor =
@@ -84,6 +89,8 @@ export default function Header() {
       ? "text-indigo-600"
       : currentSection === "team"
       ? "text-amber-600"
+      : currentSection === "config"
+      ? "text-slate-600"
       : "text-slate-600";
 
   // Determinar qué página de accounting estamos viendo
@@ -112,6 +119,15 @@ export default function Header() {
       : "panel"
     : null;
 
+  // Determinar qué tab de config estamos viendo
+  const configTab = isConfigSection
+    ? pathname.includes("/team")
+      ? "team"
+      : pathname.includes("/departments")
+      ? "departments"
+      : "general"
+    : null;
+
   return (
     <header
       className={`fixed top-0 left-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between ${inter.className}`}
@@ -134,7 +150,7 @@ export default function Header() {
       </Link>
 
       {/* Menú principal - se muestra cuando NO estamos en secciones específicas */}
-      {!isAccountingSection && !isTeamSection && (
+      {!isAccountingSection && !isTeamSection && !isConfigSection && (
         <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 text-sm text-slate-700">
           <Link
             href="/dashboard"
@@ -142,6 +158,47 @@ export default function Header() {
           >
             <Folder size={16} className="text-slate-600" />
             <span>Proyectos</span>
+          </Link>
+        </nav>
+      )}
+
+      {/* Menú de Config */}
+      {isConfigSection && projectId && (
+        <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2 text-sm">
+          <Link
+            href={`/project/${projectId}/config`}
+            className={`flex items-center gap-2 transition-colors duration-200 ${
+              configTab === "general"
+                ? "text-slate-900 font-medium"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Info size={16} />
+            <span>General</span>
+          </Link>
+
+          <Link
+            href={`/project/${projectId}/config/team`}
+            className={`flex items-center gap-2 transition-colors duration-200 ${
+              configTab === "team"
+                ? "text-slate-900 font-medium"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Users size={16} />
+            <span>Equipo</span>
+          </Link>
+
+          <Link
+            href={`/project/${projectId}/config/departments`}
+            className={`flex items-center gap-2 transition-colors duration-200 ${
+              configTab === "departments"
+                ? "text-slate-900 font-medium"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Briefcase size={16} />
+            <span>Departamentos</span>
           </Link>
         </nav>
       )}
@@ -329,7 +386,7 @@ export default function Header() {
       {menuOpen && (
         <div className="absolute top-full left-0 w-full bg-white/90 backdrop-blur-lg border-b border-slate-200 md:hidden z-40">
           <nav className="flex flex-col py-4 text-sm text-slate-700">
-            {!isAccountingSection && !isTeamSection ? (
+            {!isAccountingSection && !isTeamSection && !isConfigSection ? (
               // Menú móvil normal
               <>
                 <Link
@@ -356,6 +413,64 @@ export default function Header() {
                 >
                   Cerrar sesión
                 </button>
+              </>
+            ) : isConfigSection ? (
+              // Menú móvil de Config
+              <>
+                <Link
+                  href={`/project/${projectId}/config`}
+                  onClick={() => setMenuOpen(false)}
+                  className={`py-2 flex items-center justify-center gap-2 ${
+                    configTab === "general"
+                      ? "text-slate-900 font-medium"
+                      : "hover:text-slate-900"
+                  }`}
+                >
+                  <Info size={16} />
+                  General
+                </Link>
+                <Link
+                  href={`/project/${projectId}/config/team`}
+                  onClick={() => setMenuOpen(false)}
+                  className={`py-2 flex items-center justify-center gap-2 ${
+                    configTab === "team"
+                      ? "text-slate-900 font-medium"
+                      : "hover:text-slate-900"
+                  }`}
+                >
+                  <Users size={16} />
+                  Equipo
+                </Link>
+                <Link
+                  href={`/project/${projectId}/config/departments`}
+                  onClick={() => setMenuOpen(false)}
+                  className={`py-2 flex items-center justify-center gap-2 ${
+                    configTab === "departments"
+                      ? "text-slate-900 font-medium"
+                      : "hover:text-slate-900"
+                  }`}
+                >
+                  <Briefcase size={16} />
+                  Departamentos
+                </Link>
+                <div className="border-t border-slate-200 mt-2 pt-2">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="py-2 hover:text-slate-900 text-center block"
+                  >
+                    Configuración
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="py-2 text-rose-600 hover:text-rose-700 w-full"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
               </>
             ) : isAccountingSection ? (
               // Menú móvil de Accounting
