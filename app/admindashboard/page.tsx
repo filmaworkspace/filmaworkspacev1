@@ -13,13 +13,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  query,
-  where,
-  orderBy,
   Timestamp,
   serverTimestamp,
-  arrayUnion,
-  arrayRemove,
 } from "firebase/firestore";
 import {
   LayoutDashboard,
@@ -41,7 +36,7 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  Film,
+  RefreshCw,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -114,6 +109,7 @@ interface Producer {
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "projects" | "users" | "producers">("overview");
@@ -189,119 +185,152 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [router]);
 
-  // Load data
-  useEffect(() => {
+  // Load data function
+  const loadData = async () => {
     if (!userId) return;
 
-    const loadData = async () => {
-      try {
-        // Load producers first
-        const producersSnap = await getDocs(collection(db, "producers"));
-        const producersData: Producer[] = producersSnap.docs.map((prodDoc) => ({
+    try {
+      console.log("🔄 Iniciando carga de datos...");
+
+      // Load producers first
+      console.log("📦 Cargando productoras...");
+      const producersSnap = await getDocs(collection(db, "producers"));
+      console.log(`✅ Productoras encontradas: ${producersSnap.size}`);
+      
+      const producersData: Producer[] = producersSnap.docs.map((prodDoc) => {
+        const data = prodDoc.data();
+        console.log(`  - ${data.name} (${prodDoc.id})`);
+        return {
           id: prodDoc.id,
-          name: prodDoc.data().name,
-          createdAt: prodDoc.data().createdAt,
+          name: data.name,
+          createdAt: data.createdAt,
           projectCount: 0,
-        }));
+        };
+      });
 
-        // Load projects with members
-        const projectsSnap = await getDocs(collection(db, "projects"));
-        const projectsData: Project[] = await Promise.all(
-          projectsSnap.docs.map(async (projectDoc) => {
-            const data = projectDoc.data();
-            
-            // Get producer names
-            const producerIds = data.producers || [];
-            const producerNames = producerIds.map((prodId: string) => {
-              const producer = producersData.find(p => p.id === prodId);
-              return producer?.name || "Productora eliminada";
-            });
+      // Load projects
+      console.log("📁 Cargando proyectos...");
+      const projectsSnap = await getDocs(collection(db, "projects"));
+      console.log(`✅ Proyectos encontrados: ${projectsSnap.size}`);
+      
+      const projectsData: Project[] = await Promise.all(
+        projectsSnap.docs.map(async (projectDoc) => {
+          const data = projectDoc.data();
+          console.log(`  - ${data.name} (${projectDoc.id})`);
+          
+          // Get producer names
+          const producerIds = data.producers || [];
+          const producerNames = producerIds.map((prodId: string) => {
+            const producer = producersData.find(p => p.id === prodId);
+            return producer?.name || "Productora eliminada";
+          });
 
-            // Load members
-            const membersSnap = await getDocs(collection(db, `projects/${projectDoc.id}/members`));
-            const members: Member[] = membersSnap.docs.map(memberDoc => ({
-              userId: memberDoc.id,
-              name: memberDoc.data().name,
-              email: memberDoc.data().email,
-              role: memberDoc.data().role,
-              department: memberDoc.data().department,
-              position: memberDoc.data().position,
-            }));
+          // Load members
+          const membersSnap = await getDocs(collection(db, `projects/${projectDoc.id}/members`));
+          const members: Member[] = membersSnap.docs.map(memberDoc => ({
+            userId: memberDoc.id,
+            name: memberDoc.data().name,
+            email: memberDoc.data().email,
+            role: memberDoc.data().role,
+            department: memberDoc.data().department,
+            position: memberDoc.data().position,
+          }));
 
-            return {
-              id: projectDoc.id,
-              name: data.name,
-              phase: data.phase,
-              description: data.description || "",
-              producers: producerIds,
-              producerNames,
-              departments: data.departments || [],
-              createdAt: data.createdAt,
-              memberCount: membersSnap.size,
-              members,
-            };
-          })
-        );
+          return {
+            id: projectDoc.id,
+            name: data.name,
+            phase: data.phase,
+            description: data.description || "",
+            producers: producerIds,
+            producerNames,
+            departments: data.departments || [],
+            createdAt: data.createdAt,
+            memberCount: membersSnap.size,
+            members,
+          };
+        })
+      );
 
-        // Update producer project counts
-        producersData.forEach(producer => {
-          producer.projectCount = projectsData.filter(p => 
-            p.producers?.includes(producer.id)
-          ).length;
-        });
+      // Update producer project counts
+      producersData.forEach(producer => {
+        producer.projectCount = projectsData.filter(p => 
+          p.producers?.includes(producer.id)
+        ).length;
+      });
 
-        setProjects(projectsData);
-        setProducers(producersData);
+      setProjects(projectsData);
+      setProducers(producersData);
 
-        // Load users
-        const usersSnap = await getDocs(collection(db, "users"));
-        const usersData: User[] = await Promise.all(
-          usersSnap.docs.map(async (userDoc) => {
-            const data = userDoc.data();
-            
-            const userProjectsSnap = await getDocs(collection(db, `userProjects/${userDoc.id}/projects`));
-            const userProjects: UserProject[] = await Promise.all(
-              userProjectsSnap.docs.map(async (upDoc) => {
-                const upData = upDoc.data();
-                const projectDoc = await getDoc(doc(db, "projects", upDoc.id));
-                return {
-                  id: upDoc.id,
-                  name: projectDoc.exists() ? projectDoc.data().name : "Proyecto eliminado",
-                  role: upData.role,
-                  department: upData.department,
-                  position: upData.position,
-                };
-              })
-            );
+      // Load users
+      console.log("👥 Cargando usuarios...");
+      const usersSnap = await getDocs(collection(db, "users"));
+      console.log(`✅ Usuarios encontrados: ${usersSnap.size}`);
+      
+      const usersData: User[] = await Promise.all(
+        usersSnap.docs.map(async (userDoc) => {
+          const data = userDoc.data();
+          console.log(`  - ${data.name || data.email} (${userDoc.id})`);
+          
+          const userProjectsSnap = await getDocs(collection(db, `userProjects/${userDoc.id}/projects`));
+          const userProjects: UserProject[] = await Promise.all(
+            userProjectsSnap.docs.map(async (upDoc) => {
+              const upData = upDoc.data();
+              const projectDoc = await getDoc(doc(db, "projects", upDoc.id));
+              return {
+                id: upDoc.id,
+                name: projectDoc.exists() ? projectDoc.data().name : "Proyecto eliminado",
+                role: upData.role,
+                department: upData.department,
+                position: upData.position,
+              };
+            })
+          );
 
-            return {
-              id: userDoc.id,
-              name: data.name || data.email,
-              email: data.email,
-              role: data.role || "user",
-              createdAt: data.createdAt,
-              projectCount: userProjectsSnap.size,
-              projects: userProjects,
-            };
-          })
-        );
+          return {
+            id: userDoc.id,
+            name: data.name || data.email,
+            email: data.email,
+            role: data.role || "user",
+            createdAt: data.createdAt,
+            projectCount: userProjectsSnap.size,
+            projects: userProjects,
+          };
+        })
+      );
 
-        setUsers(usersData);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-        setErrorMessage("Error al cargar los datos");
-        setLoading(false);
-      }
-    };
+      setUsers(usersData);
+      
+      console.log("✅ Carga completada");
+      console.log(`📊 Resumen: ${projectsData.length} proyectos, ${usersData.length} usuarios, ${producersData.length} productoras`);
+      
+      setLoading(false);
+      setRefreshing(false);
+    } catch (error) {
+      console.error("❌ Error cargando datos:", error);
+      setErrorMessage("Error al cargar los datos. Revisa la consola.");
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  // Load data on mount
+  useEffect(() => {
     loadData();
   }, [userId]);
+
+  // Refresh data
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setSuccessMessage("Datos actualizados correctamente");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
 
   // Create project
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
       setErrorMessage("El nombre del proyecto es obligatorio");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
@@ -309,6 +338,8 @@ export default function AdminDashboard() {
     setErrorMessage("");
 
     try {
+      console.log("📝 Creando proyecto:", newProject);
+      
       const projectRef = doc(collection(db, "projects"));
       await setDoc(projectRef, {
         name: newProject.name.trim(),
@@ -319,15 +350,18 @@ export default function AdminDashboard() {
         createdAt: serverTimestamp(),
       });
 
+      console.log("✅ Proyecto creado:", projectRef.id);
+
       setNewProject({ name: "", description: "", phase: "Desarrollo", producers: [] });
       setShowCreateProject(false);
       setSuccessMessage("Proyecto creado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error creando proyecto:", error);
+      console.error("❌ Error creando proyecto:", error);
       setErrorMessage("Error al crear el proyecto");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -341,6 +375,8 @@ export default function AdminDashboard() {
     setErrorMessage("");
 
     try {
+      console.log("📝 Actualizando proyecto:", showEditProject);
+      
       await updateDoc(doc(db, "projects", showEditProject), {
         name: newProject.name.trim(),
         description: newProject.description.trim(),
@@ -348,14 +384,17 @@ export default function AdminDashboard() {
         producers: newProject.producers,
       });
 
+      console.log("✅ Proyecto actualizado");
+
       setShowEditProject(null);
       setSuccessMessage("Proyecto actualizado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error actualizando proyecto:", error);
+      console.error("❌ Error actualizando proyecto:", error);
       setErrorMessage("Error al actualizar el proyecto");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -365,6 +404,7 @@ export default function AdminDashboard() {
   const handleCreateProducer = async () => {
     if (!newProducer.trim()) {
       setErrorMessage("El nombre de la productora es obligatorio");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
@@ -372,21 +412,26 @@ export default function AdminDashboard() {
     setErrorMessage("");
 
     try {
+      console.log("🏢 Creando productora:", newProducer);
+      
       const producerRef = doc(collection(db, "producers"));
       await setDoc(producerRef, {
         name: newProducer.trim(),
         createdAt: serverTimestamp(),
       });
 
+      console.log("✅ Productora creada:", producerRef.id);
+
       setNewProducer("");
       setShowCreateProducer(false);
       setSuccessMessage("Productora creada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error creando productora:", error);
-      setErrorMessage("Error al crear la productora");
+      console.error("❌ Error creando productora:", error);
+      setErrorMessage(`Error al crear la productora: ${error}`);
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setSaving(false);
     }
@@ -400,19 +445,24 @@ export default function AdminDashboard() {
     setErrorMessage("");
 
     try {
+      console.log("📝 Actualizando productora:", showEditProducer);
+      
       await updateDoc(doc(db, "producers", showEditProducer), {
         name: editProducerName.trim(),
       });
+
+      console.log("✅ Productora actualizada");
 
       setShowEditProducer(null);
       setEditProducerName("");
       setSuccessMessage("Productora actualizada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error actualizando productora:", error);
+      console.error("❌ Error actualizando productora:", error);
       setErrorMessage("Error al actualizar la productora");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -435,14 +485,20 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
+      console.log("🗑️ Eliminando productora:", producerId);
+      
       await deleteDoc(doc(db, "producers", producerId));
 
-      setProducers(producers.filter(p => p.id !== producerId));
+      console.log("✅ Productora eliminada");
+
       setSuccessMessage("Productora eliminada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
     } catch (error) {
-      console.error("Error eliminando productora:", error);
+      console.error("❌ Error eliminando productora:", error);
       setErrorMessage("Error al eliminar la productora");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -452,6 +508,7 @@ export default function AdminDashboard() {
   const handleAssignUser = async () => {
     if (!assignUserForm.userId || !assignUserForm.role || !showAssignUser) {
       setErrorMessage("Selecciona un usuario y un rol");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
@@ -466,8 +523,11 @@ export default function AdminDashboard() {
       if (project.members?.some(m => m.userId === user.id)) {
         setErrorMessage("Este usuario ya está asignado al proyecto");
         setSaving(false);
+        setTimeout(() => setErrorMessage(""), 3000);
         return;
       }
+
+      console.log("👤 Asignando usuario al proyecto:", user.name, "→", project.name);
 
       await setDoc(doc(db, `projects/${showAssignUser}/members`, user.id), {
         userId: user.id,
@@ -493,15 +553,18 @@ export default function AdminDashboard() {
         addedAt: serverTimestamp(),
       });
 
+      console.log("✅ Usuario asignado correctamente");
+
       setAssignUserForm({ userId: "", role: "" });
       setShowAssignUser(null);
       setSuccessMessage("Usuario asignado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error asignando usuario:", error);
+      console.error("❌ Error asignando usuario:", error);
       setErrorMessage("Error al asignar el usuario");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -515,16 +578,21 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
+      console.log("🗑️ Eliminando usuario del proyecto");
+      
       await deleteDoc(doc(db, `projects/${projectId}/members`, userId));
       await deleteDoc(doc(db, `userProjects/${userId}/projects/${projectId}`));
+
+      console.log("✅ Usuario eliminado del proyecto");
 
       setSuccessMessage("Usuario eliminado del proyecto");
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      window.location.reload();
+      await loadData();
     } catch (error) {
-      console.error("Error eliminando usuario del proyecto:", error);
+      console.error("❌ Error eliminando usuario del proyecto:", error);
       setErrorMessage("Error al eliminar el usuario del proyecto");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -541,6 +609,8 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
+      console.log("🗑️ Eliminando proyecto:", projectId);
+      
       const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
       for (const memberDoc of membersSnap.docs) {
         await deleteDoc(doc(db, `userProjects/${memberDoc.id}/projects/${projectId}`));
@@ -549,12 +619,16 @@ export default function AdminDashboard() {
 
       await deleteDoc(doc(db, "projects", projectId));
 
-      setProjects(projects.filter(p => p.id !== projectId));
+      console.log("✅ Proyecto eliminado");
+
       setSuccessMessage("Proyecto eliminado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
     } catch (error) {
-      console.error("Error eliminando proyecto:", error);
+      console.error("❌ Error eliminando proyecto:", error);
       setErrorMessage("Error al eliminar el proyecto");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -577,6 +651,8 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
+      console.log("🗑️ Eliminando usuario:", userId);
+      
       for (const project of user.projects) {
         await deleteDoc(doc(db, `projects/${project.id}/members`, userId));
       }
@@ -588,12 +664,16 @@ export default function AdminDashboard() {
 
       await deleteDoc(doc(db, "users", userId));
 
-      setUsers(users.filter(u => u.id !== userId));
+      console.log("✅ Usuario eliminado");
+
       setSuccessMessage("Usuario eliminado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
     } catch (error) {
-      console.error("Error eliminando usuario:", error);
+      console.error("❌ Error eliminando usuario:", error);
       setErrorMessage("Error al eliminar el usuario");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -609,16 +689,22 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
+      console.log("🔄 Cambiando rol de usuario:", userId, "→", newRole);
+      
       await updateDoc(doc(db, "users", userId), {
         role: newRole,
       });
 
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      console.log("✅ Rol actualizado");
+
       setSuccessMessage("Rol actualizado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
     } catch (error) {
-      console.error("Error actualizando rol:", error);
+      console.error("❌ Error actualizando rol:", error);
       setErrorMessage("Error al actualizar el rol");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -656,6 +742,7 @@ export default function AdminDashboard() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-600 text-sm font-medium">Cargando panel de administración...</p>
+          <p className="text-slate-500 text-xs mt-2">Revisa la consola para ver el progreso</p>
         </div>
       </div>
     );
@@ -679,6 +766,15 @@ export default function AdminDashboard() {
                   Gestión completa de la plataforma
                 </p>
               </div>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                title="Refrescar datos"
+              >
+                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+                {refreshing ? "Actualizando..." : "Refrescar"}
+              </button>
             </div>
 
             {/* Stats */}
@@ -1265,7 +1361,7 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Modals - Continuaré con los modales en el siguiente mensaje debido al límite de caracteres */}
+      {/* Modals continuarán en el siguiente mensaje... */}
       
       {/* Create/Edit Project Modal */}
       {(showCreateProject || showEditProject) && (
@@ -1289,7 +1385,7 @@ export default function AdminDashboard() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del proyecto</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del proyecto *</label>
                 <input
                   type="text"
                   value={newProject.name}
@@ -1327,42 +1423,56 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Productoras (puedes seleccionar varias)
                 </label>
-                <div className="border border-slate-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                  {producers.map(producer => (
-                    <label key={producer.id} className="flex items-center gap-2 py-2 cursor-pointer hover:bg-slate-50 px-2 rounded">
-                      <input
-                        type="checkbox"
-                        checked={newProject.producers.includes(producer.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewProject({
-                              ...newProject,
-                              producers: [...newProject.producers, producer.id]
-                            });
-                          } else {
-                            setNewProject({
-                              ...newProject,
-                              producers: newProject.producers.filter(id => id !== producer.id)
-                            });
-                          }
-                        }}
-                        className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
-                      />
-                      <span className="text-sm text-slate-700">{producer.name}</span>
-                    </label>
-                  ))}
-                  {producers.length === 0 && (
-                    <p className="text-sm text-slate-500 text-center py-2">
-                      No hay productoras. Crea una primero.
+                {producers.length > 0 ? (
+                  <div className="border border-slate-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    {producers.map(producer => (
+                      <label key={producer.id} className="flex items-center gap-2 py-2 cursor-pointer hover:bg-slate-50 px-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={newProject.producers.includes(producer.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewProject({
+                                ...newProject,
+                                producers: [...newProject.producers, producer.id]
+                              });
+                            } else {
+                              setNewProject({
+                                ...newProject,
+                                producers: newProject.producers.filter(id => id !== producer.id)
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                        />
+                        <span className="text-sm text-slate-700">{producer.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border border-slate-300 rounded-lg p-4 text-center">
+                    <p className="text-sm text-slate-500 mb-3">
+                      No hay productoras disponibles. Crea una primero.
                     </p>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateProject(false);
+                        setShowEditProject(null);
+                        setShowCreateProducer(true);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Crear productora
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={showEditProject ? handleEditProject : handleCreateProject}
-                disabled={saving}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                disabled={saving || !newProject.name.trim()}
+                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Guardando..." : showEditProject ? "Guardar cambios" : "Crear proyecto"}
               </button>
@@ -1394,20 +1504,21 @@ export default function AdminDashboard() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre de la productora</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre de la productora *</label>
                 <input
                   type="text"
                   value={showEditProducer ? editProducerName : newProducer}
                   onChange={(e) => showEditProducer ? setEditProducerName(e.target.value) : setNewProducer(e.target.value)}
                   placeholder="Nombre de la productora"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  autoFocus
                 />
               </div>
 
               <button
                 onClick={showEditProducer ? handleEditProducer : handleCreateProducer}
-                disabled={saving}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                disabled={saving || (showEditProducer ? !editProducerName.trim() : !newProducer.trim())}
+                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Guardando..." : showEditProducer ? "Guardar cambios" : "Crear productora"}
               </button>
@@ -1435,7 +1546,7 @@ export default function AdminDashboard() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Usuario</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Usuario *</label>
                 <select
                   value={assignUserForm.userId}
                   onChange={(e) => setAssignUserForm({ ...assignUserForm, userId: e.target.value })}
@@ -1449,7 +1560,7 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Rol en el proyecto</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Rol en el proyecto *</label>
                 <select
                   value={assignUserForm.role}
                   onChange={(e) => setAssignUserForm({ ...assignUserForm, role: e.target.value })}
@@ -1464,8 +1575,8 @@ export default function AdminDashboard() {
 
               <button
                 onClick={handleAssignUser}
-                disabled={saving}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                disabled={saving || !assignUserForm.userId || !assignUserForm.role}
+                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Asignando..." : "Asignar usuario"}
               </button>
