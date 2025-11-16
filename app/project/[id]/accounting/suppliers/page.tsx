@@ -481,7 +481,7 @@ export default function SuppliersPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                  <Users size={28} className="text-white" />
+                  <Building2 size={28} className="text-white" />
                 </div>
                 <div>
                   <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
@@ -1235,3 +1235,4 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
