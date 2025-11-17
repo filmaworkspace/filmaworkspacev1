@@ -943,7 +943,7 @@ export default function AdminDashboard() {
                       <LayoutDashboard className="text-blue-600" size={24} />
                       <span className="text-3xl font-bold text-blue-700">{projects.length}</span>
                     </div>
-                    <h3 className="text-sm font-semibold text-blue-900">Total Proyectos</h3>
+                    <h3 className="text-sm font-semibold text-blue-900">Total proyectos</h3>
                     <p className="text-xs text-blue-700 mt-1">
                       {projects.filter(p => p.phase !== "Finalizado").length} activos
                     </p>
@@ -954,7 +954,7 @@ export default function AdminDashboard() {
                       <Users className="text-emerald-600" size={24} />
                       <span className="text-3xl font-bold text-emerald-700">{users.length}</span>
                     </div>
-                    <h3 className="text-sm font-semibold text-emerald-900">Total Usuarios</h3>
+                    <h3 className="text-sm font-semibold text-emerald-900">Total usuarios</h3>
                     <p className="text-xs text-emerald-700 mt-1">
                       {users.filter(u => u.role === "admin").length} administradores
                     </p>
@@ -1870,3 +1870,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
