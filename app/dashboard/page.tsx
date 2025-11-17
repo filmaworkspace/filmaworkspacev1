@@ -204,12 +204,9 @@ export default function Dashboard() {
         const invitationsRef = collection(db, "invitations");
         const q = query(
           invitationsRef,
-          where("projectId", "==", id),
+          where("invitedEmail", "==", userEmail),
           where("status", "==", "pending")
         );
-
-        const invitationsSnap = await getDocs(q);
-        const invitationsData: PendingInvitation[] = invitationsSnap.docs.map((invDoc) => {
 
         const invitationsSnapshot = await getDocs(q);
         const invitationsData: Invitation[] = invitationsSnapshot.docs.map(
