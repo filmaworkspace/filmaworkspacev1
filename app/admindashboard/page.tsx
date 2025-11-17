@@ -57,7 +57,8 @@ const PHASE_COLORS: Record<string, string> = {
   Finalizado: "bg-emerald-100 text-emerald-700",
 };
 
-const PROJECT_ROLES = ["PM", "Controller", "PC"];
+const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
+const DEPARTMENT_POSITIONS = ["HOD", "Coordinator", "Crew"];
 
 interface Project {
   id: string;
@@ -145,7 +146,15 @@ export default function AdminDashboard() {
   const [editProducerName, setEditProducerName] = useState("");
   const [assignUserForm, setAssignUserForm] = useState({
     userId: "",
+    roleType: "project" as "project" | "department",
     role: "",
+    department: "",
+    position: "",
+    permissions: {
+      config: false,
+      accounting: false,
+      team: false,
+    },
   });
 
   // Message states
@@ -506,10 +515,25 @@ export default function AdminDashboard() {
 
   // Assign user to project
   const handleAssignUser = async () => {
-    if (!assignUserForm.userId || !assignUserForm.role || !showAssignUser) {
-      setErrorMessage("Selecciona un usuario y un rol");
+    if (!assignUserForm.userId || !showAssignUser) {
+      setErrorMessage("Selecciona un usuario");
       setTimeout(() => setErrorMessage(""), 3000);
       return;
+    }
+
+    // Validate role type
+    if (assignUserForm.roleType === "project" && !assignUserForm.role) {
+      setErrorMessage("Selecciona un rol de proyecto");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
+
+    if (assignUserForm.roleType === "department") {
+      if (!assignUserForm.department || !assignUserForm.position) {
+        setErrorMessage("Selecciona departamento y posición");
+        setTimeout(() => setErrorMessage(""), 3000);
+        return;
+      }
     }
 
     setSaving(true);
@@ -529,33 +553,44 @@ export default function AdminDashboard() {
 
       console.log("👤 Asignando usuario al proyecto:", user.name, "→", project.name);
 
-      await setDoc(doc(db, `projects/${showAssignUser}/members`, user.id), {
+      const memberData = {
         userId: user.id,
         name: user.name,
         email: user.email,
-        role: assignUserForm.role,
-        permissions: {
-          config: true,
-          accounting: true,
-          team: true,
-        },
+        role: assignUserForm.roleType === "project" ? assignUserForm.role : null,
+        department: assignUserForm.roleType === "department" ? assignUserForm.department : null,
+        position: assignUserForm.roleType === "department" ? assignUserForm.position : null,
+        permissions: assignUserForm.permissions,
         addedAt: serverTimestamp(),
-      });
+      };
 
-      await setDoc(doc(db, `userProjects/${user.id}/projects/${showAssignUser}`), {
+      await setDoc(doc(db, `projects/${showAssignUser}/members`, user.id), memberData);
+
+      const userProjectData = {
         projectId: showAssignUser,
-        role: assignUserForm.role,
-        permissions: {
-          config: true,
-          accounting: true,
-          team: true,
-        },
+        role: assignUserForm.roleType === "project" ? assignUserForm.role : null,
+        department: assignUserForm.roleType === "department" ? assignUserForm.department : null,
+        position: assignUserForm.roleType === "department" ? assignUserForm.position : null,
+        permissions: assignUserForm.permissions,
         addedAt: serverTimestamp(),
-      });
+      };
+
+      await setDoc(doc(db, `userProjects/${user.id}/projects/${showAssignUser}`), userProjectData);
 
       console.log("✅ Usuario asignado correctamente");
 
-      setAssignUserForm({ userId: "", role: "" });
+      setAssignUserForm({
+        userId: "",
+        roleType: "project",
+        role: "",
+        department: "",
+        position: "",
+        permissions: {
+          config: false,
+          accounting: false,
+          team: false,
+        },
+      });
       setShowAssignUser(null);
       setSuccessMessage("Usuario asignado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -901,6 +936,55 @@ export default function AdminDashboard() {
             {/* Overview Tab */}
             {activeTab === "overview" && (
               <div className="space-y-6">
+                {/* Estadísticas principales */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <LayoutDashboard className="text-blue-600" size={24} />
+                      <span className="text-3xl font-bold text-blue-700">{projects.length}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-blue-900">Total Proyectos</h3>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {projects.filter(p => p.phase !== "Finalizado").length} activos
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <Users className="text-emerald-600" size={24} />
+                      <span className="text-3xl font-bold text-emerald-700">{users.length}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-emerald-900">Total Usuarios</h3>
+                    <p className="text-xs text-emerald-700 mt-1">
+                      {users.filter(u => u.role === "admin").length} administradores
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <Building2 className="text-purple-600" size={24} />
+                      <span className="text-3xl font-bold text-purple-700">{producers.length}</span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
+                    <p className="text-xs text-purple-700 mt-1">
+                      {producers.filter(p => p.projectCount > 0).length} con proyectos
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <Zap className="text-amber-600" size={24} />
+                      <span className="text-3xl font-bold text-amber-700">
+                        {projects.reduce((sum, p) => sum + (p.memberCount || 0), 0)}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-amber-900">Total Miembros</h3>
+                    <p className="text-xs text-amber-700 mt-1">
+                      En {projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white border border-slate-200 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Últimos proyectos</h3>
@@ -1528,62 +1612,206 @@ export default function AdminDashboard() {
       )}
 
       {/* Assign User Modal */}
-      {showAssignUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-slate-900">Asignar usuario al proyecto</h3>
-              <button
-                onClick={() => {
-                  setShowAssignUser(null);
-                  setAssignUserForm({ userId: "", role: "" });
-                }}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {showAssignUser && (() => {
+        const project = projects.find(p => p.id === showAssignUser);
+        const departments = project?.departments || [];
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Usuario *</label>
-                <select
-                  value={assignUserForm.userId}
-                  onChange={(e) => setAssignUserForm({ ...assignUserForm, userId: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-slate-900">Asignar usuario al proyecto</h3>
+                <button
+                  onClick={() => {
+                    setShowAssignUser(null);
+                    setAssignUserForm({
+                      userId: "",
+                      roleType: "project",
+                      role: "",
+                      department: "",
+                      position: "",
+                      permissions: { config: false, accounting: false, team: false },
+                    });
+                  }}
+                  className="text-slate-400 hover:text-slate-600"
                 >
-                  <option value="">Seleccionar usuario</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
-                  ))}
-                </select>
+                  <X size={20} />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Rol en el proyecto *</label>
-                <select
-                  value={assignUserForm.role}
-                  onChange={(e) => setAssignUserForm({ ...assignUserForm, role: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                >
-                  <option value="">Seleccionar rol</option>
-                  {PROJECT_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
+              <div className="space-y-4">
+                {/* Usuario */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Usuario *</label>
+                  <select
+                    value={assignUserForm.userId}
+                    onChange={(e) => setAssignUserForm({ ...assignUserForm, userId: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  >
+                    <option value="">Seleccionar usuario</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
+                    ))}
+                  </select>
+                </div>
 
-              <button
-                onClick={handleAssignUser}
-                disabled={saving || !assignUserForm.userId || !assignUserForm.role}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? "Asignando..." : "Asignar usuario"}
-              </button>
+                {/* Tipo de asignación */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de asignación *</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAssignUserForm({ ...assignUserForm, roleType: "project", department: "", position: "" })}
+                      className={`flex-1 px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${
+                        assignUserForm.roleType === "project"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 text-slate-700 hover:border-slate-400"
+                      }`}
+                    >
+                      <Briefcase size={16} className="inline mr-2" />
+                      Rol de proyecto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignUserForm({ ...assignUserForm, roleType: "department", role: "" })}
+                      className={`flex-1 px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${
+                        assignUserForm.roleType === "department"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 text-slate-700 hover:border-slate-400"
+                      }`}
+                    >
+                      <Users size={16} className="inline mr-2" />
+                      Departamento
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rol de proyecto */}
+                {assignUserForm.roleType === "project" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Rol en el proyecto *</label>
+                    <select
+                      value={assignUserForm.role}
+                      onChange={(e) => setAssignUserForm({ ...assignUserForm, role: e.target.value })}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                    >
+                      <option value="">Seleccionar rol</option>
+                      {PROJECT_ROLES.map(role => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Departamento y posición */}
+                {assignUserForm.roleType === "department" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Departamento *</label>
+                      <select
+                        value={assignUserForm.department}
+                        onChange={(e) => setAssignUserForm({ ...assignUserForm, department: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                      >
+                        <option value="">Seleccionar departamento</option>
+                        {departments.length > 0 ? (
+                          departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))
+                        ) : (
+                          <option disabled>No hay departamentos configurados</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Posición *</label>
+                      <select
+                        value={assignUserForm.position}
+                        onChange={(e) => setAssignUserForm({ ...assignUserForm, position: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                      >
+                        <option value="">Seleccionar posición</option>
+                        {DEPARTMENT_POSITIONS.map(pos => (
+                          <option key={pos} value={pos}>{pos}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Permisos */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-3">Permisos</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={assignUserForm.permissions.config}
+                        onChange={(e) =>
+                          setAssignUserForm({
+                            ...assignUserForm,
+                            permissions: { ...assignUserForm.permissions, config: e.target.checked },
+                          })
+                        }
+                        className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Configuración</p>
+                        <p className="text-xs text-slate-500">Gestionar proyecto, usuarios y departamentos</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={assignUserForm.permissions.accounting}
+                        onChange={(e) =>
+                          setAssignUserForm({
+                            ...assignUserForm,
+                            permissions: { ...assignUserForm.permissions, accounting: e.target.checked },
+                          })
+                        }
+                        className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Contabilidad</p>
+                        <p className="text-xs text-slate-500">Acceso a finanzas y presupuestos</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={assignUserForm.permissions.team}
+                        onChange={(e) =>
+                          setAssignUserForm({
+                            ...assignUserForm,
+                            permissions: { ...assignUserForm.permissions, team: e.target.checked },
+                          })
+                        }
+                        className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Equipo</p>
+                        <p className="text-xs text-slate-500">Ver y gestionar miembros del equipo</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAssignUser}
+                  disabled={saving || !assignUserForm.userId}
+                  className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? "Asignando..." : "Asignar usuario"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* User Details Modal */}
       {showUserDetails && (() => {
