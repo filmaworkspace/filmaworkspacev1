@@ -78,94 +78,135 @@ export function useAuth() {
   };
 
   const register = async (name: string, email: string, password: string) => {
-  setError("");
-  setLoading(true);
+    setError("");
+    setLoading(true);
 
-  try {
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
-      setLoading(false);
-      return;
-    }
-
-    if (!name.trim()) {
-      setError("El nombre es obligatorio");
-      setLoading(false);
-      return;
-    }
-
-    // 1. Crear usuario en Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const user = userCredential.user;
-
-    // 2. Actualizar perfil
-    await updateProfile(user, {
-      displayName: name.trim(),
-    });
-
-    // 3. Forzar actualización del token para que incluya el email
-    await user.getIdToken(true);
-
-    // 4. Crear documento en Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      role: "user",
-      createdAt: serverTimestamp(),
-    });
-
-    // 5. ✅ Actualizar invitaciones (con manejo de errores)
     try {
-      const invitationsRef = collection(db, "invitations");
-      const q = query(
-        invitationsRef,
-        where("invitedEmail", "==", email.toLowerCase().trim()),
-        where("status", "==", "pending")
+      console.log("=== INICIO REGISTRO ===");
+      
+      if (password.length < 6) {
+        setError("La contraseña debe tener al menos 6 caracteres");
+        setLoading(false);
+        return;
+      }
+
+      if (!name.trim()) {
+        setError("El nombre es obligatorio");
+        setLoading(false);
+        return;
+      }
+
+      // 1. Crear usuario en Firebase Auth
+      console.log("1. Creando usuario en Auth...");
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
       );
+      const user = userCredential.user;
+      console.log("✅ Usuario creado en Auth:", user.uid);
 
-      const invitationsSnapshot = await getDocs(q);
+      // 2. Actualizar perfil
+      console.log("2. Actualizando perfil...");
+      await updateProfile(user, {
+        displayName: name.trim(),
+      });
+      console.log("✅ Perfil actualizado");
 
-      if (!invitationsSnapshot.empty) {
-        const updatePromises = invitationsSnapshot.docs.map((inviteDoc) =>
-          updateDoc(inviteDoc.ref, {
-            invitedUserId: user.uid,
-          })
+      // 3. Forzar refresh del token
+      console.log("3. Refrescando token...");
+      await user.getIdToken(true);
+      console.log("✅ Token refrescado");
+
+      // 4. Crear documento en Firestore
+      console.log("4. Creando documento en Firestore...");
+      console.log("   - UID:", user.uid);
+      console.log("   - Email:", email.toLowerCase().trim());
+      
+      try {
+        await setDoc(doc(db, "users", user.uid), {
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          role: "user",
+          createdAt: serverTimestamp(),
+        });
+        console.log("✅ Documento creado en Firestore");
+      } catch (firestoreError: any) {
+        console.error("❌ ERROR al crear documento:", firestoreError);
+        console.error("   - Código:", firestoreError.code);
+        console.error("   - Mensaje:", firestoreError.message);
+        throw firestoreError;
+      }
+
+      // 5. Verificar que el documento existe
+      console.log("5. Verificando documento...");
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      console.log("   - Documento existe:", userDoc.exists());
+      if (userDoc.exists()) {
+        console.log("   - Datos:", userDoc.data());
+      }
+
+      // 6. Actualizar invitaciones
+      console.log("6. Actualizando invitaciones...");
+      try {
+        const invitationsRef = collection(db, "invitations");
+        const q = query(
+          invitationsRef,
+          where("invitedEmail", "==", email.toLowerCase().trim()),
+          where("status", "==", "pending")
         );
 
-        await Promise.all(updatePromises);
+        const invitationsSnapshot = await getDocs(q);
+        console.log("   - Invitaciones encontradas:", invitationsSnapshot.size);
+
+        if (!invitationsSnapshot.empty) {
+          const updatePromises = invitationsSnapshot.docs.map((inviteDoc) =>
+            updateDoc(inviteDoc.ref, {
+              invitedUserId: user.uid,
+            })
+          );
+
+          await Promise.all(updatePromises);
+          console.log("✅ Invitaciones actualizadas");
+        }
+      } catch (inviteError: any) {
+        console.error("⚠️ Error al actualizar invitaciones (no crítico):", inviteError);
       }
-    } catch (inviteError) {
-      // No bloquear el registro si falla la actualización de invitaciones
-      console.error("Error al actualizar invitaciones:", inviteError);
+
+      // 7. Redirigir
+      console.log("7. Redirigiendo a dashboard...");
+      router.push("/dashboard");
+      console.log("=== FIN REGISTRO EXITOSO ===");
+      
+    } catch (error: any) {
+      console.error("=== ERROR EN REGISTRO ===");
+      console.error("Error completo:", error);
+      console.error("Código:", error.code);
+      console.error("Mensaje:", error.message);
+      console.error("Stack:", error.stack);
+      
+      let errorMessage = "Error al crear la cuenta";
+
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "Este email ya está registrado";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Email inválido";
+      } else if (error.code === "auth/operation-not-allowed") {
+        errorMessage = "Registro deshabilitado. Contacta al administrador";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "La contraseña es demasiado débil";
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage = "Error de conexión. Verifica tu internet";
+      } else if (error.code === "permission-denied" || error.message?.includes("permission")) {
+        errorMessage = "Error de permisos. Contacta al administrador";
+        console.error("⚠️ El usuario se creó en Auth pero falló algo después");
+      }
+
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // 6. Redirigir al dashboard
-    router.push("/dashboard");
-    
-  } catch (error: any) {
-    console.error("Error en registro:", error);
-    let errorMessage = "Error al crear la cuenta";
-
-    if (error.code === "auth/email-already-in-use") {
-      errorMessage = "Este email ya está registrado";
-    } else if (error.code === "auth/invalid-email") {
-      errorMessage = "Email inválido";
-    } else if (error.code === "auth/operation-not-allowed") {
-      errorMessage = "Registro deshabilitado. Contacta al administrador";
-    } else if (error.code === "auth/weak-password") {
-      errorMessage = "La contraseña es demasiado débil";
-    } else if (error.code === "auth/network-request-failed") {
-      errorMessage = "Error de conexión. Verifica tu internet";
-    } else if (error.code === "permission-denied" || error.message?.includes("permission")) {
-      errorMessage = "Error de permisos. Contacta al administrador";
-    }
-
-    setError(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
+  return { login, register, loading, error };
+}
