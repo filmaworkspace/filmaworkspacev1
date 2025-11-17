@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Inter } from "next/font/google";
 import {
   User,
   Mail,
@@ -23,7 +22,6 @@ import {
   reauthenticateWithCredential,
 } from "firebase/auth";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -193,7 +191,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white `}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-slate-300 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
@@ -205,7 +203,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white `}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-3xl mx-auto">
           <button

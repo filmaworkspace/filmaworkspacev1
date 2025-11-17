@@ -21,19 +21,8 @@ import {
   UserCog,
   Building2,
 } from "lucide-react";
-import { Space_Grotesk, Inter } from "next/font/google";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-
-const grotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -132,11 +121,11 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between ${inter.className}`}
+      className="fixed top-0 left-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between"
     >
       <Link
         href="/dashboard"
-        className={`select-none ${grotesk.className} flex items-center`}
+        className="select-none font-grotesk flex items-center"
       >
         <h1 className="text-xl font-normal text-slate-500 tracking-tighter">
           workspace

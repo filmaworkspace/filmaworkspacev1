@@ -1,7 +1,6 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -44,7 +43,6 @@ import {
   Eye,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 interface POItem {
   description: string;
@@ -328,7 +326,7 @@ export default function ViewPOPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white `}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
@@ -341,7 +339,7 @@ export default function ViewPOPage() {
 
   if (!po) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white `}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <AlertCircle size={64} className="text-red-500 mx-auto mb-4" />
@@ -364,7 +362,7 @@ export default function ViewPOPage() {
   const TypeIcon = typeConfig.icon;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-slate-50 `}>
       {/* Banner superior */}
       <div className="mt-[4.5rem] bg-gradient-to-r from-indigo-50 to-indigo-100 border-y border-indigo-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">

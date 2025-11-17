@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Inter } from "next/font/google";
 import {
   Folder,
   Search,
@@ -38,7 +37,6 @@ import {
   QueryDocumentSnapshot,
 } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const phaseColors: Record<string, string> = {
   Desarrollo: "from-sky-400 to-sky-600",
@@ -204,12 +202,9 @@ export default function Dashboard() {
         const invitationsRef = collection(db, "invitations");
         const q = query(
           invitationsRef,
-          where("projectId", "==", id),
+          where("email", "==", userEmail),
           where("status", "==", "pending")
         );
-
-        const invitationsSnap = await getDocs(q);
-        const invitationsData: PendingInvitation[] = invitationsSnap.docs.map((invDoc) => {
 
         const invitationsSnapshot = await getDocs(q);
         const invitationsData: Invitation[] = invitationsSnapshot.docs.map(
@@ -358,7 +353,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white `}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
@@ -375,7 +370,7 @@ export default function Dashboard() {
   const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white `}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
           {/* Header with stats */}
