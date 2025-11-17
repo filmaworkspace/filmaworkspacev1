@@ -94,6 +94,7 @@ export function useAuth() {
         return;
       }
 
+      // 1. Crear usuario en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -101,35 +102,46 @@ export function useAuth() {
       );
       const user = userCredential.user;
 
+      // 2. Actualizar perfil
       await updateProfile(user, {
         displayName: name.trim(),
       });
 
+      // 3. Crear documento en Firestore
       await setDoc(doc(db, "users", user.uid), {
         name: name.trim(),
-        email: email,
+        email: email.toLowerCase().trim(),
         role: "user",
         createdAt: serverTimestamp(),
       });
 
+      // 4. ✅ ACTUALIZAR INVITACIONES - CORREGIDO
+      // Cargar solo invitaciones pendientes (Firebase filtrará automáticamente)
       const invitationsRef = collection(db, "invitations");
       const q = query(
         invitationsRef,
-        where("invitedEmail", "==", email),
         where("status", "==", "pending")
+        // Firebase solo devolverá las invitaciones donde invitedEmail == email del usuario
       );
 
       const invitationsSnapshot = await getDocs(q);
 
-      for (const inviteDoc of invitationsSnapshot.docs) {
-        await updateDoc(inviteDoc.ref, {
-          invitedUserId: user.uid,
-        });
-      }
+      // Actualizar invitedUserId para las invitaciones de este usuario
+      const updatePromises = invitationsSnapshot.docs
+        .filter((invDoc) => invDoc.data().invitedEmail === email.toLowerCase().trim())
+        .map((inviteDoc) =>
+          updateDoc(inviteDoc.ref, {
+            invitedUserId: user.uid,
+          })
+        );
 
+      await Promise.all(updatePromises);
+
+      // 5. Recargar y redirigir
       await user.reload();
       window.location.href = "/dashboard";
     } catch (error: any) {
+      console.error("Error en registro:", error);
       let errorMessage = "Error al crear la cuenta";
 
       if (error.code === "auth/email-already-in-use") {
@@ -142,6 +154,8 @@ export function useAuth() {
         errorMessage = "La contraseña es demasiado débil";
       } else if (error.code === "auth/network-request-failed") {
         errorMessage = "Error de conexión. Verifica tu internet";
+      } else if (error.code?.includes("permission-denied")) {
+        errorMessage = "Error de permisos. Contacta al administrador";
       }
 
       setError(errorMessage);
