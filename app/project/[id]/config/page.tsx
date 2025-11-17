@@ -30,6 +30,8 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
+  query,
+  where,
 } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
