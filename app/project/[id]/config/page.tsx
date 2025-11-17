@@ -8,11 +8,8 @@ import {
   Save,
   X,
   Building2,
-  Plus,
-  Trash2,
   AlertCircle,
   CheckCircle2,
-  BarChart3,
   Users,
   Briefcase,
   Calendar,
@@ -27,8 +24,6 @@ import {
   updateDoc,
   collection,
   getDocs,
-  arrayUnion,
-  arrayRemove,
   Timestamp,
   query,
   where,
@@ -213,44 +208,6 @@ export default function ConfigGeneral() {
     } catch (error) {
       console.error("Error actualizando proyecto:", error);
       setErrorMessage("Error al actualizar el proyecto");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleProducer = async (producerId: string) => {
-    if (!id) return;
-    setSaving(true);
-
-    try {
-      const projectRef = doc(db, "projects", id as string);
-      const isCurrentlyAssigned = project?.producers?.includes(producerId);
-
-      if (isCurrentlyAssigned) {
-        await updateDoc(projectRef, {
-          producers: arrayRemove(producerId),
-        });
-        setProject({
-          ...project!,
-          producers: project?.producers?.filter((p) => p !== producerId) || [],
-        });
-      } else {
-        await updateDoc(projectRef, {
-          producers: arrayUnion(producerId),
-        });
-        setProject({
-          ...project!,
-          producers: [...(project?.producers || []), producerId],
-        });
-      }
-
-      setSuccessMessage(
-        isCurrentlyAssigned ? "Productora eliminada" : "Productora agregada"
-      );
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error actualizando productoras:", error);
-      setErrorMessage("Error al actualizar las productoras");
     } finally {
       setSaving(false);
     }
@@ -500,59 +457,60 @@ export default function ConfigGeneral() {
             </div>
           </div>
 
-          {/* Producers Card */}
+          {/* Producers Card - SOLO LECTURA */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
                   <Building2 size={20} className="text-white" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-xl font-semibold text-slate-900">Productoras</h2>
-                  <p className="text-sm text-slate-500">Gestiona las productoras del proyecto</p>
+                  <p className="text-sm text-slate-500">Productoras asignadas al proyecto</p>
+                </div>
+                <div className="text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1">
+                  <Info size={14} />
+                  Solo lectura
                 </div>
               </div>
 
-              {allProducers.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-sm">
-                  No hay productoras disponibles. Contacta con el administrador.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {allProducers.map((producer) => {
-                    const isAssigned = project?.producers?.includes(producer.id);
+              {project?.producers && project.producers.length > 0 ? (
+                <div className="space-y-3">
+                  {project.producers.map((producerId) => {
+                    const producer = allProducers.find(p => p.id === producerId);
                     return (
-                      <button
-                        key={producer.id}
-                        onClick={() => handleToggleProducer(producer.id)}
-                        disabled={saving}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${
-                          isAssigned
-                            ? "border-amber-500 bg-amber-50 hover:bg-amber-100"
-                            : "border-slate-200 bg-white hover:bg-slate-50"
-                        }`}
+                      <div
+                        key={producerId}
+                        className="p-4 rounded-lg border border-amber-200 bg-amber-50"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Building2
-                              size={18}
-                              className={isAssigned ? "text-amber-600" : "text-slate-400"}
-                            />
-                            <span
-                              className={`text-sm font-medium ${
-                                isAssigned ? "text-amber-900" : "text-slate-700"
-                              }`}
-                            >
-                              {producer.name}
-                            </span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <Building2 size={20} className="text-amber-600" />
                           </div>
-                          {isAssigned && (
-                            <CheckCircle2 size={18} className="text-amber-600" />
-                          )}
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-amber-900">
+                              {producer?.name || "Productora no encontrada"}
+                            </p>
+                            <p className="text-xs text-amber-700">Productora asignada</p>
+                          </div>
+                          <CheckCircle2 size={20} className="text-amber-600" />
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
+                  <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600">
+                      💡 <strong>Nota:</strong> Para modificar las productoras asignadas, contacta con un administrador o accede al Panel de Administración.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-lg">
+                  <Building2 size={48} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-slate-600 font-medium mb-1">Sin productoras asignadas</p>
+                  <p className="text-sm text-slate-500">
+                    Contacta con un administrador para asignar productoras al proyecto
+                  </p>
                 </div>
               )}
             </div>
@@ -562,6 +520,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
-
-
