@@ -252,7 +252,7 @@ export default function ConfigDepartments() {
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 text-sm font-medium">Cargando departamentos...</p>
+          <p className="text-slate-600 text-sm font-medium">Cargando...</p>
         </div>
       </div>
     );
