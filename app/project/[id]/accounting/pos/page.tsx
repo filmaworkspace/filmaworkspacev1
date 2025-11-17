@@ -41,17 +41,41 @@ import {
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
+interface POItem {
+  description: string;
+  subAccountId: string;
+  subAccountCode: string;
+  subAccountDescription: string;
+  date: string;
+  quantity: number;
+  unitPrice: number;
+  baseAmount: number;
+  vatRate: number;
+  vatAmount: number;
+  irpfRate: number;
+  irpfAmount: number;
+  totalAmount: number;
+}
+
 interface PO {
   id: string;
   number: string;
   supplier: string;
   supplierId: string;
-  description: string;
-  budgetAccount: string;
-  budgetAccountId: string;
-  subAccountId: string;
-  amount: number;
+  department: string;
+  poType: "rental" | "purchase" | "service" | "deposit";
+  currency: string;
+  generalDescription: string;
+  paymentTerms: string;
+  notes: string;
+  items: POItem[];
+  baseAmount: number;
+  vatAmount: number;
+  irpfAmount: number;
+  totalAmount: number;
   status: "draft" | "pending" | "approved" | "rejected";
+  attachmentUrl?: string;
+  attachmentFileName?: string;
   createdAt: Date;
   createdBy: string;
   createdByName: string;
@@ -62,8 +86,6 @@ interface PO {
   rejectedBy?: string;
   rejectedByName?: string;
   rejectionReason?: string;
-  notes?: string;
-  attachments?: string[];
 }
 
 interface POStats {
@@ -167,10 +189,10 @@ export default function POsPage() {
         pending: posData.filter((po) => po.status === "pending").length,
         approved: posData.filter((po) => po.status === "approved").length,
         rejected: posData.filter((po) => po.status === "rejected").length,
-        totalAmount: posData.reduce((sum, po) => sum + po.amount, 0),
+        totalAmount: posData.reduce((sum, po) => sum + po.totalAmount, 0),
         approvedAmount: posData
           .filter((po) => po.status === "approved")
-          .reduce((sum, po) => sum + po.amount, 0),
+          .reduce((sum, po) => sum + po.totalAmount, 0),
       };
       setStats(newStats);
 
@@ -200,8 +222,12 @@ export default function POsPage() {
         (po) =>
           po.number.toLowerCase().includes(searchLower) ||
           po.supplier.toLowerCase().includes(searchLower) ||
-          po.description.toLowerCase().includes(searchLower) ||
-          po.budgetAccount.toLowerCase().includes(searchLower)
+          po.generalDescription.toLowerCase().includes(searchLower) ||
+          po.department.toLowerCase().includes(searchLower) ||
+          po.items.some(item => 
+            item.description.toLowerCase().includes(searchLower) ||
+            item.subAccountCode.toLowerCase().includes(searchLower)
+          )
       );
     }
 
@@ -234,7 +260,7 @@ export default function POsPage() {
           comparison = a.createdAt.getTime() - b.createdAt.getTime();
           break;
         case "amount":
-          comparison = a.amount - b.amount;
+          comparison = a.totalAmount - b.totalAmount;
           break;
         case "number":
           comparison = a.number.localeCompare(b.number);
@@ -278,7 +304,7 @@ export default function POsPage() {
 
     if (
       !confirm(
-        `¿Aprobar la PO ${po.number} por ${po.amount.toLocaleString()} €? Esto comprometerá el presupuesto.`
+        `¿Aprobar la PO ${po.number} por ${po.totalAmount.toLocaleString()} ${po.currency}? Esto comprometerá el presupuesto.`
       )
     ) {
       return;
@@ -294,19 +320,33 @@ export default function POsPage() {
         approvedByName: userName,
       });
 
-      // Update budget commitment
-      if (po.subAccountId && po.budgetAccountId) {
-        const subAccountRef = doc(
-          db,
-          `projects/${id}/accounts/${po.budgetAccountId}/subaccounts`,
-          po.subAccountId
-        );
-        const subAccountSnap = await getDoc(subAccountRef);
-        if (subAccountSnap.exists()) {
-          const currentCommitted = subAccountSnap.data().committed || 0;
-          await updateDoc(subAccountRef, {
-            committed: currentCommitted + po.amount,
-          });
+      // Update budget commitment for each item
+      for (const item of po.items) {
+        if (item.subAccountId) {
+          // Find the account ID for this subaccount
+          const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
+          
+          for (const accountDoc of accountsSnapshot.docs) {
+            const subAccountRef = doc(
+              db,
+              `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
+              item.subAccountId
+            );
+            
+            try {
+              const subAccountSnap = await getDoc(subAccountRef);
+              if (subAccountSnap.exists()) {
+                const currentCommitted = subAccountSnap.data().committed || 0;
+                await updateDoc(subAccountRef, {
+                  committed: currentCommitted + item.totalAmount,
+                });
+                break; // Found the right account, move to next item
+              }
+            } catch (e) {
+              // This subaccount doesn't belong to this account, continue
+              continue;
+            }
+          }
         }
       }
 
@@ -1054,4 +1094,5 @@ export default function POsPage() {
       )}
     </div>
   );
+}
 }
