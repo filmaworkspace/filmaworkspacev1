@@ -200,14 +200,16 @@ export default function Dashboard() {
         setProjects(projectsData);
         setFilteredProjects(projectsData);
 
-        // ✅ LOAD INVITATIONS - FIXED
-        // Solo filtrar por status, Firebase filtrará por email automáticamente
+        // Load pending invitations
         const invitationsRef = collection(db, "invitations");
         const q = query(
           invitationsRef,
+          where("projectId", "==", id),
           where("status", "==", "pending")
-          // Firebase filtrará automáticamente por invitedEmail usando las reglas de seguridad
         );
+
+        const invitationsSnap = await getDocs(q);
+        const invitationsData: PendingInvitation[] = invitationsSnap.docs.map((invDoc) => {
 
         const invitationsSnapshot = await getDocs(q);
         const invitationsData: Invitation[] = invitationsSnapshot.docs.map(
