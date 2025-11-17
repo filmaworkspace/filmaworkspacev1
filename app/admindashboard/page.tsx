@@ -790,7 +790,7 @@ export default function AdminDashboard() {
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
+          {/* Header - SIN ESTADÍSTICAS DUPLICADAS */}
           <header className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -810,53 +810,6 @@ export default function AdminDashboard() {
                 <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
                 {refreshing ? "Actualizando..." : "Refrescar"}
               </button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-blue-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Briefcase size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-blue-700">{projects.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-blue-900 mb-1">Proyectos totales</h3>
-                <p className="text-xs text-blue-700">En la plataforma</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-emerald-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Zap size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-emerald-700">{activeProjects}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-emerald-900 mb-1">Activos</h3>
-                <p className="text-xs text-emerald-700">En producción</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-purple-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Users size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-purple-700">{users.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-purple-900 mb-1">Usuarios</h3>
-                <p className="text-xs text-purple-700">Registrados</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-amber-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Building2 size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-amber-700">{producers.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-amber-900 mb-1">Productoras</h3>
-                <p className="text-xs text-amber-700">Registradas</p>
-              </div>
             </div>
           </header>
 
@@ -1870,5 +1823,6 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
 
 
