@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -39,7 +38,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const PHASES = [
   "Desarrollo",
@@ -738,7 +736,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className={`min-h-screen bg-white flex items-center justify-center `}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-600 text-sm font-medium">Cargando panel de administración...</p>
@@ -752,7 +750,7 @@ export default function AdminDashboard() {
   const finishedProjects = projects.filter(p => p.phase === "Finalizado").length;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white `}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
           {/* Header */}

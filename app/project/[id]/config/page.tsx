@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Inter } from "next/font/google";
 import {
   Info,
   Edit2,
@@ -32,7 +31,6 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const PHASES = [
   "Desarrollo",
@@ -270,7 +268,7 @@ export default function ConfigGeneral() {
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className={`min-h-screen bg-white flex items-center justify-center `}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-600 text-sm font-medium">Cargando...</p>
@@ -281,7 +279,7 @@ export default function ConfigGeneral() {
 
   if (errorMessage && !project) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className={`min-h-screen bg-white flex items-center justify-center `}>
         <div className="text-center max-w-md">
           <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
           <p className="text-slate-700 mb-4">{errorMessage}</p>
@@ -294,7 +292,7 @@ export default function ConfigGeneral() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white `}>
       {/* Banner superior */}
       <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">

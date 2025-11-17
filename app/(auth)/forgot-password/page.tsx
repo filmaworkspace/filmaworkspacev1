@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Inter } from "next/font/google";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Input from "@/components/ui/Input";
@@ -12,10 +11,6 @@ import Card from "@/components/ui/Card";
 import AnimatedBackground from "@/components/auth/AnimatedBackground";
 import { ArrowLeft } from "lucide-react";
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -52,7 +47,7 @@ export default function ForgotPasswordPage() {
     <div className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
       <AnimatedBackground />
 
-      <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
+      <div className={`relative z-10 w-full max-w-md `}>
         <Card>
           <Link
             href="/login"

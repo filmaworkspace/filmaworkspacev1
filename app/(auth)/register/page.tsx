@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Inter } from "next/font/google";
 import { useAuth } from "@/hooks/useAuth";
 import Input from "@/components/ui/Input";
 import PasswordInput from "@/components/ui/PasswordInput";
@@ -11,10 +10,6 @@ import ErrorAlert from "@/components/ui/ErrorAlert";
 import Card from "@/components/ui/Card";
 import AnimatedBackground from "@/components/auth/AnimatedBackground";
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 export default function RegisterPage() {
   const { register, loading, error } = useAuth();
@@ -37,7 +32,7 @@ export default function RegisterPage() {
     <div className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
       <AnimatedBackground />
       
-      <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
+      <div className={`relative z-10 w-full max-w-md `}>
         <Card>
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
