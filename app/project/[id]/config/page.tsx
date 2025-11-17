@@ -500,7 +500,7 @@ export default function ConfigGeneral() {
                   })}
                   <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <p className="text-xs text-slate-600">
-                      💡 <strong>Nota:</strong> Para modificar las productoras asignadas, contacta con un administrador o accede al Panel de Administración.
+                      Para modificar las productoras asignadas, contacta con soporte@filmaworkspace.com.
                     </p>
                   </div>
                 </div>
@@ -520,3 +520,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
