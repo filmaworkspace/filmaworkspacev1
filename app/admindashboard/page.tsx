@@ -978,7 +978,7 @@ export default function AdminDashboard() {
                         {projects.reduce((sum, p) => sum + (p.memberCount || 0), 0)}
                       </span>
                     </div>
-                    <h3 className="text-sm font-semibold text-amber-900">Total Miembros</h3>
+                    <h3 className="text-sm font-semibold text-amber-900">Total miembros</h3>
                     <p className="text-xs text-amber-700 mt-1">
                       En {projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}
                     </p>
@@ -1870,4 +1870,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
 
