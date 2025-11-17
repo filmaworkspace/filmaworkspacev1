@@ -783,13 +783,16 @@ export default function POsPage() {
                         Número
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Tipo
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Proveedor
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Descripción
+                        Departamento
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Cuenta
+                        Descripción
                       </th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Importe
@@ -806,100 +809,118 @@ export default function POsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {filteredPOs.map((po) => (
-                      <tr key={po.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-indigo-600">
-                            PO-{po.number}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Building2 size={14} className="text-slate-400" />
-                            <span className="text-sm text-slate-900">{po.supplier}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-slate-900 truncate max-w-xs">
-                            {po.description}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-mono text-slate-600">
-                            {po.budgetAccount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-semibold text-slate-900">
-                            {po.amount.toLocaleString()} €
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {getStatusBadge(po.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 text-xs text-slate-600">
-                            <Calendar size={12} />
-                            {formatDate(po.createdAt)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedPO(po);
-                                setShowDetailModal(true);
-                              }}
-                              className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                              title="Ver detalles"
-                            >
-                              <Eye size={16} />
-                            </button>
+                    {filteredPOs.map((po) => {
+                      const poTypeConfig = {
+                        rental: { icon: ShoppingCart, label: "Alquiler", color: "blue" },
+                        purchase: { icon: Package, label: "Compra", color: "green" },
+                        service: { icon: Wrench, label: "Servicio", color: "purple" },
+                        deposit: { icon: Shield, label: "Fianza", color: "amber" },
+                      };
+                      const typeInfo = poTypeConfig[po.poType] || poTypeConfig.purchase;
+                      const TypeIcon = typeInfo.icon;
 
-                            {(po.status === "draft" || po.status === "rejected") && (
-                              <Link href={`/project/${id}/accounting/pos/edit/${po.id}`}>
+                      return (
+                        <tr key={po.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-indigo-600">
+                              PO-{po.number}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-${typeInfo.color}-100 text-${typeInfo.color}-700 border border-${typeInfo.color}-200`}>
+                              <TypeIcon size={12} />
+                              {typeInfo.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={14} className="text-slate-400" />
+                              <span className="text-sm text-slate-900">{po.supplier}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                              {po.department}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-sm text-slate-900 truncate max-w-xs">
+                              {po.generalDescription}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {po.items.length} {po.items.length === 1 ? "ítem" : "ítems"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-semibold text-slate-900">
+                              {po.totalAmount.toLocaleString()} {po.currency}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {getStatusBadge(po.status)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1 text-xs text-slate-600">
+                              <Calendar size={12} />
+                              {formatDate(po.createdAt)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link href={`/project/${id}/accounting/pos/view/${po.id}`}>
                                 <button
-                                  className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                  title="Editar"
+                                  className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                  title="Ver detalles"
                                 >
-                                  <Edit size={16} />
+                                  <Eye size={16} />
                                 </button>
                               </Link>
-                            )}
 
-                            {po.status === "pending" &&
-                              ["EP", "PM", "Controller"].includes(userRole) && (
-                                <>
+                              {(po.status === "draft" || po.status === "rejected") && (
+                                <Link href={`/project/${id}/accounting/pos/edit/${po.id}`}>
                                   <button
-                                    onClick={() => handleApprovePO(po.id)}
-                                    className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
-                                    title="Aprobar"
+                                    className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    title="Editar"
                                   >
-                                    <CheckCircle size={16} />
+                                    <Edit size={16} />
                                   </button>
-                                  <button
-                                    onClick={() => handleRejectPO(po.id)}
-                                    className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                    title="Rechazar"
-                                  >
-                                    <XCircle size={16} />
-                                  </button>
-                                </>
+                                </Link>
                               )}
 
-                            {po.status !== "approved" && (
-                              <button
-                                onClick={() => handleDeletePO(po.id)}
-                                className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {po.status === "pending" &&
+                                ["EP", "PM", "Controller"].includes(userRole) && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApprovePO(po.id)}
+                                      className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                      title="Aprobar"
+                                    >
+                                      <CheckCircle size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectPO(po.id)}
+                                      className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      title="Rechazar"
+                                    >
+                                      <XCircle size={16} />
+                                    </button>
+                                  </>
+                                )}
+
+                              {po.status !== "approved" && (
+                                <button
+                                  onClick={() => handleDeletePO(po.id)}
+                                  className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1094,5 +1115,4 @@ export default function POsPage() {
       )}
     </div>
   );
-}
 }
