@@ -360,12 +360,13 @@ export default function ConfigUsers() {
       const invitationsRef = collection(db, "invitations");
       const invQuery = query(
         invitationsRef,
-        where("projectId", "==", id),
         where("status", "==", "pending")
       );
 
       const invitationsSnap = await getDocs(invQuery);
-      const invitationsData: PendingInvitation[] = invitationsSnap.docs.map((invDoc) => {
+      const invitationsData: PendingInvitation[] = invitationsSnap.docs
+        .filter((invDoc) => invDoc.data().projectId === id)  // Filtrar aquí
+        .map((invDoc) => {
         const data = invDoc.data();
         return {
           id: invDoc.id,
