@@ -161,10 +161,16 @@ export default function ConfigGeneral() {
         setMemberCount(membersSnap.size);
 
         // Load invitation count
-        const invitationsSnap = await getDocs(collection(db, "invitations"));
-        const pendingInvitations = invitationsSnap.docs.filter(
-          (doc) => doc.data().projectId === id && doc.data().status === "pending"
-        );
+        const invitationsRef = collection(db, "invitations");
+const invitationsQuery = query(
+  invitationsRef,
+  where("status", "==", "pending")
+);
+
+const invitationsSnap = await getDocs(invitationsQuery);
+const pendingInvitations = invitationsSnap.docs.filter(
+  (doc) => doc.data().projectId === id
+);
         setInvitationCount(pendingInvitations.length);
 
         setLoading(false);
@@ -554,4 +560,5 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
