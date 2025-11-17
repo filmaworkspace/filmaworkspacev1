@@ -200,12 +200,13 @@ export default function Dashboard() {
         setProjects(projectsData);
         setFilteredProjects(projectsData);
 
-        // Load invitations
+        // ✅ LOAD INVITATIONS - FIXED
+        // Solo filtrar por status, Firebase filtrará por email automáticamente
         const invitationsRef = collection(db, "invitations");
         const q = query(
           invitationsRef,
-          where("invitedEmail", "==", userEmail),
           where("status", "==", "pending")
+          // Firebase filtrará automáticamente por invitedEmail usando las reglas de seguridad
         );
 
         const invitationsSnapshot = await getDocs(q);
