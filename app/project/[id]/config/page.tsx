@@ -162,15 +162,15 @@ export default function ConfigGeneral() {
 
         // Load invitation count
         const invitationsRef = collection(db, "invitations");
-const invitationsQuery = query(
-  invitationsRef,
-  where("status", "==", "pending")
-);
-
-const invitationsSnap = await getDocs(invitationsQuery);
-const pendingInvitations = invitationsSnap.docs.filter(
-  (doc) => doc.data().projectId === id
-);
+        const invitationsQuery = query(
+          invitationsRef,
+          where("status", "==", "pending")
+        );
+        
+        const invitationsSnap = await getDocs(invitationsQuery);
+        const pendingInvitations = invitationsSnap.docs.filter(
+          (doc) => doc.data().projectId === id
+        );
         setInvitationCount(pendingInvitations.length);
 
         setLoading(false);
@@ -560,5 +560,6 @@ const pendingInvitations = invitationsSnap.docs.filter(
     </div>
   );
 }
+
 
 
