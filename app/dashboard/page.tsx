@@ -386,7 +386,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
@@ -403,7 +403,7 @@ export default function Dashboard() {
   const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
           {/* Header with welcome */}
