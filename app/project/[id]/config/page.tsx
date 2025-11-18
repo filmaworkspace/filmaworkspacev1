@@ -301,10 +301,10 @@ export default function ConfigGeneral() {
           </h1>
         </div>
         <Link
-          href={`/project/${id}`}
+          href="/dashboard"
           className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
         >
-          Volver al proyecto
+          Volver al proyectos
         </Link>
       </div>
 
@@ -507,6 +507,7 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
 
 
