@@ -296,7 +296,7 @@ export default function ConfigGeneral() {
             <Folder size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
-            Configuración General
+            {projectName}
           </h1>
         </div>
         <Link
@@ -506,4 +506,5 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
