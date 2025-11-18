@@ -12,7 +12,10 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle2,
-  Folder,
+  BarChart3,
+  Users,
+  Briefcase,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -68,10 +71,13 @@ export default function ConfigGeneral() {
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
   const [project, setProject] = useState<ProjectData | null>(null);
-  const [assignedProducers, setAssignedProducers] = useState<Producer[]>([]);
+  const [allProducers, setAllProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [memberCount, setMemberCount] = useState(0);
+  const [departmentCount, setDepartmentCount] = useState(0);
+  const [invitationCount, setInvitationCount] = useState(0);
 
   const [projectForm, setProjectForm] = useState({
     name: "",
@@ -138,22 +144,27 @@ export default function ConfigGeneral() {
             phase: project.phase,
             description: project.description || "",
           });
-
-          // Load only assigned producers
-          if (project.producers && project.producers.length > 0) {
-            const producersData: Producer[] = [];
-            for (const producerId of project.producers) {
-              const producerDoc = await getDoc(doc(db, "producers", producerId));
-              if (producerDoc.exists()) {
-                producersData.push({
-                  id: producerDoc.id,
-                  name: producerDoc.data().name,
-                });
-              }
-            }
-            setAssignedProducers(producersData);
-          }
+          setDepartmentCount(project.departments?.length || 0);
         }
+
+        // Load all producers
+        const producersSnap = await getDocs(collection(db, "producers"));
+        const producersData: Producer[] = producersSnap.docs.map((doc) => ({
+          id: doc.id,
+          name: doc.data().name,
+        }));
+        setAllProducers(producersData);
+
+        // Load member count
+        const membersSnap = await getDocs(collection(db, `projects/${id}/members`));
+        setMemberCount(membersSnap.size);
+
+        // Load invitation count
+        const invitationsSnap = await getDocs(collection(db, "invitations"));
+        const pendingInvitations = invitationsSnap.docs.filter(
+          (doc) => doc.data().projectId === id && doc.data().status === "pending"
+        );
+        setInvitationCount(pendingInvitations.length);
 
         setLoading(false);
       } catch (error) {
@@ -198,6 +209,58 @@ export default function ConfigGeneral() {
     }
   };
 
+  const handleToggleProducer = async (producerId: string) => {
+    if (!id) return;
+    setSaving(true);
+
+    try {
+      const projectRef = doc(db, "projects", id as string);
+      const isCurrentlyAssigned = project?.producers?.includes(producerId);
+
+      if (isCurrentlyAssigned) {
+        await updateDoc(projectRef, {
+          producers: arrayRemove(producerId),
+        });
+        setProject({
+          ...project!,
+          producers: project?.producers?.filter((p) => p !== producerId) || [],
+        });
+      } else {
+        await updateDoc(projectRef, {
+          producers: arrayUnion(producerId),
+        });
+        setProject({
+          ...project!,
+          producers: [...(project?.producers || []), producerId],
+        });
+      }
+
+      setSuccessMessage(
+        isCurrentlyAssigned ? "Productora eliminada" : "Productora agregada"
+      );
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      console.error("Error actualizando productoras:", error);
+      setErrorMessage("Error al actualizar las productoras");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatDate = (timestamp: Timestamp) => {
+    const date = timestamp.toDate();
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Hoy";
+    if (diffDays === 1) return "Hace 1 día";
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+    if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semanas`;
+    if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`;
+    return `Hace ${Math.floor(diffDays / 365)} años`;
+  };
+
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -226,20 +289,20 @@ export default function ConfigGeneral() {
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-4 flex items-center justify-between">
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-slate-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+          <div className="bg-slate-700 p-2 rounded-lg">
+            <Info size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
-            {project?.name}
+            Configuración General
           </h1>
         </div>
         <Link
-          href="/dashboard"
+          href={`/project/${id}`}
           className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
         >
-          Volver a proyectos
+          Volver al proyecto
         </Link>
       </div>
 
@@ -259,6 +322,49 @@ export default function ConfigGeneral() {
               <span>{errorMessage}</span>
             </div>
           )}
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <Users size={24} className="text-blue-600" />
+                <span className="text-3xl font-bold text-blue-700">{memberCount}</span>
+              </div>
+              <h3 className="text-sm font-semibold text-blue-900">Miembros</h3>
+              <p className="text-xs text-blue-700">En el equipo</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <Briefcase size={24} className="text-amber-600" />
+                <span className="text-3xl font-bold text-amber-700">{departmentCount}</span>
+              </div>
+              <h3 className="text-sm font-semibold text-amber-900">Departamentos</h3>
+              <p className="text-xs text-amber-700">Configurados</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <Building2 size={24} className="text-purple-600" />
+                <span className="text-3xl font-bold text-purple-700">
+                  {project?.producers?.length || 0}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
+              <p className="text-xs text-purple-700">Asignadas</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <Calendar size={24} className="text-emerald-600" />
+                <span className="text-emerald-700 text-sm font-semibold">
+                  {project?.createdAt ? formatDate(project.createdAt) : "-"}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold text-emerald-900">Creado</h3>
+              <p className="text-xs text-emerald-700">Fecha de inicio</p>
+            </div>
+          </div>
 
           {/* Project Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -385,50 +491,63 @@ export default function ConfigGeneral() {
             </div>
           </div>
 
-          {/* Producers Card - Solo lectura */}
+          {/* Producers Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                  <Building2 size={20} className="text-white" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
+                    <Building2 size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
+                    <p className="text-sm text-slate-500">
+                      {project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? 's' : ''} vinculada{project?.producers?.length !== 1 ? 's' : ''} al proyecto
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
-                  <p className="text-sm text-slate-500">Productoras asociadas a este proyecto</p>
-                </div>
+                <button
+                  onClick={() => {/* Aquí podrías añadir lógica para editar */}}
+                  className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Edit2 size={16} />
+                  Gestionar
+                </button>
               </div>
 
-              {assignedProducers.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-                  <Building2 size={48} className="mx-auto text-slate-300 mb-3" />
-                  <p className="text-slate-500 text-sm font-medium">
-                    No hay productoras asignadas a este proyecto
-                  </p>
-                  <p className="text-slate-400 text-xs mt-1">
-                    Contacta con el administrador para asignar productoras
-                  </p>
+              {project?.producers && project.producers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project.producers.map((producerId) => {
+                    const producer = allProducers.find(p => p.id === producerId);
+                    if (!producer) return null;
+                    
+                    return (
+                      <div
+                        key={producer.id}
+                        className="p-4 rounded-lg border border-slate-200 bg-slate-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                            <Building2 size={20} className="text-amber-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-slate-900 truncate">
+                              {producer.name}
+                            </h3>
+                            <p className="text-xs text-slate-500">Productora activa</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {assignedProducers.map((producer) => (
-                    <div
-                      key={producer.id}
-                      className="p-4 rounded-lg border-2 border-purple-200 bg-purple-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                          <Building2 size={20} className="text-purple-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-purple-900">
-                            {producer.name}
-                          </p>
-                          <p className="text-xs text-purple-600">Productora</p>
-                        </div>
-                        <CheckCircle2 size={18} className="text-purple-600" />
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
+                  <Building2 size={48} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium mb-1">No hay productoras asignadas</p>
+                  <p className="text-sm text-slate-500">
+                    Haz clic en "Gestionar" para asignar productoras al proyecto
+                  </p>
                 </div>
               )}
             </div>
@@ -438,4 +557,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
