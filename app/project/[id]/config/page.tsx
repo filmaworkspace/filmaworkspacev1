@@ -12,10 +12,6 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle2,
-  BarChart3,
-  Users,
-  Briefcase,
-  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -75,9 +71,6 @@ export default function ConfigGeneral() {
   const [editingProject, setEditingProject] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [memberCount, setMemberCount] = useState(0);
-  const [departmentCount, setDepartmentCount] = useState(0);
-  const [invitationCount, setInvitationCount] = useState(0);
 
   const [projectForm, setProjectForm] = useState({
     name: "",
@@ -144,7 +137,6 @@ export default function ConfigGeneral() {
             phase: project.phase,
             description: project.description || "",
           });
-          setDepartmentCount(project.departments?.length || 0);
 
           // Load only assigned producers
           if (project.producers && project.producers.length > 0) {
@@ -161,17 +153,6 @@ export default function ConfigGeneral() {
             setAssignedProducers(producersData);
           }
         }
-
-        // Load member count
-        const membersSnap = await getDocs(collection(db, `projects/${id}/members`));
-        setMemberCount(membersSnap.size);
-
-        // Load invitation count
-        const invitationsSnap = await getDocs(collection(db, "invitations"));
-        const pendingInvitations = invitationsSnap.docs.filter(
-          (doc) => doc.data().projectId === id && doc.data().status === "pending"
-        );
-        setInvitationCount(pendingInvitations.length);
 
         setLoading(false);
       } catch (error) {
@@ -214,20 +195,6 @@ export default function ConfigGeneral() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const formatDate = (timestamp: Timestamp) => {
-    const date = timestamp.toDate();
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Hoy";
-    if (diffDays === 1) return "Hace 1 día";
-    if (diffDays < 7) return `Hace ${diffDays} días`;
-    if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semanas`;
-    if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`;
-    return `Hace ${Math.floor(diffDays / 365)} años`;
   };
 
   if (loading) {
@@ -291,49 +258,6 @@ export default function ConfigGeneral() {
               <span>{errorMessage}</span>
             </div>
           )}
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Users size={24} className="text-blue-600" />
-                <span className="text-3xl font-bold text-blue-700">{memberCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-blue-900">Miembros</h3>
-              <p className="text-xs text-blue-700">En el equipo</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Briefcase size={24} className="text-amber-600" />
-                <span className="text-3xl font-bold text-amber-700">{departmentCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-amber-900">Departamentos</h3>
-              <p className="text-xs text-amber-700">Configurados</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Building2 size={24} className="text-purple-600" />
-                <span className="text-3xl font-bold text-purple-700">
-                  {assignedProducers.length}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
-              <p className="text-xs text-purple-700">Asignadas</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Calendar size={24} className="text-emerald-600" />
-                <span className="text-emerald-700 text-sm font-semibold">
-                  {project?.createdAt ? formatDate(project.createdAt) : "-"}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-emerald-900">Creado</h3>
-              <p className="text-xs text-emerald-700">Fecha de inicio</p>
-            </div>
-          </div>
 
           {/* Project Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
