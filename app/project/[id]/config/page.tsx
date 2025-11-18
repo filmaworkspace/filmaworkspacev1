@@ -71,6 +71,7 @@ export default function ConfigGeneral() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
+  const [projectName, setProjectName] = useState("");
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
@@ -506,5 +507,6 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
 
