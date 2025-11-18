@@ -304,7 +304,7 @@ export default function ConfigGeneral() {
           href="/dashboard"
           className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
         >
-          Volver al proyectos
+          Volver a proyectos
         </Link>
       </div>
 
@@ -507,6 +507,7 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
 
 
