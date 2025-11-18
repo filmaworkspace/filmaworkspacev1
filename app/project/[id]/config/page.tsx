@@ -71,7 +71,7 @@ export default function ConfigGeneral() {
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
   const [project, setProject] = useState<ProjectData | null>(null);
-  const [allProducers, setAllProducers] = useState<Producer[]>([]);
+  const [assignedProducers, setAssignedProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -145,15 +145,22 @@ export default function ConfigGeneral() {
             description: project.description || "",
           });
           setDepartmentCount(project.departments?.length || 0);
-        }
 
-        // Load all producers
-        const producersSnap = await getDocs(collection(db, "producers"));
-        const producersData: Producer[] = producersSnap.docs.map((doc) => ({
-          id: doc.id,
-          name: doc.data().name,
-        }));
-        setAllProducers(producersData);
+          // Load only assigned producers
+          if (project.producers && project.producers.length > 0) {
+            const producersData: Producer[] = [];
+            for (const producerId of project.producers) {
+              const producerDoc = await getDoc(doc(db, "producers", producerId));
+              if (producerDoc.exists()) {
+                producersData.push({
+                  id: producerDoc.id,
+                  name: producerDoc.data().name,
+                });
+              }
+            }
+            setAssignedProducers(producersData);
+          }
+        }
 
         // Load member count
         const membersSnap = await getDocs(collection(db, `projects/${id}/members`));
@@ -209,44 +216,6 @@ export default function ConfigGeneral() {
     }
   };
 
-  const handleToggleProducer = async (producerId: string) => {
-    if (!id) return;
-    setSaving(true);
-
-    try {
-      const projectRef = doc(db, "projects", id as string);
-      const isCurrentlyAssigned = project?.producers?.includes(producerId);
-
-      if (isCurrentlyAssigned) {
-        await updateDoc(projectRef, {
-          producers: arrayRemove(producerId),
-        });
-        setProject({
-          ...project!,
-          producers: project?.producers?.filter((p) => p !== producerId) || [],
-        });
-      } else {
-        await updateDoc(projectRef, {
-          producers: arrayUnion(producerId),
-        });
-        setProject({
-          ...project!,
-          producers: [...(project?.producers || []), producerId],
-        });
-      }
-
-      setSuccessMessage(
-        isCurrentlyAssigned ? "Productora eliminada" : "Productora agregada"
-      );
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error actualizando productoras:", error);
-      setErrorMessage("Error al actualizar las productoras");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const formatDate = (timestamp: Timestamp) => {
     const date = timestamp.toDate();
     const now = new Date();
@@ -288,7 +257,25 @@ export default function ConfigGeneral() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
+      {/* Banner superior */}
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-600 p-2 rounded-lg">
+            <Info size={16} className="text-white" />
+          </div>
+          <h1 className="text-sm font-medium text-slate-900 tracking-tight">
+            {project?.name}
+          </h1>
+        </div>
+        <Link
+          href="/dashboard"
+          className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
+        >
+          Volver a proyectos
+        </Link>
+      </div>
+
+      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
           {/* Success/Error Messages */}
           {successMessage && (
@@ -329,7 +316,7 @@ export default function ConfigGeneral() {
               <div className="flex items-center justify-between mb-3">
                 <Building2 size={24} className="text-purple-600" />
                 <span className="text-3xl font-bold text-purple-700">
-                  {project?.producers?.length || 0}
+                  {assignedProducers.length}
                 </span>
               </div>
               <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
@@ -473,59 +460,50 @@ export default function ConfigGeneral() {
             </div>
           </div>
 
-          {/* Producers Card */}
+          {/* Producers Card - Solo lectura */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
                   <Building2 size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Productoras</h2>
-                  <p className="text-sm text-slate-500">Gestiona las productoras del proyecto</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
+                  <p className="text-sm text-slate-500">Productoras asociadas a este proyecto</p>
                 </div>
               </div>
 
-              {allProducers.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-sm">
-                  No hay productoras disponibles. Contacta con el administrador.
+              {assignedProducers.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                  <Building2 size={48} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-slate-500 text-sm font-medium">
+                    No hay productoras asignadas a este proyecto
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    Contacta con el administrador para asignar productoras
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {allProducers.map((producer) => {
-                    const isAssigned = project?.producers?.includes(producer.id);
-                    return (
-                      <button
-                        key={producer.id}
-                        onClick={() => handleToggleProducer(producer.id)}
-                        disabled={saving}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${
-                          isAssigned
-                            ? "border-amber-500 bg-amber-50 hover:bg-amber-100"
-                            : "border-slate-200 bg-white hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Building2
-                              size={18}
-                              className={isAssigned ? "text-amber-600" : "text-slate-400"}
-                            />
-                            <span
-                              className={`text-sm font-medium ${
-                                isAssigned ? "text-amber-900" : "text-slate-700"
-                              }`}
-                            >
-                              {producer.name}
-                            </span>
-                          </div>
-                          {isAssigned && (
-                            <CheckCircle2 size={18} className="text-amber-600" />
-                          )}
+                  {assignedProducers.map((producer) => (
+                    <div
+                      key={producer.id}
+                      className="p-4 rounded-lg border-2 border-purple-200 bg-purple-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                          <Building2 size={20} className="text-purple-600" />
                         </div>
-                      </button>
-                    );
-                  })}
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-purple-900">
+                            {producer.name}
+                          </p>
+                          <p className="text-xs text-purple-600">Productora</p>
+                        </div>
+                        <CheckCircle2 size={18} className="text-purple-600" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
