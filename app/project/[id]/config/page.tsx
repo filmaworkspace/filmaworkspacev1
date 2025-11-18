@@ -16,6 +16,7 @@ import {
   Users,
   Briefcase,
   Calendar,
+  Folder,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -292,7 +293,7 @@ export default function ConfigGeneral() {
       <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-slate-700 p-2 rounded-lg">
-            <Info size={16} className="text-white" />
+            <Folder size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
             Configuración General
@@ -505,3 +506,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
