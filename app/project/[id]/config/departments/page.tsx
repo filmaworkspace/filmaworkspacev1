@@ -274,21 +274,21 @@ export default function ConfigDepartments() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-4 flex items-center justify-between">
+{/* Banner superior */}
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-slate-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+            <Users size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
             {projectName}
           </h1>
         </div>
         <Link
-          href="/dashboard"
+          href={`/project/${id}`}
           className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
         >
-          Volver a proyectos
+          Volver al proyecto
         </Link>
       </div>
 
