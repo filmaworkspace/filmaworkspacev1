@@ -386,12 +386,12 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-20 h-20 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-6"></div>
-            <p className="text-slate-600 text-base font-medium">
-              Cargando tus proyectos...
+            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-600 text-sm font-medium">
+              Cargando proyectos...
             </p>
           </div>
         </main>
@@ -403,147 +403,105 @@ export default function Dashboard() {
   const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
           {/* Header with welcome */}
-          <header className="mb-12">
-            <div className="mb-8">
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight mb-3 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                Hola, {userName} 👋
+          <header className="mb-10">
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-2">
+                Hola, {userName}
               </h1>
-              <p className="text-lg text-slate-600">
-                Aquí está tu resumen de proyectos
+              <p className="text-sm text-slate-600">
+                Resumen de proyectos
               </p>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="relative group bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:border-slate-300 transition-all duration-300 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                      <Folder size={28} />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-4xl font-bold text-slate-900">
-                        {projects.length}
-                      </div>
-                      <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                        Total
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-blue-600 text-white p-2 rounded-lg">
+                    <Folder size={20} />
                   </div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Total de proyectos
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Todos tus proyectos asignados
-                  </p>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {projects.length}
+                  </div>
                 </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Total de proyectos
+                </h3>
               </div>
 
-              <div className="relative group bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:border-slate-300 transition-all duration-300 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                      <Zap size={28} />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-4xl font-bold text-slate-900">
-                        {activeProjects}
-                      </div>
-                      <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                        Activos
-                      </div>
-                    </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-emerald-600 text-white p-2 rounded-lg">
+                    <Zap size={20} />
                   </div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Proyectos activos
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    En desarrollo o producción
-                  </p>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {activeProjects}
+                  </div>
                 </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Proyectos activos
+                </h3>
               </div>
 
-              <div className="relative group bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:border-slate-300 transition-all duration-300 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="bg-gradient-to-br from-purple-500 to-pink-600 text-white p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                      <Star size={28} />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-4xl font-bold text-slate-900">
-                        {finishedProjects}
-                      </div>
-                      <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                        Finalizados
-                      </div>
-                    </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-purple-600 text-white p-2 rounded-lg">
+                    <Star size={20} />
                   </div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Proyectos completados
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Entregas exitosas
-                  </p>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {finishedProjects}
+                  </div>
                 </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Proyectos completados
+                </h3>
               </div>
             </div>
           </header>
 
           {/* Pending invitations */}
           {invitations.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
-                  <Mail size={20} className="text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-slate-900">
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <Mail size={18} className="text-blue-600" />
+                <h2 className="text-lg font-semibold text-slate-900">
                   Invitaciones pendientes
                 </h2>
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                <span className="bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                   {invitations.length}
                 </span>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {invitations.map((invitation) => (
                   <div
                     key={invitation.id}
-                    className="relative group bg-white border-2 border-blue-200 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:shadow-lg transition-all"
                   >
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-full -mr-20 -mt-20"></div>
-                    
-                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1 rounded-bl-xl text-xs font-bold shadow-lg flex items-center gap-1">
-                      <Sparkles size={12} />
-                      Nueva
-                    </div>
-
-                    <div className="relative mb-6">
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-2.5 rounded-xl shadow-md">
-                          <Folder size={20} />
+                    <div className="mb-4">
+                      <div className="flex items-start gap-2 mb-3">
+                        <div className="bg-blue-600 text-white p-1.5 rounded-lg">
+                          <Folder size={16} />
                         </div>
                         <div className="flex-1">
-                          <h2 className="text-lg font-bold text-slate-900 mb-1">
+                          <h2 className="text-base font-semibold text-slate-900 mb-0.5">
                             {invitation.projectName}
                           </h2>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                            <User size={12} />
-                            <span>Por {invitation.invitedByName}</span>
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <User size={11} />
+                            <span>{invitation.invitedByName}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-2 mb-3">
                         <div className="flex items-center gap-2 text-sm">
-                          <Briefcase size={14} className="text-slate-500" />
-                          <span className="font-semibold text-slate-900">
+                          <Briefcase size={13} className="text-slate-500" />
+                          <span className="font-medium text-slate-900">
                             {invitation.roleType === "project"
                               ? invitation.role
                               : `${invitation.position} - ${invitation.department}`}
@@ -553,19 +511,19 @@ export default function Dashboard() {
                         {(invitation.permissions.accounting ||
                           invitation.permissions.team ||
                           invitation.permissions.config) && (
-                          <div className="flex flex-wrap gap-1.5 mt-3">
+                          <div className="flex flex-wrap gap-1.5">
                             {invitation.permissions.config && (
-                              <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-medium">
+                              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">
                                 Config
                               </span>
                             )}
                             {invitation.permissions.accounting && (
-                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md font-medium">
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">
                                 Accounting
                               </span>
                             )}
                             {invitation.permissions.team && (
-                              <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-md font-medium">
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
                                 Team
                               </span>
                             )}
@@ -574,21 +532,21 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="relative flex gap-2">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl py-3 text-sm transition-all shadow-md hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Check size={16} />
+                        <Check size={14} />
                         {processingInvite === invitation.id ? "Procesando..." : "Aceptar"}
                       </button>
                       <button
                         onClick={() => handleRejectInvitation(invitation.id)}
                         disabled={processingInvite === invitation.id}
-                        className="flex items-center justify-center gap-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <XIcon size={16} />
+                        <XIcon size={14} />
                       </button>
                     </div>
                   </div>
@@ -599,20 +557,19 @@ export default function Dashboard() {
 
           {/* Empty state or projects list */}
           {projects.length === 0 && invitations.length === 0 ? (
-            <div className="flex items-center justify-center py-24">
+            <div className="flex items-center justify-center py-20">
               <div className="text-center max-w-md">
-                <div className="bg-gradient-to-br from-slate-100 to-slate-200 w-32 h-32 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
-                  <Folder size={56} className="text-slate-400" />
+                <div className="bg-slate-100 w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <Folder size={32} className="text-slate-400" />
                 </div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                <h2 className="text-xl font-semibold text-slate-800 mb-2">
                   No tienes proyectos asignados
                 </h2>
-                <p className="text-slate-600 leading-relaxed mb-8 text-lg">
-                  Aún no has sido asignado a ningún proyecto. Contacta con tu
-                  administrador para obtener acceso.
+                <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                  Contacta con tu administrador para obtener acceso
                 </p>
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl p-4 border border-slate-200">
-                  <Clock size={16} />
+                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <Clock size={14} />
                   <span>Los proyectos aparecerán aquí cuando seas añadido</span>
                 </div>
               </div>
@@ -620,41 +577,39 @@ export default function Dashboard() {
           ) : (
             projects.length > 0 && (
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-slate-900 p-2 rounded-lg">
-                    <Folder size={20} className="text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-900">
+                <div className="flex items-center gap-2 mb-4">
+                  <Folder size={18} className="text-slate-600" />
+                  <h2 className="text-lg font-semibold text-slate-900">
                     Tus proyectos
                   </h2>
                 </div>
 
                 {/* Filters and search */}
-                <div className="mb-8 flex flex-col sm:flex-row gap-4">
+                <div className="mb-6 flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
                     <Search
-                      size={20}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <input
                       type="text"
                       placeholder="Buscar por nombre o productora..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm font-medium transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm"
                     />
                   </div>
 
                   <div className="flex gap-3">
                     <div className="relative">
                       <Filter
-                        size={18}
+                        size={16}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                       />
                       <select
                         value={selectedPhase}
                         onChange={(e) => setSelectedPhase(e.target.value)}
-                        className="pl-10 pr-8 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm font-medium appearance-none bg-white cursor-pointer transition-all"
+                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
                       >
                         <option value="all">Todas las fases</option>
                         <option value="Desarrollo">Desarrollo</option>
@@ -667,13 +622,13 @@ export default function Dashboard() {
 
                     <div className="relative">
                       <Calendar
-                        size={18}
+                        size={16}
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                       />
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")}
-                        className="pl-10 pr-8 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm font-medium appearance-none bg-white cursor-pointer transition-all"
+                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
                       >
                         <option value="recent">Más recientes</option>
                         <option value="name">Por nombre</option>
@@ -684,8 +639,8 @@ export default function Dashboard() {
                 </div>
 
                 {filteredProjects.length === 0 ? (
-                  <div className="text-center py-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                    <p className="text-slate-500 text-lg font-medium mb-3">
+                  <div className="text-center py-16 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-slate-500 text-sm font-medium mb-2">
                       No se encontraron proyectos con los filtros aplicados
                     </p>
                     <button
@@ -693,22 +648,22 @@ export default function Dashboard() {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="text-sm text-slate-700 hover:text-slate-900 font-semibold underline"
+                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
                     >
                       Limpiar filtros
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-6">
-                      <p className="text-sm text-slate-600 font-medium">
-                        Mostrando <span className="text-slate-900 font-bold">{filteredProjects.length}</span> de <span className="text-slate-900 font-bold">{projects.length}</span>{" "}
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs text-slate-600">
+                        Mostrando <span className="text-slate-900 font-semibold">{filteredProjects.length}</span> de <span className="text-slate-900 font-semibold">{projects.length}</span>{" "}
                         {projects.length === 1 ? "proyecto" : "proyectos"}
                       </p>
                     </div>
 
                     {/* Projects grid */}
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {filteredProjects.map((project) => {
                         const hasConfig = project.permissions.config;
                         const hasAccounting = project.permissions.accounting;
@@ -718,113 +673,108 @@ export default function Dashboard() {
                         return (
                           <div
                             key={project.id}
-                            className="group relative bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                            className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all"
                           >
-                            {/* Background decoration */}
-                            <div className={`absolute top-0 right-0 w-40 h-40 ${phaseStyle.bg} rounded-full -mr-20 -mt-20 opacity-50 group-hover:scale-150 transition-transform duration-500`}></div>
-                            
-                            {/* Phase badge */}
-                            <div className={`absolute top-4 right-4 bg-gradient-to-r ${phaseStyle.gradient} text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md`}>
-                              {project.phase}
-                            </div>
-
-                            <div className="relative">
-                              {/* Project header */}
-                              <div className="mb-4 pr-20">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <div className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                                    <Folder size={22} />
+                            {/* Project header */}
+                            <div className="mb-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-slate-900 text-white p-1.5 rounded-lg">
+                                    <Folder size={16} />
                                   </div>
-                                  <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">
+                                  <h2 className="text-base font-semibold text-slate-900">
                                     {project.name}
                                   </h2>
                                 </div>
+                                <span className={`text-xs font-medium text-white rounded-full px-2.5 py-1 bg-gradient-to-r ${phaseStyle.gradient}`}>
+                                  {project.phase}
+                                </span>
+                              </div>
 
-                                {project.description && (
-                                  <p className="text-sm text-slate-600 mb-3 line-clamp-2 leading-relaxed">
-                                    {project.description}
-                                  </p>
-                                )}
+                              {project.description && (
+                                <p className="text-xs text-slate-600 mb-3 line-clamp-2">
+                                  {project.description}
+                                </p>
+                              )}
 
-                                {/* Producers */}
-                                {project.producerNames && project.producerNames.length > 0 && (
-                                  <div className="mb-3 space-y-1">
-                                    {project.producerNames.map((producerName, index) => (
-                                      <div key={index} className="flex items-center gap-2">
-                                        <Building2 size={14} className="text-amber-600" />
-                                        <span className="text-sm text-slate-700 font-semibold">
-                                          {producerName}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {/* Role and member count */}
-                                <div className="flex items-center gap-3 flex-wrap mb-4">
-                                  {project.role && (
-                                    <span className="text-xs font-semibold text-slate-700 bg-slate-100 border-2 border-slate-200 rounded-lg px-3 py-1.5">
-                                      {project.role}
-                                    </span>
-                                  )}
-                                  {project.position && project.department && (
-                                    <span className="text-xs font-semibold text-slate-700 bg-slate-100 border-2 border-slate-200 rounded-lg px-3 py-1.5">
-                                      {project.position} · {project.department}
-                                    </span>
-                                  )}
+                              {/* Producers */}
+                              {project.producerNames && project.producerNames.length > 0 && (
+                                <div className="mb-3 space-y-1">
+                                  {project.producerNames.map((producerName, index) => (
+                                    <div key={index} className="flex items-center gap-1.5">
+                                      <Building2 size={13} className="text-amber-600" />
+                                      <span className="text-xs text-slate-700 font-medium">
+                                        {producerName}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
+                              )}
 
-                                {project.memberCount !== undefined && (
-                                  <div className="flex items-center gap-2">
-                                    <Users size={16} className="text-slate-400" />
-                                    <span className="text-sm text-slate-600 font-medium">
-                                      {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
+                              {/* Role and member count */}
+                              <div className="flex items-center gap-2 flex-wrap mb-2">
+                                {project.role && (
+                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
+                                    {project.role}
+                                  </span>
+                                )}
+                                {project.position && project.department && (
+                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
+                                    {project.position} · {project.department}
+                                  </span>
+                                )}
+                              </div>
+
+                              {project.memberCount !== undefined && (
+                                <div className="flex items-center gap-1.5">
+                                  <Users size={13} className="text-slate-400" />
+                                  <span className="text-xs text-slate-600">
+                                    {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Access cards */}
+                            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
+                              {hasConfig && (
+                                <Link href={`/project/${project.id}/config`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-slate-900 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-slate-100 text-slate-700 p-2 rounded-lg mb-1">
+                                      <Settings size={16} />
+                                    </div>
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Config
                                     </span>
                                   </div>
-                                )}
-                              </div>
+                                </Link>
+                              )}
 
-                              {/* Access cards */}
-                              <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t-2 border-slate-100">
-                                {hasConfig && (
-                                  <Link href={`/project/${project.id}/config`}>
-                                    <div className="group/card flex flex-col items-center justify-center p-4 border-2 border-slate-200 rounded-xl hover:border-slate-900 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer bg-white">
-                                      <div className="bg-slate-100 text-slate-700 p-3 rounded-lg group-hover/card:bg-slate-900 group-hover/card:text-white group-hover/card:scale-110 transition-all mb-2">
-                                        <Settings size={20} />
-                                      </div>
-                                      <span className="text-xs font-bold text-slate-800 group-hover/card:text-slate-900">
-                                        Config
-                                      </span>
+                              {hasAccounting && (
+                                <Link href={`/project/${project.id}/accounting`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg mb-1">
+                                      <FileText size={16} />
                                     </div>
-                                  </Link>
-                                )}
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Accounting
+                                    </span>
+                                  </div>
+                                </Link>
+                              )}
 
-                                {hasAccounting && (
-                                  <Link href={`/project/${project.id}/accounting`}>
-                                    <div className="group/card flex flex-col items-center justify-center p-4 border-2 border-slate-200 rounded-xl hover:border-indigo-600 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer bg-white">
-                                      <div className="bg-indigo-100 text-indigo-700 p-3 rounded-lg group-hover/card:bg-indigo-600 group-hover/card:text-white group-hover/card:scale-110 transition-all mb-2">
-                                        <FileText size={20} />
-                                      </div>
-                                      <span className="text-xs font-bold text-slate-800 group-hover/card:text-indigo-600">
-                                        Accounting
-                                      </span>
+                              {hasTeam && (
+                                <Link href={`/project/${project.id}/team`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-amber-600 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-amber-100 text-amber-700 p-2 rounded-lg mb-1">
+                                      <Users size={16} />
                                     </div>
-                                  </Link>
-                                )}
-
-                                {hasTeam && (
-                                  <Link href={`/project/${project.id}/team`}>
-                                    <div className="group/card flex flex-col items-center justify-center p-4 border-2 border-slate-200 rounded-xl hover:border-amber-600 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer bg-white">
-                                      <div className="bg-amber-100 text-amber-700 p-3 rounded-lg group-hover/card:bg-amber-600 group-hover/card:text-white group-hover/card:scale-110 transition-all mb-2">
-                                        <Users size={20} />
-                                      </div>
-                                      <span className="text-xs font-bold text-slate-800 group-hover/card:text-amber-600">
-                                        Team
-                                      </span>
-                                    </div>
-                                  </Link>
-                                )}
-                              </div>
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Team
+                                    </span>
+                                  </div>
+                                </Link>
+                              )}
                             </div>
                           </div>
                         );
