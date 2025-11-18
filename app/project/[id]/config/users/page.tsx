@@ -498,7 +498,7 @@ export default function ConfigUsers() {
             <Users size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
-            {projectName} - Gestión de usuarios
+            {projectName}
           </h1>
         </div>
         <Link
