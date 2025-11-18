@@ -288,14 +288,14 @@ export default function ConfigGeneral() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
+{/* Banner superior */}
       <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-slate-700 p-2 rounded-lg">
-            <Info size={16} className="text-white" />
+          <div className="bg-slate-600 p-2 rounded-lg">
+            <Users size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-slate-900 tracking-tight">
-            Configuración General
+            {projectName}
           </h1>
         </div>
         <Link
@@ -505,3 +505,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
