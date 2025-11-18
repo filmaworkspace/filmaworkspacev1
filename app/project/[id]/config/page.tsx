@@ -323,49 +323,6 @@ export default function ConfigGeneral() {
             </div>
           )}
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Users size={24} className="text-blue-600" />
-                <span className="text-3xl font-bold text-blue-700">{memberCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-blue-900">Miembros</h3>
-              <p className="text-xs text-blue-700">En el equipo</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Briefcase size={24} className="text-amber-600" />
-                <span className="text-3xl font-bold text-amber-700">{departmentCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-amber-900">Departamentos</h3>
-              <p className="text-xs text-amber-700">Configurados</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Building2 size={24} className="text-purple-600" />
-                <span className="text-3xl font-bold text-purple-700">
-                  {project?.producers?.length || 0}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
-              <p className="text-xs text-purple-700">Asignadas</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Calendar size={24} className="text-emerald-600" />
-                <span className="text-emerald-700 text-sm font-semibold">
-                  {project?.createdAt ? formatDate(project.createdAt) : "-"}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-emerald-900">Creado</h3>
-              <p className="text-xs text-emerald-700">Fecha de inicio</p>
-            </div>
-          </div>
-
           {/* Project Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
             <div className="p-6">
@@ -494,25 +451,16 @@ export default function ConfigGeneral() {
           {/* Producers Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
-                    <Building2 size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
-                    <p className="text-sm text-slate-500">
-                      {project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? 's' : ''} vinculada{project?.producers?.length !== 1 ? 's' : ''} al proyecto
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
+                  <Building2 size={20} className="text-white" />
                 </div>
-                <button
-                  onClick={() => {/* Aquí podrías añadir lógica para editar */}}
-                  className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <Edit2 size={16} />
-                  Gestionar
-                </button>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
+                  <p className="text-sm text-slate-500">
+                    {project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? 's' : ''} vinculada{project?.producers?.length !== 1 ? 's' : ''} al proyecto
+                  </p>
+                </div>
               </div>
 
               {project?.producers && project.producers.length > 0 ? (
@@ -546,7 +494,7 @@ export default function ConfigGeneral() {
                   <Building2 size={48} className="text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-600 font-medium mb-1">No hay productoras asignadas</p>
                   <p className="text-sm text-slate-500">
-                    Haz clic en "Gestionar" para asignar productoras al proyecto
+                    Este proyecto aún no tiene productoras vinculadas
                   </p>
                 </div>
               )}
