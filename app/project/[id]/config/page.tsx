@@ -132,6 +132,7 @@ export default function ConfigGeneral() {
 
         if (projectSnap.exists()) {
           const projectData = projectSnap.data();
+          setProjectName(projectData.name); // ✅ LÍNEA AGREGADA
           const project: ProjectData = {
             name: projectData.name,
             phase: projectData.phase,
@@ -199,6 +200,8 @@ export default function ConfigGeneral() {
         phase: projectForm.phase,
         description: projectForm.description,
       });
+
+      setProjectName(projectForm.name); // ✅ También actualiza el banner al guardar
 
       setEditingProject(false);
       setSuccessMessage("Proyecto actualizado correctamente");
@@ -507,9 +510,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
-
-
-
-
-
