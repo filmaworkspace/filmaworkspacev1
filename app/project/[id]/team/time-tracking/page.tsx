@@ -315,10 +315,10 @@ export default function TimeTrackingPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/project/${id}/team`}
+            href="/dashboard"
             className="text-amber-600 hover:text-amber-900 transition-colors text-sm font-medium"
           >
-            Volver a team
+            Volver a proyectos
           </Link>
         </div>
       </div>
@@ -822,3 +822,4 @@ export default function TimeTrackingPage() {
     </div>
   );
 }
+
