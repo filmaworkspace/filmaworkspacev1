@@ -12,18 +12,16 @@ import {
   Calendar,
   Clock,
   Film,
-  Zap,
   Mail,
   Check,
   X as XIcon,
-  Sparkles,
   Building2,
   User,
-  ExternalLink,
-  ChevronRight,
-  TrendingUp,
-  Star,
   Briefcase,
+  ChevronRight,
+  ArrowRight,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -44,36 +42,41 @@ import {
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const phaseColors: Record<string, { gradient: string; bg: string; border: string; text: string }> = {
+const phaseColors: Record<string, { gradient: string; bg: string; border: string; text: string; icon: string }> = {
   Desarrollo: {
-    gradient: "from-sky-400 to-sky-600",
+    gradient: "from-sky-500 to-sky-700",
     bg: "bg-sky-50",
-    border: "border-sky-200",
-    text: "text-sky-700"
+    border: "border-sky-300",
+    text: "text-sky-700",
+    icon: "bg-sky-500"
   },
   Preproducción: {
-    gradient: "from-amber-400 to-amber-600",
+    gradient: "from-amber-500 to-amber-700",
     bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-700"
+    border: "border-amber-300",
+    text: "text-amber-700",
+    icon: "bg-amber-500"
   },
   Rodaje: {
-    gradient: "from-indigo-400 to-indigo-600",
+    gradient: "from-indigo-500 to-indigo-700",
     bg: "bg-indigo-50",
-    border: "border-indigo-200",
-    text: "text-indigo-700"
+    border: "border-indigo-300",
+    text: "text-indigo-700",
+    icon: "bg-indigo-500"
   },
   Postproducción: {
-    gradient: "from-purple-400 to-purple-600",
+    gradient: "from-purple-500 to-purple-700",
     bg: "bg-purple-50",
-    border: "border-purple-200",
-    text: "text-purple-700"
+    border: "border-purple-300",
+    text: "text-purple-700",
+    icon: "bg-purple-500"
   },
   Finalizado: {
-    gradient: "from-emerald-400 to-emerald-600",
+    gradient: "from-emerald-500 to-emerald-700",
     bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    text: "text-emerald-700"
+    border: "border-emerald-300",
+    text: "text-emerald-700",
+    icon: "bg-emerald-500"
   },
 };
 
@@ -130,6 +133,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Auth listener
   useEffect(() => {
@@ -386,10 +390,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 text-sm font-medium">
               Cargando proyectos...
             </p>
@@ -399,79 +403,35 @@ export default function Dashboard() {
     );
   }
 
-  const activeProjects = projects.filter((p) => p.phase !== "Finalizado").length;
-  const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
-
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
           {/* Header with welcome */}
-          <header className="mb-10">
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-2">
-                Hola, {userName}
-              </h1>
-              <p className="text-sm text-slate-600">
-                Resumen de proyectos
-              </p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-blue-600 text-white p-2 rounded-lg">
-                    <Folder size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {projects.length}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Total de proyectos
-                </h3>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-emerald-600 text-white p-2 rounded-lg">
-                    <Zap size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {activeProjects}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Proyectos activos
-                </h3>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-purple-600 text-white p-2 rounded-lg">
-                    <Star size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {finishedProjects}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Proyectos completados
-                </h3>
+          <header className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">
+                  Tus proyectos
+                </h1>
+                <p className="text-sm text-slate-600">
+                  Hola, {userName} · {projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}
+                </p>
               </div>
             </div>
           </header>
 
           {/* Pending invitations */}
           {invitations.length > 0 && (
-            <div className="mb-10">
+            <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
-                <Mail size={18} className="text-blue-600" />
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <Mail size={18} className="text-blue-600" />
+                </div>
                 <h2 className="text-lg font-semibold text-slate-900">
                   Invitaciones pendientes
                 </h2>
-                <span className="bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
                   {invitations.length}
                 </span>
               </div>
@@ -480,28 +440,28 @@ export default function Dashboard() {
                 {invitations.map((invitation) => (
                   <div
                     key={invitation.id}
-                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:shadow-lg transition-all"
+                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:shadow-xl transition-all"
                   >
                     <div className="mb-4">
-                      <div className="flex items-start gap-2 mb-3">
-                        <div className="bg-blue-600 text-white p-1.5 rounded-lg">
-                          <Folder size={16} />
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-2 rounded-xl shadow-lg">
+                          <Folder size={18} />
                         </div>
                         <div className="flex-1">
-                          <h2 className="text-base font-semibold text-slate-900 mb-0.5">
+                          <h2 className="text-base font-bold text-slate-900 mb-1">
                             {invitation.projectName}
                           </h2>
-                          <div className="flex items-center gap-1 text-xs text-slate-600">
-                            <User size={11} />
-                            <span>{invitation.invitedByName}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                            <User size={12} />
+                            <span>Invitado por {invitation.invitedByName}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2 mb-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Briefcase size={13} className="text-slate-500" />
-                          <span className="font-medium text-slate-900">
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center gap-2 text-sm bg-slate-50 rounded-lg p-2">
+                          <Briefcase size={14} className="text-slate-500" />
+                          <span className="font-semibold text-slate-900">
                             {invitation.roleType === "project"
                               ? invitation.role
                               : `${invitation.position} - ${invitation.department}`}
@@ -513,17 +473,17 @@ export default function Dashboard() {
                           invitation.permissions.config) && (
                           <div className="flex flex-wrap gap-1.5">
                             {invitation.permissions.config && (
-                              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">
+                              <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-semibold border border-slate-200">
                                 Config
                               </span>
                             )}
                             {invitation.permissions.accounting && (
-                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-semibold border border-indigo-200">
                                 Accounting
                               </span>
                             )}
                             {invitation.permissions.team && (
-                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-semibold border border-amber-200">
                                 Team
                               </span>
                             )}
@@ -536,17 +496,17 @@ export default function Dashboard() {
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                       >
-                        <Check size={14} />
+                        <Check size={16} />
                         {processingInvite === invitation.id ? "Procesando..." : "Aceptar"}
                       </button>
                       <button
                         onClick={() => handleRejectInvitation(invitation.id)}
                         disabled={processingInvite === invitation.id}
-                        className="flex items-center justify-center gap-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg py-2.5 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <XIcon size={14} />
+                        <XIcon size={16} />
                       </button>
                     </div>
                   </div>
@@ -559,17 +519,17 @@ export default function Dashboard() {
           {projects.length === 0 && invitations.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center max-w-md">
-                <div className="bg-slate-100 w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Folder size={32} className="text-slate-400" />
+                <div className="bg-slate-100 w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Folder size={40} className="text-slate-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-slate-800 mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 mb-3">
                   No tienes proyectos asignados
                 </h2>
-                <p className="text-sm text-slate-600 leading-relaxed mb-4">
-                  Contacta con tu administrador para obtener acceso
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Contacta con tu administrador para obtener acceso a proyectos
                 </p>
-                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg p-3 border border-slate-200">
-                  <Clock size={14} />
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                  <Clock size={16} />
                   <span>Los proyectos aparecerán aquí cuando seas añadido</span>
                 </div>
               </div>
@@ -577,26 +537,19 @@ export default function Dashboard() {
           ) : (
             projects.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Folder size={18} className="text-slate-600" />
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Tus proyectos
-                  </h2>
-                </div>
-
                 {/* Filters and search */}
                 <div className="mb-6 flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
                     <Search
                       size={18}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <input
                       type="text"
-                      placeholder="Buscar por nombre o productora..."
+                      placeholder="Buscar proyectos o productoras..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm"
+                      className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium"
                     />
                   </div>
 
@@ -609,9 +562,9 @@ export default function Dashboard() {
                       <select
                         value={selectedPhase}
                         onChange={(e) => setSelectedPhase(e.target.value)}
-                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
+                        className="pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium appearance-none cursor-pointer"
                       >
-                        <option value="all">Todas las fases</option>
+                        <option value="all">Todas</option>
                         <option value="Desarrollo">Desarrollo</option>
                         <option value="Preproducción">Preproducción</option>
                         <option value="Rodaje">Rodaje</option>
@@ -628,158 +581,284 @@ export default function Dashboard() {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")}
-                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
+                        className="pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium appearance-none cursor-pointer"
                       >
-                        <option value="recent">Más recientes</option>
-                        <option value="name">Por nombre</option>
-                        <option value="phase">Por fase</option>
+                        <option value="recent">Recientes</option>
+                        <option value="name">Nombre</option>
+                        <option value="phase">Fase</option>
                       </select>
+                    </div>
+
+                    {/* View toggle */}
+                    <div className="flex border-2 border-slate-200 rounded-xl overflow-hidden bg-white">
+                      <button
+                        onClick={() => setViewMode("grid")}
+                        className={`px-3 py-2 transition-colors ${
+                          viewMode === "grid"
+                            ? "bg-slate-900 text-white"
+                            : "bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                        title="Vista en cuadrícula"
+                      >
+                        <LayoutGrid size={18} />
+                      </button>
+                      <button
+                        onClick={() => setViewMode("list")}
+                        className={`px-3 py-2 transition-colors border-l-2 border-slate-200 ${
+                          viewMode === "list"
+                            ? "bg-slate-900 text-white"
+                            : "bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                        title="Vista de lista"
+                      >
+                        <List size={18} />
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 {filteredProjects.length === 0 ? (
-                  <div className="text-center py-16 bg-slate-50 rounded-xl border border-slate-200">
-                    <p className="text-slate-500 text-sm font-medium mb-2">
-                      No se encontraron proyectos con los filtros aplicados
+                  <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                    <p className="text-slate-500 text-sm font-medium mb-3">
+                      No se encontraron proyectos
                     </p>
                     <button
                       onClick={() => {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold underline"
                     >
                       Limpiar filtros
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-xs text-slate-600">
-                        Mostrando <span className="text-slate-900 font-semibold">{filteredProjects.length}</span> de <span className="text-slate-900 font-semibold">{projects.length}</span>{" "}
-                        {projects.length === 1 ? "proyecto" : "proyectos"}
-                      </p>
-                    </div>
+                    {/* Projects display */}
+                    {viewMode === "grid" ? (
+                      // Grid View
+                      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        {filteredProjects.map((project) => {
+                          const hasConfig = project.permissions.config;
+                          const hasAccounting = project.permissions.accounting;
+                          const hasTeam = project.permissions.team;
+                          const phaseStyle = phaseColors[project.phase];
 
-                    {/* Projects grid */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filteredProjects.map((project) => {
-                        const hasConfig = project.permissions.config;
-                        const hasAccounting = project.permissions.accounting;
-                        const hasTeam = project.permissions.team;
-                        const phaseStyle = phaseColors[project.phase];
-
-                        return (
-                          <div
-                            key={project.id}
-                            className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all"
-                          >
-                            {/* Project header */}
-                            <div className="mb-4">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="bg-slate-900 text-white p-1.5 rounded-lg">
-                                    <Folder size={16} />
+                          return (
+                            <div
+                              key={project.id}
+                              className="group bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:shadow-2xl hover:border-slate-300 transition-all"
+                            >
+                              {/* Project header with gradient */}
+                              <div className={`bg-gradient-to-r ${phaseStyle.gradient} p-6 relative`}>
+                                <div className="absolute top-3 right-3">
+                                  <span className="text-xs font-bold text-white/90 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                                    {project.phase}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl">
+                                    <Film size={22} className="text-white" />
                                   </div>
-                                  <h2 className="text-base font-semibold text-slate-900">
+                                  <h2 className="text-xl font-bold text-white pr-16">
                                     {project.name}
                                   </h2>
                                 </div>
-                                <span className={`text-xs font-medium text-white rounded-full px-2.5 py-1 bg-gradient-to-r ${phaseStyle.gradient}`}>
-                                  {project.phase}
-                                </span>
+
+                                {project.memberCount !== undefined && (
+                                  <div className="flex items-center gap-2 text-white/90">
+                                    <Users size={14} />
+                                    <span className="text-sm font-medium">
+                                      {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
 
-                              {project.description && (
-                                <p className="text-xs text-slate-600 mb-3 line-clamp-2">
-                                  {project.description}
-                                </p>
-                              )}
+                              {/* Project content */}
+                              <div className="p-6">
+                                {project.description && (
+                                  <p className="text-sm text-slate-600 mb-4 line-clamp-2 leading-relaxed">
+                                    {project.description}
+                                  </p>
+                                )}
 
-                              {/* Producers */}
-                              {project.producerNames && project.producerNames.length > 0 && (
-                                <div className="mb-3 space-y-1">
-                                  {project.producerNames.map((producerName, index) => (
-                                    <div key={index} className="flex items-center gap-1.5">
-                                      <Building2 size={13} className="text-amber-600" />
-                                      <span className="text-xs text-slate-700 font-medium">
-                                        {producerName}
+                                {/* Producers */}
+                                {project.producerNames && project.producerNames.length > 0 && (
+                                  <div className="mb-4 space-y-2">
+                                    {project.producerNames.map((producerName, index) => (
+                                      <div key={index} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                        <Building2 size={14} className="text-amber-600" />
+                                        <span className="text-xs text-slate-700 font-semibold">
+                                          {producerName}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Role */}
+                                <div className="mb-4">
+                                  {project.role && (
+                                    <div className="inline-flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">
+                                      <Briefcase size={14} className="text-slate-600" />
+                                      <span className="text-sm font-bold text-slate-900">
+                                        {project.role}
                                       </span>
                                     </div>
-                                  ))}
+                                  )}
+                                  {project.position && project.department && (
+                                    <div className="inline-flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">
+                                      <Briefcase size={14} className="text-slate-600" />
+                                      <span className="text-sm font-bold text-slate-900">
+                                        {project.position} · {project.department}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
 
-                              {/* Role and member count */}
-                              <div className="flex items-center gap-2 flex-wrap mb-2">
-                                {project.role && (
-                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
-                                    {project.role}
-                                  </span>
-                                )}
-                                {project.position && project.department && (
-                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
-                                    {project.position} · {project.department}
-                                  </span>
-                                )}
+                                {/* Access buttons */}
+                                <div className="space-y-2 pt-4 border-t-2 border-slate-100">
+                                  {hasConfig && (
+                                    <Link href={`/project/${project.id}/config`}>
+                                      <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer group/button">
+                                        <div className="flex items-center gap-3">
+                                          <div className="bg-white p-2 rounded-lg">
+                                            <Settings size={16} className="text-slate-700" />
+                                          </div>
+                                          <span className="text-sm font-semibold text-slate-900">
+                                            Configuración
+                                          </span>
+                                        </div>
+                                        <ChevronRight size={16} className="text-slate-400 group-hover/button:text-slate-700 transition-colors" />
+                                      </div>
+                                    </Link>
+                                  )}
+
+                                  {hasAccounting && (
+                                    <Link href={`/project/${project.id}/accounting`}>
+                                      <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer group/button">
+                                        <div className="flex items-center gap-3">
+                                          <div className="bg-white p-2 rounded-lg">
+                                            <FileText size={16} className="text-indigo-700" />
+                                          </div>
+                                          <span className="text-sm font-semibold text-slate-900">
+                                            Contabilidad
+                                          </span>
+                                        </div>
+                                        <ChevronRight size={16} className="text-indigo-400 group-hover/button:text-indigo-700 transition-colors" />
+                                      </div>
+                                    </Link>
+                                  )}
+
+                                  {hasTeam && (
+                                    <Link href={`/project/${project.id}/team`}>
+                                      <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 hover:border-amber-300 transition-all cursor-pointer group/button">
+                                        <div className="flex items-center gap-3">
+                                          <div className="bg-white p-2 rounded-lg">
+                                            <Users size={16} className="text-amber-700" />
+                                          </div>
+                                          <span className="text-sm font-semibold text-slate-900">
+                                            Equipo
+                                          </span>
+                                        </div>
+                                        <ChevronRight size={16} className="text-amber-400 group-hover/button:text-amber-700 transition-colors" />
+                                      </div>
+                                    </Link>
+                                  )}
+                                </div>
                               </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // List View
+                      <div className="space-y-3">
+                        {filteredProjects.map((project) => {
+                          const hasConfig = project.permissions.config;
+                          const hasAccounting = project.permissions.accounting;
+                          const hasTeam = project.permissions.team;
+                          const phaseStyle = phaseColors[project.phase];
 
-                              {project.memberCount !== undefined && (
-                                <div className="flex items-center gap-1.5">
-                                  <Users size={13} className="text-slate-400" />
-                                  <span className="text-xs text-slate-600">
-                                    {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
-                                  </span>
+                          return (
+                            <div
+                              key={project.id}
+                              className="bg-white border-2 border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                {/* Left: Project info */}
+                                <div className="flex items-center gap-4 flex-1">
+                                  <div className={`${phaseStyle.icon} p-3 rounded-xl`}>
+                                    <Film size={20} className="text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-1">
+                                      <h2 className="text-lg font-bold text-slate-900">
+                                        {project.name}
+                                      </h2>
+                                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r ${phaseStyle.gradient} text-white`}>
+                                        {project.phase}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                                      {project.role && (
+                                        <div className="flex items-center gap-1">
+                                          <Briefcase size={13} />
+                                          <span className="font-medium">{project.role}</span>
+                                        </div>
+                                      )}
+                                      {project.position && project.department && (
+                                        <div className="flex items-center gap-1">
+                                          <Briefcase size={13} />
+                                          <span className="font-medium">{project.position} · {project.department}</span>
+                                        </div>
+                                      )}
+                                      {project.memberCount !== undefined && (
+                                        <div className="flex items-center gap-1">
+                                          <Users size={13} />
+                                          <span>{project.memberCount}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
+
+                                {/* Right: Access buttons */}
+                                <div className="flex items-center gap-2">
+                                  {hasConfig && (
+                                    <Link href={`/project/${project.id}/config`}>
+                                      <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 transition-all">
+                                        <Settings size={16} />
+                                        <span className="hidden sm:inline">Config</span>
+                                      </button>
+                                    </Link>
+                                  )}
+
+                                  {hasAccounting && (
+                                    <Link href={`/project/${project.id}/accounting`}>
+                                      <button className="flex items-center gap-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700 transition-all">
+                                        <FileText size={16} />
+                                        <span className="hidden sm:inline">Accounting</span>
+                                      </button>
+                                    </Link>
+                                  )}
+
+                                  {hasTeam && (
+                                    <Link href={`/project/${project.id}/team`}>
+                                      <button className="flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 border border-amber-200 rounded-lg text-sm font-semibold text-amber-700 transition-all">
+                                        <Users size={16} />
+                                        <span className="hidden sm:inline">Team</span>
+                                      </button>
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-
-                            {/* Access cards */}
-                            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
-                              {hasConfig && (
-                                <Link href={`/project/${project.id}/config`}>
-                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-slate-900 hover:shadow-md transition-all cursor-pointer">
-                                    <div className="bg-slate-100 text-slate-700 p-2 rounded-lg mb-1">
-                                      <Settings size={16} />
-                                    </div>
-                                    <span className="text-xs font-medium text-slate-700">
-                                      Config
-                                    </span>
-                                  </div>
-                                </Link>
-                              )}
-
-                              {hasAccounting && (
-                                <Link href={`/project/${project.id}/accounting`}>
-                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer">
-                                    <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg mb-1">
-                                      <FileText size={16} />
-                                    </div>
-                                    <span className="text-xs font-medium text-slate-700">
-                                      Accounting
-                                    </span>
-                                  </div>
-                                </Link>
-                              )}
-
-                              {hasTeam && (
-                                <Link href={`/project/${project.id}/team`}>
-                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-amber-600 hover:shadow-md transition-all cursor-pointer">
-                                    <div className="bg-amber-100 text-amber-700 p-2 rounded-lg mb-1">
-                                      <Users size={16} />
-                                    </div>
-                                    <span className="text-xs font-medium text-slate-700">
-                                      Team
-                                    </span>
-                                  </div>
-                                </Link>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
