@@ -19,13 +19,8 @@ import {
   User,
   Briefcase,
   ChevronRight,
-  LayoutGrid,
-  List,
   Star,
   MoreVertical,
-  ExternalLink,
-  TrendingUp,
-  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -46,46 +41,36 @@ import {
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const phaseColors: Record<string, { gradient: string; bg: string; border: string; text: string; icon: string; dot: string }> = {
+const phaseColors: Record<string, { gradient: string; bg: string; border: string; text: string }> = {
   Desarrollo: {
-    gradient: "from-sky-500 to-sky-700",
+    gradient: "from-sky-400 to-sky-600",
     bg: "bg-sky-50",
-    border: "border-sky-300",
-    text: "text-sky-700",
-    icon: "bg-sky-500",
-    dot: "bg-sky-500"
+    border: "border-sky-200",
+    text: "text-sky-700"
   },
   Preproducción: {
-    gradient: "from-amber-500 to-amber-700",
+    gradient: "from-amber-400 to-amber-600",
     bg: "bg-amber-50",
-    border: "border-amber-300",
-    text: "text-amber-700",
-    icon: "bg-amber-500",
-    dot: "bg-amber-500"
+    border: "border-amber-200",
+    text: "text-amber-700"
   },
   Rodaje: {
-    gradient: "from-indigo-500 to-indigo-700",
+    gradient: "from-indigo-400 to-indigo-600",
     bg: "bg-indigo-50",
-    border: "border-indigo-300",
-    text: "text-indigo-700",
-    icon: "bg-indigo-500",
-    dot: "bg-indigo-500"
+    border: "border-indigo-200",
+    text: "text-indigo-700"
   },
   Postproducción: {
-    gradient: "from-purple-500 to-purple-700",
+    gradient: "from-purple-400 to-purple-600",
     bg: "bg-purple-50",
-    border: "border-purple-300",
-    text: "text-purple-700",
-    icon: "bg-purple-500",
-    dot: "bg-purple-500"
+    border: "border-purple-200",
+    text: "text-purple-700"
   },
   Finalizado: {
-    gradient: "from-emerald-500 to-emerald-700",
+    gradient: "from-emerald-400 to-emerald-600",
     bg: "bg-emerald-50",
-    border: "border-emerald-300",
-    text: "text-emerald-700",
-    icon: "bg-emerald-500",
-    dot: "bg-emerald-500"
+    border: "border-emerald-200",
+    text: "text-emerald-700"
   },
 };
 
@@ -108,7 +93,6 @@ interface Project {
   addedAt: Timestamp | null;
   memberCount?: number;
   isFavorite?: boolean;
-  lastAccessed?: Timestamp | null;
 }
 
 interface Invitation {
@@ -143,8 +127,7 @@ export default function Dashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"recent" | "name" | "phase" | "favorites">("favorites");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
 
   // Auth listener
@@ -234,10 +217,16 @@ export default function Dashboard() {
               addedAt: userProjectData.addedAt || null,
               memberCount: membersSnapshot.size,
               isFavorite: userProjectData.isFavorite || false,
-              lastAccessed: userProjectData.lastAccessed || null,
             });
           }
         }
+
+        // Sort by most recent
+        projectsData.sort((a, b) => {
+          const dateA = a.addedAt?.toMillis() || 0;
+          const dateB = b.addedAt?.toMillis() || 0;
+          return dateB - dateA;
+        });
 
         setProjects(projectsData);
         setFilteredProjects(projectsData);
@@ -299,16 +288,6 @@ export default function Dashboard() {
     }
 
     switch (sortBy) {
-      case "favorites":
-        filtered.sort((a, b) => {
-          if (a.isFavorite === b.isFavorite) {
-            const dateA = a.lastAccessed?.toMillis() || a.addedAt?.toMillis() || 0;
-            const dateB = b.lastAccessed?.toMillis() || b.addedAt?.toMillis() || 0;
-            return dateB - dateA;
-          }
-          return a.isFavorite ? -1 : 1;
-        });
-        break;
       case "name":
         filtered.sort((a, b) => a.name.localeCompare(b.name));
         break;
@@ -317,10 +296,14 @@ export default function Dashboard() {
         break;
       case "recent":
       default:
+        // Sort favorites first, then by date
         filtered.sort((a, b) => {
-          const dateA = a.lastAccessed?.toMillis() || a.addedAt?.toMillis() || 0;
-          const dateB = b.lastAccessed?.toMillis() || b.addedAt?.toMillis() || 0;
-          return dateB - dateA;
+          if (a.isFavorite === b.isFavorite) {
+            const dateA = a.addedAt?.toMillis() || 0;
+            const dateB = b.addedAt?.toMillis() || 0;
+            return dateB - dateA;
+          }
+          return a.isFavorite ? -1 : 1;
         });
     }
 
@@ -343,23 +326,9 @@ export default function Dashboard() {
           p.id === projectId ? { ...p, isFavorite: !currentFavorite } : p
         )
       );
+      setShowDropdown(null);
     } catch (error) {
       console.error("Error actualizando favorito:", error);
-    }
-  };
-
-  const handleProjectClick = async (projectId: string) => {
-    if (!userId) return;
-
-    try {
-      await updateDoc(
-        doc(db, `userProjects/${userId}/projects`, projectId),
-        {
-          lastAccessed: Timestamp.now(),
-        }
-      );
-    } catch (error) {
-      console.error("Error actualizando último acceso:", error);
     }
   };
 
@@ -369,11 +338,13 @@ export default function Dashboard() {
     setProcessingInvite(invitation.id);
 
     try {
+      // Update invitation status
       await updateDoc(doc(db, "invitations", invitation.id), {
         status: "accepted",
         respondedAt: new Date(),
       });
 
+      // Add member to project
       await setDoc(
         doc(db, `projects/${invitation.projectId}/members`, userId),
         {
@@ -392,6 +363,7 @@ export default function Dashboard() {
         }
       );
 
+      // Add project to user's projects
       await setDoc(
         doc(db, `userProjects/${userId}/projects/${invitation.projectId}`),
         {
@@ -406,7 +378,6 @@ export default function Dashboard() {
           },
           addedAt: new Date(),
           isFavorite: false,
-          lastAccessed: null,
         }
       );
 
@@ -445,7 +416,7 @@ export default function Dashboard() {
       <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 text-sm font-medium">
               Cargando proyectos...
             </p>
@@ -455,61 +426,154 @@ export default function Dashboard() {
     );
   }
 
-  const favoriteProjects = projects.filter(p => p.isFavorite);
-  const recentProjects = projects.filter(p => !p.isFavorite && p.lastAccessed).slice(0, 4);
+  const activeProjects = projects.filter((p) => p.phase !== "Finalizado").length;
+  const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
-          {/* Header simple y limpio */}
-          <header className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900 mb-1">
-              Inicio
-            </h1>
-            <p className="text-sm text-slate-500">
-              {userName}
-            </p>
-          </header>
+          {/* Header with welcome */}
+          <header className="mb-10">
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-2">
+                Tus proyectos
+              </h1>
+              <p className="text-sm text-slate-600">
+                Resumen de proyectos
+              </p>
+            </div>
 
-          {/* Pending invitations - más compacto */}
-          {invitations.length > 0 && (
-            <div className="mb-8 bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Mail size={16} className="text-blue-600" />
-                <h2 className="text-sm font-semibold text-blue-900">
-                  {invitations.length} {invitations.length === 1 ? "invitación pendiente" : "invitaciones pendientes"}
-                </h2>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-blue-600 text-white p-2 rounded-lg">
+                    <Folder size={20} />
+                  </div>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {projects.length}
+                  </div>
+                </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Total de proyectos
+                </h3>
               </div>
 
-              <div className="space-y-2">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-emerald-600 text-white p-2 rounded-lg">
+                    <Film size={20} />
+                  </div>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {activeProjects}
+                  </div>
+                </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Proyectos activos
+                </h3>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="bg-purple-600 text-white p-2 rounded-lg">
+                    <Star size={20} />
+                  </div>
+                  <div className="text-2xl font-semibold text-slate-900">
+                    {finishedProjects}
+                  </div>
+                </div>
+                <h3 className="text-xs font-medium text-slate-600">
+                  Proyectos completados
+                </h3>
+              </div>
+            </div>
+          </header>
+
+          {/* Pending invitations */}
+          {invitations.length > 0 && (
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <Mail size={18} className="text-blue-600" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Invitaciones pendientes
+                </h2>
+                <span className="bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {invitations.length}
+                </span>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {invitations.map((invitation) => (
                   <div
                     key={invitation.id}
-                    className="bg-white border border-blue-200 rounded-lg p-3 flex items-center justify-between gap-3"
+                    className="bg-white border-2 border-blue-200 rounded-xl p-5 hover:shadow-lg transition-all"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">
-                        {invitation.projectName}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {invitation.invitedByName} · {invitation.roleType === "project" ? invitation.role : `${invitation.position} - ${invitation.department}`}
-                      </p>
+                    <div className="mb-4">
+                      <div className="flex items-start gap-2 mb-3">
+                        <div className="bg-blue-600 text-white p-1.5 rounded-lg">
+                          <Folder size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-base font-semibold text-slate-900 mb-0.5">
+                            {invitation.projectName}
+                          </h2>
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <User size={11} />
+                            <span>{invitation.invitedByName}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Briefcase size={13} className="text-slate-500" />
+                          <span className="font-medium text-slate-900">
+                            {invitation.roleType === "project"
+                              ? invitation.role
+                              : `${invitation.position} - ${invitation.department}`}
+                          </span>
+                        </div>
+                        
+                        {(invitation.permissions.accounting ||
+                          invitation.permissions.team ||
+                          invitation.permissions.config) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {invitation.permissions.config && (
+                              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">
+                                Config
+                              </span>
+                            )}
+                            {invitation.permissions.accounting && (
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">
+                                Accounting
+                              </span>
+                            )}
+                            {invitation.permissions.team && (
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium">
+                                Team
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Aceptar
+                        <Check size={14} />
+                        {processingInvite === invitation.id ? "Procesando..." : "Aceptar"}
                       </button>
                       <button
                         onClick={() => handleRejectInvitation(invitation.id)}
                         disabled={processingInvite === invitation.id}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                        className="flex items-center justify-center gap-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg py-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Rechazar
+                        <XIcon size={14} />
                       </button>
                     </div>
                   </div>
@@ -518,493 +582,250 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Empty state or projects */}
+          {/* Empty state or projects list */}
           {projects.length === 0 && invitations.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center max-w-md">
                 <div className="bg-slate-100 w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-4">
                   <Folder size={32} className="text-slate-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-slate-900 mb-2">
-                  No tienes proyectos
+                <h2 className="text-xl font-semibold text-slate-800 mb-2">
+                  No tienes proyectos asignados
                 </h2>
-                <p className="text-sm text-slate-500 mb-4">
+                <p className="text-sm text-slate-600 leading-relaxed mb-4">
                   Contacta con tu administrador para obtener acceso
                 </p>
+                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <Clock size={14} />
+                  <span>Los proyectos aparecerán aquí cuando seas añadido</span>
+                </div>
               </div>
             </div>
           ) : (
-            <>
-              {/* Favoritos */}
-              {favoriteProjects.length > 0 && (
-                <div className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Star size={18} className="text-amber-500 fill-amber-500" />
-                    <h2 className="text-base font-semibold text-slate-900">
-                      Favoritos
-                    </h2>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    {favoriteProjects.map((project) => {
-                      const phaseStyle = phaseColors[project.phase];
-
-                      return (
-                        <div
-                          key={project.id}
-                          className="group relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md hover:border-slate-300 transition-all"
-                        >
-                          {/* Dropdown menu */}
-                          <div className="absolute top-3 right-3 z-10">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowDropdown(showDropdown === project.id ? null : project.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 rounded transition-all"
-                            >
-                              <MoreVertical size={16} className="text-slate-400" />
-                            </button>
-
-                            {showDropdown === project.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setShowDropdown(null)}
-                                ></div>
-                                <div className="absolute right-0 top-8 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-20">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleFavorite(project.id, project.isFavorite || false);
-                                      setShowDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                  >
-                                    <Star size={14} className={project.isFavorite ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
-                                    {project.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Project info */}
-                          <Link
-                            href={project.permissions.accounting ? `/project/${project.id}/accounting` : project.permissions.team ? `/project/${project.id}/team` : `/project/${project.id}/config`}
-                            onClick={() => handleProjectClick(project.id)}
-                          >
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={`w-2 h-2 rounded-full ${phaseStyle.dot}`}></div>
-                                <span className="text-xs font-medium text-slate-500">
-                                  {project.phase}
-                                </span>
-                              </div>
-                              <h3 className="text-sm font-semibold text-slate-900 mb-1 pr-6">
-                                {project.name}
-                              </h3>
-                              {project.role && (
-                                <p className="text-xs text-slate-500">
-                                  {project.role}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs text-slate-400">
-                              {project.memberCount !== undefined && (
-                                <div className="flex items-center gap-1">
-                                  <Users size={12} />
-                                  <span>{project.memberCount}</span>
-                                </div>
-                              )}
-                              {project.producerNames && project.producerNames.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Building2 size={12} />
-                                  <span className="truncate">{project.producerNames[0]}</span>
-                                </div>
-                              )}
-                            </div>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Recientes */}
-              {recentProjects.length > 0 && (
-                <div className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock size={18} className="text-slate-500" />
-                    <h2 className="text-base font-semibold text-slate-900">
-                      Recientes
-                    </h2>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    {recentProjects.map((project) => {
-                      const phaseStyle = phaseColors[project.phase];
-
-                      return (
-                        <div
-                          key={project.id}
-                          className="group relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md hover:border-slate-300 transition-all"
-                        >
-                          {/* Dropdown menu */}
-                          <div className="absolute top-3 right-3 z-10">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowDropdown(showDropdown === project.id ? null : project.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 rounded transition-all"
-                            >
-                              <MoreVertical size={16} className="text-slate-400" />
-                            </button>
-
-                            {showDropdown === project.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setShowDropdown(null)}
-                                ></div>
-                                <div className="absolute right-0 top-8 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-20">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleFavorite(project.id, project.isFavorite || false);
-                                      setShowDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                  >
-                                    <Star size={14} className={project.isFavorite ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
-                                    {project.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Project info */}
-                          <Link
-                            href={project.permissions.accounting ? `/project/${project.id}/accounting` : project.permissions.team ? `/project/${project.id}/team` : `/project/${project.id}/config`}
-                            onClick={() => handleProjectClick(project.id)}
-                          >
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={`w-2 h-2 rounded-full ${phaseStyle.dot}`}></div>
-                                <span className="text-xs font-medium text-slate-500">
-                                  {project.phase}
-                                </span>
-                              </div>
-                              <h3 className="text-sm font-semibold text-slate-900 mb-1 pr-6">
-                                {project.name}
-                              </h3>
-                              {project.role && (
-                                <p className="text-xs text-slate-500">
-                                  {project.role}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs text-slate-400">
-                              {project.memberCount !== undefined && (
-                                <div className="flex items-center gap-1">
-                                  <Users size={12} />
-                                  <span>{project.memberCount}</span>
-                                </div>
-                              )}
-                              {project.producerNames && project.producerNames.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Building2 size={12} />
-                                  <span className="truncate">{project.producerNames[0]}</span>
-                                </div>
-                              )}
-                            </div>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Todos los proyectos */}
+            projects.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Folder size={18} className="text-slate-500" />
-                    <h2 className="text-base font-semibold text-slate-900">
-                      Todos los proyectos
-                    </h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <Folder size={18} className="text-slate-600" />
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Todos los proyectos
+                  </h2>
+                </div>
+
+                {/* Filters and search */}
+                <div className="mb-6 flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o productora..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Search */}
+                  <div className="flex gap-3">
                     <div className="relative">
-                      <Search
+                      <Filter
                         size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                       />
-                      <input
-                        type="text"
-                        placeholder="Buscar..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-64 pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                      />
+                      <select
+                        value={selectedPhase}
+                        onChange={(e) => setSelectedPhase(e.target.value)}
+                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
+                      >
+                        <option value="all">Todas las fases</option>
+                        <option value="Desarrollo">Desarrollo</option>
+                        <option value="Preproducción">Preproducción</option>
+                        <option value="Rodaje">Rodaje</option>
+                        <option value="Postproducción">Postproducción</option>
+                        <option value="Finalizado">Finalizado</option>
+                      </select>
                     </div>
 
-                    {/* Phase filter */}
-                    <select
-                      value={selectedPhase}
-                      onChange={(e) => setSelectedPhase(e.target.value)}
-                      className="px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none cursor-pointer"
-                    >
-                      <option value="all">Todas las fases</option>
-                      <option value="Desarrollo">Desarrollo</option>
-                      <option value="Preproducción">Preproducción</option>
-                      <option value="Rodaje">Rodaje</option>
-                      <option value="Postproducción">Postproducción</option>
-                      <option value="Finalizado">Finalizado</option>
-                    </select>
-
-                    {/* View toggle */}
-                    <div className="flex border border-slate-200 rounded-lg overflow-hidden bg-white">
-                      <button
-                        onClick={() => setViewMode("grid")}
-                        className={`px-2 py-2 transition-colors ${
-                          viewMode === "grid"
-                            ? "bg-slate-100 text-slate-900"
-                            : "bg-white text-slate-400 hover:bg-slate-50"
-                        }`}
+                    <div className="relative">
+                      <Calendar
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                      />
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")}
+                        className="pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none text-sm appearance-none bg-white cursor-pointer"
                       >
-                        <LayoutGrid size={16} />
-                      </button>
-                      <button
-                        onClick={() => setViewMode("list")}
-                        className={`px-2 py-2 transition-colors border-l border-slate-200 ${
-                          viewMode === "list"
-                            ? "bg-slate-100 text-slate-900"
-                            : "bg-white text-slate-400 hover:bg-slate-50"
-                        }`}
-                      >
-                        <List size={16} />
-                      </button>
+                        <option value="recent">Más recientes</option>
+                        <option value="name">Por nombre</option>
+                        <option value="phase">Por fase</option>
+                      </select>
                     </div>
                   </div>
                 </div>
 
                 {filteredProjects.length === 0 ? (
-                  <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
-                    <p className="text-slate-500 text-sm">
-                      No se encontraron proyectos
+                  <div className="text-center py-16 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-slate-500 text-sm font-medium mb-2">
+                      No se encontraron proyectos con los filtros aplicados
                     </p>
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedPhase("all");
+                      }}
+                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
+                    >
+                      Limpiar filtros
+                    </button>
                   </div>
-                ) : viewMode === "grid" ? (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    {filteredProjects.map((project) => {
-                      const phaseStyle = phaseColors[project.phase];
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs text-slate-600">
+                        Mostrando <span className="text-slate-900 font-semibold">{filteredProjects.length}</span> de <span className="text-slate-900 font-semibold">{projects.length}</span>{" "}
+                        {projects.length === 1 ? "proyecto" : "proyectos"}
+                      </p>
+                    </div>
 
-                      return (
-                        <div
-                          key={project.id}
-                          className="group relative bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md hover:border-slate-300 transition-all"
-                        >
-                          {/* Star favorite indicator */}
-                          {project.isFavorite && (
-                            <div className="absolute top-3 left-3">
-                              <Star size={14} className="text-amber-500 fill-amber-500" />
-                            </div>
-                          )}
+                    {/* Projects grid */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredProjects.map((project) => {
+                        const hasConfig = project.permissions.config;
+                        const hasAccounting = project.permissions.accounting;
+                        const hasTeam = project.permissions.team;
+                        const phaseStyle = phaseColors[project.phase];
 
-                          {/* Dropdown menu */}
-                          <div className="absolute top-3 right-3 z-10">
+                        return (
+                          <div
+                            key={project.id}
+                            className="group bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all relative"
+                          >
+                            {/* Favorite star */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowDropdown(showDropdown === project.id ? null : project.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 rounded transition-all"
+                              onClick={() => handleToggleFavorite(project.id, project.isFavorite || false)}
+                              className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded transition-all z-10"
                             >
-                              <MoreVertical size={16} className="text-slate-400" />
+                              <Star
+                                size={18}
+                                className={
+                                  project.isFavorite
+                                    ? "text-amber-500 fill-amber-500"
+                                    : "text-slate-300 hover:text-slate-400"
+                                }
+                              />
                             </button>
 
-                            {showDropdown === project.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setShowDropdown(null)}
-                                ></div>
-                                <div className="absolute right-0 top-8 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-20">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleFavorite(project.id, project.isFavorite || false);
-                                      setShowDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                  >
-                                    <Star size={14} className={project.isFavorite ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
-                                    {project.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                                  </button>
+                            {/* Project header */}
+                            <div className="mb-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-slate-900 text-white p-1.5 rounded-lg">
+                                    <Folder size={16} />
+                                  </div>
+                                  <h2 className="text-base font-semibold text-slate-900 pr-8">
+                                    {project.name}
+                                  </h2>
                                 </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Project info */}
-                          <Link
-                            href={project.permissions.accounting ? `/project/${project.id}/accounting` : project.permissions.team ? `/project/${project.id}/team` : `/project/${project.id}/config`}
-                            onClick={() => handleProjectClick(project.id)}
-                          >
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={`w-2 h-2 rounded-full ${phaseStyle.dot}`}></div>
-                                <span className="text-xs font-medium text-slate-500">
+                                <span className={`text-xs font-medium text-white rounded-full px-2.5 py-1 bg-gradient-to-r ${phaseStyle.gradient}`}>
                                   {project.phase}
                                 </span>
                               </div>
-                              <h3 className="text-sm font-semibold text-slate-900 mb-1 pr-6">
-                                {project.name}
-                              </h3>
-                              {project.role && (
-                                <p className="text-xs text-slate-500">
-                                  {project.role}
+
+                              {project.description && (
+                                <p className="text-xs text-slate-600 mb-3 line-clamp-2">
+                                  {project.description}
                                 </p>
                               )}
-                            </div>
 
-                            <div className="flex items-center gap-4 text-xs text-slate-400">
-                              {project.memberCount !== undefined && (
-                                <div className="flex items-center gap-1">
-                                  <Users size={12} />
-                                  <span>{project.memberCount}</span>
-                                </div>
-                              )}
+                              {/* Producers */}
                               {project.producerNames && project.producerNames.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Building2 size={12} />
-                                  <span className="truncate">{project.producerNames[0]}</span>
+                                <div className="mb-3 space-y-1">
+                                  {project.producerNames.map((producerName, index) => (
+                                    <div key={index} className="flex items-center gap-1.5">
+                                      <Building2 size={13} className="text-amber-600" />
+                                      <span className="text-xs text-slate-700 font-medium">
+                                        {producerName}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Role and member count */}
+                              <div className="flex items-center gap-2 flex-wrap mb-2">
+                                {project.role && (
+                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
+                                    {project.role}
+                                  </span>
+                                )}
+                                {project.position && project.department && (
+                                  <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-md px-2 py-1">
+                                    {project.position} · {project.department}
+                                  </span>
+                                )}
+                              </div>
+
+                              {project.memberCount !== undefined && (
+                                <div className="flex items-center gap-1.5">
+                                  <Users size={13} className="text-slate-400" />
+                                  <span className="text-xs text-slate-600">
+                                    {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
+                                  </span>
                                 </div>
                               )}
                             </div>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  // List view
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 w-8"></th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">Nombre</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">Fase</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">Rol</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">Miembros</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredProjects.map((project) => {
-                          const phaseStyle = phaseColors[project.phase];
 
-                          return (
-                            <tr
-                              key={project.id}
-                              className="border-b border-slate-100 hover:bg-slate-50 transition-colors group"
-                            >
-                              <td className="py-3 px-4">
-                                <button
-                                  onClick={() => handleToggleFavorite(project.id, project.isFavorite || false)}
-                                  className="p-1 hover:bg-slate-100 rounded transition-all"
-                                >
-                                  <Star
-                                    size={14}
-                                    className={
-                                      project.isFavorite
-                                        ? "text-amber-500 fill-amber-500"
-                                        : "text-slate-300 group-hover:text-slate-400"
-                                    }
-                                  />
-                                </button>
-                              </td>
-                              <td className="py-3 px-4">
-                                <Link
-                                  href={project.permissions.accounting ? `/project/${project.id}/accounting` : project.permissions.team ? `/project/${project.id}/team` : `/project/${project.id}/config`}
-                                  onClick={() => handleProjectClick(project.id)}
-                                  className="flex items-center gap-2 hover:text-blue-600 transition-colors"
-                                >
-                                  <Folder size={16} className="text-slate-400" />
-                                  <span className="text-sm font-medium text-slate-900">
-                                    {project.name}
-                                  </span>
-                                </Link>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-2 h-2 rounded-full ${phaseStyle.dot}`}></div>
-                                  <span className="text-sm text-slate-600">{project.phase}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm text-slate-600">
-                                  {project.role || "-"}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-1 text-sm text-slate-600">
-                                  <Users size={14} />
-                                  <span>{project.memberCount || 0}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowDropdown(showDropdown === project.id ? null : project.id);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 rounded transition-all"
-                                >
-                                  <MoreVertical size={16} className="text-slate-400" />
-                                </button>
-
-                                {showDropdown === project.id && (
-                                  <>
-                                    <div
-                                      className="fixed inset-0 z-10"
-                                      onClick={() => setShowDropdown(null)}
-                                    ></div>
-                                    <div className="absolute right-4 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-20">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleToggleFavorite(project.id, project.isFavorite || false);
-                                          setShowDropdown(null);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                                      >
-                                        <Star size={14} className={project.isFavorite ? "text-amber-500 fill-amber-500" : "text-slate-400"} />
-                                        {project.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                                      </button>
+                            {/* Access cards */}
+                            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
+                              {hasConfig && (
+                                <Link href={`/project/${project.id}/config`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-slate-900 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-slate-100 text-slate-700 p-2 rounded-lg mb-1">
+                                      <Settings size={16} />
                                     </div>
-                                  </>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Config
+                                    </span>
+                                  </div>
+                                </Link>
+                              )}
+
+                              {hasAccounting && (
+                                <Link href={`/project/${project.id}/accounting`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg mb-1">
+                                      <FileText size={16} />
+                                    </div>
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Accounting
+                                    </span>
+                                  </div>
+                                </Link>
+                              )}
+
+                              {hasTeam && (
+                                <Link href={`/project/${project.id}/team`}>
+                                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-lg hover:border-amber-600 hover:shadow-md transition-all cursor-pointer">
+                                    <div className="bg-amber-100 text-amber-700 p-2 rounded-lg mb-1">
+                                      <Users size={16} />
+                                    </div>
+                                    <span className="text-xs font-medium text-slate-700">
+                                      Team
+                                    </span>
+                                  </div>
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
-            </>
+            )
           )}
         </div>
       </main>
