@@ -11,16 +11,12 @@ import {
   FileText,
   Calendar,
   Clock,
-  Film,
   Mail,
   Check,
   X as XIcon,
   Building2,
   User,
   Briefcase,
-  ChevronRight,
-  Star,
-  MoreVertical,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -92,7 +88,6 @@ interface Project {
   createdAt: Timestamp | null;
   addedAt: Timestamp | null;
   memberCount?: number;
-  isFavorite?: boolean;
 }
 
 interface Invitation {
@@ -128,7 +123,6 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
-  const [showDropdown, setShowDropdown] = useState<string | null>(null);
 
   // Auth listener
   useEffect(() => {
@@ -216,7 +210,6 @@ export default function Dashboard() {
               createdAt: projectData.createdAt || null,
               addedAt: userProjectData.addedAt || null,
               memberCount: membersSnapshot.size,
-              isFavorite: userProjectData.isFavorite || false,
             });
           }
         }
@@ -296,41 +289,15 @@ export default function Dashboard() {
         break;
       case "recent":
       default:
-        // Sort favorites first, then by date
         filtered.sort((a, b) => {
-          if (a.isFavorite === b.isFavorite) {
-            const dateA = a.addedAt?.toMillis() || 0;
-            const dateB = b.addedAt?.toMillis() || 0;
-            return dateB - dateA;
-          }
-          return a.isFavorite ? -1 : 1;
+          const dateA = a.addedAt?.toMillis() || 0;
+          const dateB = b.addedAt?.toMillis() || 0;
+          return dateB - dateA;
         });
     }
 
     setFilteredProjects(filtered);
   }, [searchTerm, selectedPhase, sortBy, projects]);
-
-  const handleToggleFavorite = async (projectId: string, currentFavorite: boolean) => {
-    if (!userId) return;
-
-    try {
-      await updateDoc(
-        doc(db, `userProjects/${userId}/projects`, projectId),
-        {
-          isFavorite: !currentFavorite,
-        }
-      );
-
-      setProjects(
-        projects.map((p) =>
-          p.id === projectId ? { ...p, isFavorite: !currentFavorite } : p
-        )
-      );
-      setShowDropdown(null);
-    } catch (error) {
-      console.error("Error actualizando favorito:", error);
-    }
-  };
 
   const handleAcceptInvitation = async (invitation: Invitation) => {
     if (!userId) return;
@@ -377,7 +344,6 @@ export default function Dashboard() {
             team: invitation.permissions.team,
           },
           addedAt: new Date(),
-          isFavorite: false,
         }
       );
 
@@ -426,68 +392,18 @@ export default function Dashboard() {
     );
   }
 
-  const activeProjects = projects.filter((p) => p.phase !== "Finalizado").length;
-  const finishedProjects = projects.filter((p) => p.phase === "Finalizado").length;
-
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
         <div className="max-w-7xl mx-auto">
-          {/* Header with welcome */}
-          <header className="mb-10">
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-2">
-                Tus proyectos
-              </h1>
-              <p className="text-sm text-slate-600">
-                Resumen de proyectos
-              </p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-blue-600 text-white p-2 rounded-lg">
-                    <Folder size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {projects.length}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Total de proyectos
-                </h3>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-emerald-600 text-white p-2 rounded-lg">
-                    <Film size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {activeProjects}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Proyectos activos
-                </h3>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-purple-600 text-white p-2 rounded-lg">
-                    <Star size={20} />
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {finishedProjects}
-                  </div>
-                </div>
-                <h3 className="text-xs font-medium text-slate-600">
-                  Proyectos completados
-                </h3>
-              </div>
-            </div>
+          {/* Header */}
+          <header className="mb-8">
+            <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-2">
+              Tus proyectos
+            </h1>
+            <p className="text-sm text-slate-600">
+              {projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}
+            </p>
           </header>
 
           {/* Pending invitations */}
@@ -604,13 +520,6 @@ export default function Dashboard() {
           ) : (
             projects.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Folder size={18} className="text-slate-600" />
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Todos los proyectos
-                  </h2>
-                </div>
-
                 {/* Filters and search */}
                 <div className="mb-6 flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
@@ -700,23 +609,8 @@ export default function Dashboard() {
                         return (
                           <div
                             key={project.id}
-                            className="group bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all relative"
+                            className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-lg hover:border-slate-300 transition-all"
                           >
-                            {/* Favorite star */}
-                            <button
-                              onClick={() => handleToggleFavorite(project.id, project.isFavorite || false)}
-                              className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded transition-all z-10"
-                            >
-                              <Star
-                                size={18}
-                                className={
-                                  project.isFavorite
-                                    ? "text-amber-500 fill-amber-500"
-                                    : "text-slate-300 hover:text-slate-400"
-                                }
-                              />
-                            </button>
-
                             {/* Project header */}
                             <div className="mb-4">
                               <div className="flex items-start justify-between mb-3">
@@ -724,7 +618,7 @@ export default function Dashboard() {
                                   <div className="bg-slate-900 text-white p-1.5 rounded-lg">
                                     <Folder size={16} />
                                   </div>
-                                  <h2 className="text-base font-semibold text-slate-900 pr-8">
+                                  <h2 className="text-base font-semibold text-slate-900">
                                     {project.name}
                                   </h2>
                                 </div>
