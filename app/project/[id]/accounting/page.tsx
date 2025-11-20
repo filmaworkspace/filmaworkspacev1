@@ -17,6 +17,7 @@ import {
   Calendar,
   User,
   Settings,
+  Bell,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -281,105 +282,56 @@ export default function AccountingPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <header className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                <DollarSign size={28} className="text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
+                  <DollarSign size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
+                    Panel de contabilidad
+                  </h1>
+                  <p className="text-slate-600 text-sm mt-1">
+                    Resumen financiero y gestión de documentos
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                  Panel de contabilidad
-                </h1>
-                <p className="text-slate-600 text-sm mt-1">
-                  Resumen financiero y gestión de documentos
-                </p>
+
+              {/* Botones discretos a la derecha */}
+              <div className="flex items-center gap-2">
+                {/* Botón de Aprobaciones */}
+                {hasApprovals && (
+                  <Link href={`/project/${id}/accounting/approvals`}>
+                    <button
+                      className="relative flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition-colors border border-amber-300"
+                      title="Aprobaciones pendientes"
+                    >
+                      <Bell size={16} />
+                      <span>Aprobaciones</span>
+                      {pendingApprovalsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                          {pendingApprovalsCount}
+                        </span>
+                      )}
+                    </button>
+                  </Link>
+                )}
+
+                {/* Botón de Configuración */}
+                {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
+                  <Link href={`/project/${id}/accounting/approvalsconfig`}>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-300"
+                      title="Configurar aprobaciones"
+                    >
+                      <Settings size={16} />
+                      <span>Configuración</span>
+                    </button>
+                  </Link>
+                )}
               </div>
             </div>
           </header>
-
-          {/* Sección de Aprobaciones y Configuración */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Botón de Aprobaciones Pendientes - Visible para todos los que tengan aprobaciones */}
-            {hasApprovals && (
-              <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-amber-300 hover:shadow-xl transition-all">
-                <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                        <CheckCircle size={28} className="text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">
-                          Mis aprobaciones
-                        </h2>
-                        <p className="text-amber-100 text-sm">
-                          Documentos pendientes de aprobar
-                        </p>
-                      </div>
-                    </div>
-                    {pendingApprovalsCount > 0 && (
-                      <div className="bg-white/30 backdrop-blur-sm px-4 py-2 rounded-full">
-                        <span className="text-2xl font-bold text-white">
-                          {pendingApprovalsCount}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="mb-4 text-center">
-                    <p className="text-3xl font-bold text-amber-600 mb-1">
-                      {pendingApprovalsCount}
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      {pendingApprovalsCount === 1 ? 'documento pendiente' : 'documentos pendientes'}
-                    </p>
-                  </div>
-                  <Link href={`/project/${id}/accounting/approvals`}>
-                    <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
-                      Ver aprobaciones pendientes
-                      <ArrowRight size={16} />
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {/* Botón de Configuración - Solo visible para EP, PM, Controller */}
-            {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
-              <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-xl transition-all">
-                <div className="bg-gradient-to-r from-slate-500 to-slate-700 p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                        <Settings size={28} className="text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">
-                          Configuración
-                        </h2>
-                        <p className="text-slate-100 text-sm">
-                          Flujos de aprobación
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <p className="text-sm text-slate-600 mb-4">
-                    Define los niveles y aprobadores para órdenes de compra y facturas del proyecto
-                  </p>
-                  <Link href={`/project/${id}/accounting/approvalsconfig`}>
-                    <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
-                      Configurar aprobaciones
-                      <ArrowRight size={16} />
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Paneles de POs y Facturas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
