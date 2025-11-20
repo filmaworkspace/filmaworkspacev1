@@ -21,6 +21,8 @@ import {
   UserCircle,
   DollarSign,
   Info,
+  Edit,
+  ChevronDown,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -42,6 +44,46 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 const DEPARTMENT_POSITIONS = ["HOD", "Coordinator", "Crew"];
 
+// Nuevos niveles de acceso a accounting
+const ACCOUNTING_ACCESS_LEVELS = {
+  user: {
+    label: "Usuario",
+    description: "Panel principal y Proveedores",
+    permissions: {
+      panel: true,
+      suppliers: true,
+      budget: false,
+      users: false,
+      reports: false,
+    },
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  accounting: {
+    label: "Contabilidad",
+    description: "Panel, Proveedores e Informes",
+    permissions: {
+      panel: true,
+      suppliers: true,
+      budget: false,
+      users: false,
+      reports: true,
+    },
+    color: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  },
+  accounting_extended: {
+    label: "Contabilidad ampliada",
+    description: "Acceso completo a contabilidad",
+    permissions: {
+      panel: true,
+      suppliers: true,
+      budget: true,
+      users: true,
+      reports: true,
+    },
+    color: "bg-purple-100 text-purple-700 border-purple-200",
+  },
+};
+
 interface Member {
   userId: string;
   name: string;
@@ -54,6 +96,7 @@ interface Member {
     accounting: boolean;
     team: boolean;
   };
+  accountingAccessLevel?: "user" | "accounting" | "accounting_extended";
   addedAt: any;
   addedBy?: string;
   addedByName?: string;
@@ -71,6 +114,7 @@ interface PendingInvitation {
   createdAt: any;
   invitedBy: string;
   invitedByName: string;
+  accountingAccessLevel?: "user" | "accounting" | "accounting_extended";
 }
 
 interface Department {
@@ -95,6 +139,8 @@ export default function AccountingUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showEditAccessModal, setShowEditAccessModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [userExists, setUserExists] = useState<boolean | null>(null);
@@ -107,6 +153,7 @@ export default function AccountingUsersPage() {
     role: "",
     department: "",
     position: "",
+    accountingAccessLevel: "user" as "user" | "accounting" | "accounting_extended",
   });
 
   // Auth listener
@@ -187,6 +234,7 @@ export default function AccountingUsersPage() {
               accounting: false,
               team: false,
             },
+            accountingAccessLevel: data.accountingAccessLevel || "user",
             addedAt: data.addedAt,
             addedBy: data.addedBy,
             addedByName: data.addedByName,
@@ -224,6 +272,7 @@ export default function AccountingUsersPage() {
               invitedBy: data.invitedBy,
               invitedByName: data.invitedByName,
               permissions: data.permissions,
+              accountingAccessLevel: data.accountingAccessLevel || "user",
             };
           })
           .filter((inv: any) => inv.permissions?.accounting === true);
@@ -324,6 +373,7 @@ export default function AccountingUsersPage() {
           doc(db, `projects/${id}/members`, memberWithoutAccounting.userId),
           {
             "permissions.accounting": true,
+            accountingAccessLevel: inviteForm.accountingAccessLevel,
           }
         );
 
@@ -331,6 +381,7 @@ export default function AccountingUsersPage() {
           doc(db, `userProjects/${memberWithoutAccounting.userId}/projects`, id as string),
           {
             "permissions.accounting": true,
+            accountingAccessLevel: inviteForm.accountingAccessLevel,
           }
         );
 
@@ -354,6 +405,7 @@ export default function AccountingUsersPage() {
               accounting: false,
               team: false,
             },
+            accountingAccessLevel: data.accountingAccessLevel || "user",
             addedAt: data.addedAt,
             addedBy: data.addedBy,
             addedByName: data.addedByName,
@@ -401,6 +453,7 @@ export default function AccountingUsersPage() {
         createdAt: Timestamp.now(),
         expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
         roleType: inviteForm.roleType,
+        accountingAccessLevel: inviteForm.accountingAccessLevel,
       };
 
       // CRITICAL: Only accounting permission
@@ -451,6 +504,7 @@ export default function AccountingUsersPage() {
             invitedBy: data.invitedBy,
             invitedByName: data.invitedByName,
             permissions: data.permissions,
+            accountingAccessLevel: data.accountingAccessLevel || "user",
           };
         })
         .filter((inv: any) => inv.permissions?.accounting === true);
@@ -462,6 +516,47 @@ export default function AccountingUsersPage() {
     } catch (error) {
       console.error("Error enviando invitación:", error);
       setErrorMessage("Error al enviar la invitación");
+      setTimeout(() => setErrorMessage(""), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateAccessLevel = async () => {
+    if (!editingMember) return;
+
+    setSaving(true);
+    try {
+      const newAccessLevel = editingMember.accountingAccessLevel || "user";
+
+      await updateDoc(
+        doc(db, `projects/${id}/members`, editingMember.userId),
+        {
+          accountingAccessLevel: newAccessLevel,
+        }
+      );
+
+      await updateDoc(
+        doc(db, `userProjects/${editingMember.userId}/projects`, id as string),
+        {
+          accountingAccessLevel: newAccessLevel,
+        }
+      );
+
+      // Update local state
+      setAccountingMembers(
+        accountingMembers.map((m) =>
+          m.userId === editingMember.userId ? { ...m, accountingAccessLevel: newAccessLevel } : m
+        )
+      );
+
+      setSuccessMessage("Nivel de acceso actualizado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      setShowEditAccessModal(false);
+      setEditingMember(null);
+    } catch (error) {
+      console.error("Error actualizando acceso:", error);
+      setErrorMessage("Error al actualizar el nivel de acceso");
       setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
@@ -496,10 +591,12 @@ export default function AccountingUsersPage() {
       // Remove accounting permission
       await updateDoc(doc(db, `projects/${id}/members`, memberId), {
         "permissions.accounting": false,
+        accountingAccessLevel: null,
       });
 
       await updateDoc(doc(db, `userProjects/${memberId}/projects`, id as string), {
         "permissions.accounting": false,
+        accountingAccessLevel: null,
       });
 
       setAccountingMembers(accountingMembers.filter((m) => m.userId !== memberId));
@@ -507,7 +604,7 @@ export default function AccountingUsersPage() {
       // Update members list
       setMembers(members.map(m => 
         m.userId === memberId 
-          ? { ...m, permissions: { ...m.permissions, accounting: false } }
+          ? { ...m, permissions: { ...m.permissions, accounting: false }, accountingAccessLevel: undefined }
           : m
       ));
 
@@ -530,6 +627,7 @@ export default function AccountingUsersPage() {
       role: "",
       department: "",
       position: "",
+      accountingAccessLevel: "user",
     });
     setUserExists(null);
     setFoundUser(null);
@@ -550,6 +648,15 @@ export default function AccountingUsersPage() {
   const uniqueDepartments = Array.from(
     new Set(accountingMembers.map((m) => m.department).filter(Boolean))
   ) as string[];
+
+  const getAccessLevelBadge = (level: string | undefined) => {
+    const accessLevel = ACCOUNTING_ACCESS_LEVELS[level as keyof typeof ACCOUNTING_ACCESS_LEVELS] || ACCOUNTING_ACCESS_LEVELS.user;
+    return (
+      <span className={`text-xs px-2 py-1 rounded-full border font-medium ${accessLevel.color}`}>
+        {accessLevel.label}
+      </span>
+    );
+  };
 
   if (loading) {
     return (
@@ -600,6 +707,83 @@ export default function AccountingUsersPage() {
         </Link>
       </div>
 
+      {/* Edit Access Level Modal */}
+      {showEditAccessModal && editingMember && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-slate-900">Cambiar nivel de acceso</h3>
+              <button
+                onClick={() => {
+                  setShowEditAccessModal(false);
+                  setEditingMember(null);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-sm text-slate-600 mb-1">Usuario</p>
+              <p className="text-base font-semibold text-slate-900">{editingMember.name}</p>
+              <p className="text-xs text-slate-500">{editingMember.email}</p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <p className="text-sm font-medium text-slate-700">Seleccionar nivel de acceso</p>
+              {Object.entries(ACCOUNTING_ACCESS_LEVELS).map(([key, value]) => (
+                <label
+                  key={key}
+                  className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    editingMember.accountingAccessLevel === key
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="accessLevel"
+                    value={key}
+                    checked={editingMember.accountingAccessLevel === key}
+                    onChange={(e) =>
+                      setEditingMember({
+                        ...editingMember,
+                        accountingAccessLevel: e.target.value as any,
+                      })
+                    }
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">{value.label}</p>
+                    <p className="text-xs text-slate-600">{value.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowEditAccessModal(false);
+                  setEditingMember(null);
+                }}
+                className="flex-1 px-4 py-2 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateAccessLevel}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -622,10 +806,10 @@ export default function AccountingUsersPage() {
                 <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-blue-900 mb-1">
-                    Acceso solo a contabilidad
+                    Acceso a contabilidad
                   </p>
                   <p className="text-xs text-blue-700">
-                    Los usuarios invitados desde aquí tendrán acceso únicamente al módulo de contabilidad, sin permisos de configuración ni gestión de equipo.
+                    Selecciona el nivel de acceso que tendrá el usuario en el módulo de contabilidad.
                   </p>
                 </div>
               </div>
@@ -682,6 +866,43 @@ export default function AccountingUsersPage() {
                   disabled={userExists === true}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm disabled:bg-slate-50 disabled:text-slate-600"
                 />
+              </div>
+
+              {/* Accounting Access Level */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Nivel de acceso a contabilidad
+                </label>
+                <div className="space-y-2">
+                  {Object.entries(ACCOUNTING_ACCESS_LEVELS).map(([key, value]) => (
+                    <label
+                      key={key}
+                      className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        inviteForm.accountingAccessLevel === key
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="accountingAccessLevel"
+                        value={key}
+                        checked={inviteForm.accountingAccessLevel === key}
+                        onChange={(e) =>
+                          setInviteForm({
+                            ...inviteForm,
+                            accountingAccessLevel: e.target.value as any,
+                          })
+                        }
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-900">{value.label}</p>
+                        <p className="text-xs text-slate-600">{value.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Role Type */}
@@ -823,11 +1044,14 @@ export default function AccountingUsersPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-900">{inv.invitedName}</p>
                       <p className="text-xs text-slate-600">{inv.invitedEmail}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {inv.roleType === "project"
-                          ? `Rol: ${inv.role}`
-                          : `${inv.position} - ${inv.department}`}
-                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        {getAccessLevelBadge(inv.accountingAccessLevel)}
+                        <span className="text-xs text-slate-500">
+                          {inv.roleType === "project"
+                            ? `Rol: ${inv.role}`
+                            : `${inv.position} - ${inv.department}`}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                         <UserCircle size={12} />
                         Invitado por: {inv.invitedByName}
@@ -983,11 +1207,9 @@ export default function AccountingUsersPage() {
                           )}
                         </div>
 
-                        {/* Permissions Badge */}
+                        {/* Access Level Badge */}
                         <div className="mb-3">
-                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">
-                            Acceso a contabilidad
-                          </span>
+                          {getAccessLevelBadge(member.accountingAccessLevel)}
                         </div>
 
                         {/* Added By */}
@@ -998,16 +1220,28 @@ export default function AccountingUsersPage() {
                           </div>
                         )}
 
-                        {/* Remove Access Button */}
+                        {/* Action Buttons */}
                         {member.userId !== userId && isProjectRole && (
-                          <button
-                            onClick={() => handleRemoveAccountingAccess(member.userId)}
-                            disabled={saving}
-                            className="w-full flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            <Trash2 size={14} />
-                            Quitar acceso
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingMember(member);
+                                setShowEditAccessModal(true);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 text-sm text-indigo-600 hover:bg-indigo-50 py-2 rounded-lg transition-colors"
+                            >
+                              <Edit size={14} />
+                              Cambiar acceso
+                            </button>
+                            <button
+                              onClick={() => handleRemoveAccountingAccess(member.userId)}
+                              disabled={saving}
+                              className="flex-1 flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 size={14} />
+                              Quitar acceso
+                            </button>
+                          </div>
                         )}
                       </div>
                     );
@@ -1024,6 +1258,9 @@ export default function AccountingUsersPage() {
                         </th>
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                           Rol / Departamento
+                        </th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                          Nivel de acceso
                         </th>
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                           Añadido por
@@ -1084,6 +1321,9 @@ export default function AccountingUsersPage() {
                               )}
                             </td>
                             <td className="py-3 px-4">
+                              {getAccessLevelBadge(member.accountingAccessLevel)}
+                            </td>
+                            <td className="py-3 px-4">
                               {member.addedByName ? (
                                 <span className="text-xs text-slate-600">{member.addedByName}</span>
                               ) : (
@@ -1092,13 +1332,25 @@ export default function AccountingUsersPage() {
                             </td>
                             <td className="py-3 px-4 text-right">
                               {member.userId !== userId && isProjectRole && (
-                                <button
-                                  onClick={() => handleRemoveAccountingAccess(member.userId)}
-                                  className="text-slate-400 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded"
-                                  title="Quitar acceso a contabilidad"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingMember(member);
+                                      setShowEditAccessModal(true);
+                                    }}
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors p-1.5 hover:bg-indigo-50 rounded"
+                                    title="Cambiar nivel de acceso"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveAccountingAccess(member.userId)}
+                                    className="text-slate-400 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded"
+                                    title="Quitar acceso a contabilidad"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>
