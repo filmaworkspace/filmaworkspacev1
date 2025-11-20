@@ -717,7 +717,7 @@ export default function ApprovalsPage() {
                       {/* Attachment */}
                       {currentApproval.attachmentUrl && (
                         <div className="mb-6">
-                          
+                          <a
                             href={currentApproval.attachmentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
