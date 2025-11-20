@@ -22,8 +22,9 @@ import {
   Building2,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 const grotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -39,7 +40,15 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [userName, setUserName] = useState("Usuario");
+  const [userId, setUserId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [accountingAccess, setAccountingAccess] = useState({
+    panel: false,
+    suppliers: false,
+    budget: false,
+    users: false,
+    reports: false,
+  });
   const router = useRouter();
   const pathname = usePathname();
 
@@ -48,6 +57,9 @@ export default function Header() {
       if (user) {
         await user.reload();
         setUserName(user.displayName || user.email?.split("@")[0] || "Usuario");
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
       }
     });
 
@@ -60,8 +72,98 @@ export default function Header() {
     const projectIndex = pathParts.indexOf("project");
     if (projectIndex !== -1 && pathParts[projectIndex + 1]) {
       setProjectId(pathParts[projectIndex + 1]);
+    } else {
+      setProjectId(null);
     }
   }, [pathname]);
+
+  // Cargar permisos de accounting cuando tenemos projectId y userId
+  useEffect(() => {
+    const loadAccountingPermissions = async () => {
+      if (!userId || !projectId) {
+        setAccountingAccess({
+          panel: false,
+          suppliers: false,
+          budget: false,
+          users: false,
+          reports: false,
+        });
+        return;
+      }
+
+      try {
+        // Cargar el nivel de acceso del usuario
+        const memberRef = doc(db, `projects/${projectId}/members`, userId);
+        const memberSnap = await getDoc(memberRef);
+
+        if (memberSnap.exists()) {
+          const memberData = memberSnap.data();
+          const hasAccountingPermission = memberData.permissions?.accounting || false;
+          
+          if (!hasAccountingPermission) {
+            setAccountingAccess({
+              panel: false,
+              suppliers: false,
+              budget: false,
+              users: false,
+              reports: false,
+            });
+            return;
+          }
+
+          const accessLevel = memberData.accountingAccessLevel || "user";
+
+          // Definir permisos según el nivel de acceso
+          const accessLevels = {
+            user: {
+              panel: true,
+              suppliers: true,
+              budget: false,
+              users: false,
+              reports: false,
+            },
+            accounting: {
+              panel: true,
+              suppliers: true,
+              budget: false,
+              users: false,
+              reports: true,
+            },
+            accounting_extended: {
+              panel: true,
+              suppliers: true,
+              budget: true,
+              users: true,
+              reports: true,
+            },
+          };
+
+          setAccountingAccess(
+            accessLevels[accessLevel as keyof typeof accessLevels] || accessLevels.user
+          );
+        } else {
+          setAccountingAccess({
+            panel: false,
+            suppliers: false,
+            budget: false,
+            users: false,
+            reports: false,
+          });
+        }
+      } catch (error) {
+        console.error("Error cargando permisos de accounting:", error);
+        setAccountingAccess({
+          panel: false,
+          suppliers: false,
+          budget: false,
+          users: false,
+          reports: false,
+        });
+      }
+    };
+
+    loadAccountingPermissions();
+  }, [userId, projectId]);
 
   const handleLogout = async () => {
     try {
@@ -205,68 +307,78 @@ export default function Header() {
         </nav>
       )}
 
-      {/* Menú de Accounting */}
+      {/* Menú de Accounting - CON PERMISOS */}
       {isAccountingSection && projectId && (
         <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2 text-sm">
-          <Link
-            href={`/project/${projectId}/accounting`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "panel"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <LayoutDashboard size={16} />
-            <span>Panel principal</span>
-          </Link>
+          {accountingAccess.panel && (
+            <Link
+              href={`/project/${projectId}/accounting`}
+              className={`flex items-center gap-2 transition-colors duration-200 ${
+                accountingPage === "panel"
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <LayoutDashboard size={16} />
+              <span>Panel principal</span>
+            </Link>
+          )}
 
-          <Link
-            href={`/project/${projectId}/accounting/suppliers`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "suppliers"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Building2 size={16} />
-            <span>Proveedores</span>
-          </Link>
+          {accountingAccess.suppliers && (
+            <Link
+              href={`/project/${projectId}/accounting/suppliers`}
+              className={`flex items-center gap-2 transition-colors duration-200 ${
+                accountingPage === "suppliers"
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Building2 size={16} />
+              <span>Proveedores</span>
+            </Link>
+          )}
 
-          <Link
-            href={`/project/${projectId}/accounting/budget`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "budget"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <DollarSign size={16} />
-            <span>Presupuesto</span>
-          </Link>
+          {accountingAccess.budget && (
+            <Link
+              href={`/project/${projectId}/accounting/budget`}
+              className={`flex items-center gap-2 transition-colors duration-200 ${
+                accountingPage === "budget"
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <DollarSign size={16} />
+              <span>Presupuesto</span>
+            </Link>
+          )}
 
-          <Link
-            href={`/project/${projectId}/accounting/users`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "users"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <User size={16} />
-            <span>Usuarios</span>
-          </Link>
+          {accountingAccess.users && (
+            <Link
+              href={`/project/${projectId}/accounting/users`}
+              className={`flex items-center gap-2 transition-colors duration-200 ${
+                accountingPage === "users"
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <User size={16} />
+              <span>Usuarios</span>
+            </Link>
+          )}
 
-          <Link
-            href={`/project/${projectId}/accounting/reports`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "reports"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <BarChart3 size={16} />
-            <span>Informes</span>
-          </Link>
+          {accountingAccess.reports && (
+            <Link
+              href={`/project/${projectId}/accounting/reports`}
+              className={`flex items-center gap-2 transition-colors duration-200 ${
+                accountingPage === "reports"
+                  ? "text-indigo-700 font-medium"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BarChart3 size={16} />
+              <span>Informes</span>
+            </Link>
+          )}
         </nav>
       )}
 
@@ -475,68 +587,78 @@ export default function Header() {
                 </div>
               </>
             ) : isAccountingSection ? (
-              // Menú móvil de Accounting
+              // Menú móvil de Accounting - CON PERMISOS
               <>
-                <Link
-                  href={`/project/${projectId}/accounting`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "panel"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <LayoutDashboard size={16} />
-                  Panel principal
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/suppliers`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "suppliers"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <Users size={16} />
-                  Proveedores
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/budget`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "budget"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <DollarSign size={16} />
-                  Presupuesto
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/users`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "users"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <User size={16} />
-                  Usuarios
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/reports`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "reports"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <BarChart3 size={16} />
-                  Informes
-                </Link>
+                {accountingAccess.panel && (
+                  <Link
+                    href={`/project/${projectId}/accounting`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`py-2 flex items-center justify-center gap-2 ${
+                      accountingPage === "panel"
+                        ? "text-indigo-700 font-medium"
+                        : "hover:text-slate-900"
+                    }`}
+                  >
+                    <LayoutDashboard size={16} />
+                    Panel principal
+                  </Link>
+                )}
+                {accountingAccess.suppliers && (
+                  <Link
+                    href={`/project/${projectId}/accounting/suppliers`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`py-2 flex items-center justify-center gap-2 ${
+                      accountingPage === "suppliers"
+                        ? "text-indigo-700 font-medium"
+                        : "hover:text-slate-900"
+                    }`}
+                  >
+                    <Building2 size={16} />
+                    Proveedores
+                  </Link>
+                )}
+                {accountingAccess.budget && (
+                  <Link
+                    href={`/project/${projectId}/accounting/budget`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`py-2 flex items-center justify-center gap-2 ${
+                      accountingPage === "budget"
+                        ? "text-indigo-700 font-medium"
+                        : "hover:text-slate-900"
+                    }`}
+                  >
+                    <DollarSign size={16} />
+                    Presupuesto
+                  </Link>
+                )}
+                {accountingAccess.users && (
+                  <Link
+                    href={`/project/${projectId}/accounting/users`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`py-2 flex items-center justify-center gap-2 ${
+                      accountingPage === "users"
+                        ? "text-indigo-700 font-medium"
+                        : "hover:text-slate-900"
+                    }`}
+                  >
+                    <User size={16} />
+                    Usuarios
+                  </Link>
+                )}
+                {accountingAccess.reports && (
+                  <Link
+                    href={`/project/${projectId}/accounting/reports`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`py-2 flex items-center justify-center gap-2 ${
+                      accountingPage === "reports"
+                        ? "text-indigo-700 font-medium"
+                        : "hover:text-slate-900"
+                    }`}
+                  >
+                    <BarChart3 size={16} />
+                    Informes
+                  </Link>
+                )}
                 <div className="border-t border-slate-200 mt-2 pt-2">
                   <Link
                     href="/profile"
