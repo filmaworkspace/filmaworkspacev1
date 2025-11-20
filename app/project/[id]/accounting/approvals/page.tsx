@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import {
   CheckCircle,
@@ -69,16 +69,17 @@ interface ApprovalStepStatus {
 }
 
 export default function ApprovalsPage() {
+  const params = useParams();
   const router = useRouter();
+  const id = params?.id as string;
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [filteredApprovals, setFilteredApprovals] = useState<PendingApproval[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [typeFilter, setTypeFilter] = useState<"all" | "po" | "invoice">("all");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -100,98 +101,92 @@ export default function ApprovalsPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Load pending approvals
+  // Load project name and pending approvals
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !id) return;
 
     const loadPendingApprovals = async () => {
       try {
         setLoading(true);
         const approvals: PendingApproval[] = [];
 
-        // Get user's projects
-        const userProjectsRef = collection(db, `userProjects/${userId}/projects`);
-        const userProjectsSnap = await getDocs(userProjectsRef);
-        
-        const userProjects = userProjectsSnap.docs.map((doc) => ({
-          id: doc.id,
-          name: doc.data().name,
-        }));
-        setProjects(userProjects);
+        // Load project name
+        const projectDoc = await getDoc(doc(db, "projects", id));
+        if (projectDoc.exists()) {
+          setProjectName(projectDoc.data().name || "Proyecto");
+        }
 
         // Load POs
-        for (const project of userProjects) {
-          const posRef = collection(db, `projects/${project.id}/pos`);
-          const posQuery = query(posRef, where("status", "==", "pending"), orderBy("createdAt", "desc"));
-          const posSnap = await getDocs(posQuery);
+        const posRef = collection(db, `projects/${id}/pos`);
+        const posQuery = query(posRef, where("status", "==", "pending"), orderBy("createdAt", "desc"));
+        const posSnap = await getDocs(posQuery);
 
-          for (const poDoc of posSnap.docs) {
-            const poData = poDoc.data();
+        for (const poDoc of posSnap.docs) {
+          const poData = poDoc.data();
+          
+          // Check if user is an approver in current step
+          if (poData.approvalSteps && poData.currentApprovalStep !== undefined) {
+            const currentStep = poData.approvalSteps[poData.currentApprovalStep];
             
-            // Check if user is an approver in current step
-            if (poData.approvalSteps && poData.currentApprovalStep !== undefined) {
-              const currentStep = poData.approvalSteps[poData.currentApprovalStep];
-              
-              if (currentStep && currentStep.approvers?.includes(userId)) {
-                approvals.push({
-                  id: poDoc.id,
-                  type: "po",
-                  documentId: poDoc.id,
-                  documentNumber: poData.number,
-                  projectId: project.id,
-                  projectName: project.name,
-                  supplier: poData.supplier,
-                  amount: poData.totalAmount || poData.amount,
-                  description: poData.generalDescription || poData.description,
-                  createdAt: poData.createdAt?.toDate(),
-                  createdBy: poData.createdBy,
-                  createdByName: poData.createdByName,
-                  currentApprovalStep: poData.currentApprovalStep,
-                  approvalSteps: poData.approvalSteps,
-                  attachmentUrl: poData.attachmentUrl,
-                  items: poData.items,
-                  department: poData.department,
-                });
-              }
+            if (currentStep && currentStep.approvers?.includes(userId)) {
+              approvals.push({
+                id: poDoc.id,
+                type: "po",
+                documentId: poDoc.id,
+                documentNumber: poData.number,
+                projectId: id,
+                projectName: projectName,
+                supplier: poData.supplier,
+                amount: poData.totalAmount || poData.amount,
+                description: poData.generalDescription || poData.description,
+                createdAt: poData.createdAt?.toDate(),
+                createdBy: poData.createdBy,
+                createdByName: poData.createdByName,
+                currentApprovalStep: poData.currentApprovalStep,
+                approvalSteps: poData.approvalSteps,
+                attachmentUrl: poData.attachmentUrl,
+                items: poData.items,
+                department: poData.department,
+              });
             }
           }
+        }
 
-          // Load Invoices
-          const invoicesRef = collection(db, `projects/${project.id}/invoices`);
-          const invoicesQuery = query(
-            invoicesRef,
-            where("status", "==", "pending"),
-            orderBy("createdAt", "desc")
-          );
-          const invoicesSnap = await getDocs(invoicesQuery);
+        // Load Invoices
+        const invoicesRef = collection(db, `projects/${id}/invoices`);
+        const invoicesQuery = query(
+          invoicesRef,
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc")
+        );
+        const invoicesSnap = await getDocs(invoicesQuery);
 
-          for (const invDoc of invoicesSnap.docs) {
-            const invData = invDoc.data();
+        for (const invDoc of invoicesSnap.docs) {
+          const invData = invDoc.data();
+          
+          // Check if user is an approver in current step
+          if (invData.approvalSteps && invData.currentApprovalStep !== undefined) {
+            const currentStep = invData.approvalSteps[invData.currentApprovalStep];
             
-            // Check if user is an approver in current step
-            if (invData.approvalSteps && invData.currentApprovalStep !== undefined) {
-              const currentStep = invData.approvalSteps[invData.currentApprovalStep];
-              
-              if (currentStep && currentStep.approvers?.includes(userId)) {
-                approvals.push({
-                  id: invDoc.id,
-                  type: "invoice",
-                  documentId: invDoc.id,
-                  documentNumber: invData.number,
-                  projectId: project.id,
-                  projectName: project.name,
-                  supplier: invData.supplier,
-                  amount: invData.totalAmount,
-                  description: invData.description,
-                  createdAt: invData.createdAt?.toDate(),
-                  createdBy: invData.createdBy,
-                  createdByName: invData.createdByName,
-                  currentApprovalStep: invData.currentApprovalStep,
-                  approvalSteps: invData.approvalSteps,
-                  attachmentUrl: invData.attachmentUrl,
-                  items: invData.items,
-                });
-              }
+            if (currentStep && currentStep.approvers?.includes(userId)) {
+              approvals.push({
+                id: invDoc.id,
+                type: "invoice",
+                documentId: invDoc.id,
+                documentNumber: invData.number,
+                projectId: id,
+                projectName: projectName,
+                supplier: invData.supplier,
+                amount: invData.totalAmount,
+                description: invData.description,
+                createdAt: invData.createdAt?.toDate(),
+                createdBy: invData.createdBy,
+                createdByName: invData.createdByName,
+                currentApprovalStep: invData.currentApprovalStep,
+                approvalSteps: invData.approvalSteps,
+                attachmentUrl: invData.attachmentUrl,
+                items: invData.items,
+              });
             }
           }
         }
@@ -210,7 +205,7 @@ export default function ApprovalsPage() {
     };
 
     loadPendingApprovals();
-  }, [userId, router]);
+  }, [userId, id, router, projectName]);
 
   // Apply filters
   useEffect(() => {
@@ -220,13 +215,9 @@ export default function ApprovalsPage() {
       filtered = filtered.filter((a) => a.type === typeFilter);
     }
 
-    if (projectFilter !== "all") {
-      filtered = filtered.filter((a) => a.projectId === projectFilter);
-    }
-
     setFilteredApprovals(filtered);
     setCurrentIndex(0);
-  }, [typeFilter, projectFilter, pendingApprovals]);
+  }, [typeFilter, pendingApprovals]);
 
   const handleApprove = async (approval: PendingApproval) => {
     if (!confirm(`¿Aprobar ${approval.type === "po" ? "la PO" : "la factura"} ${approval.documentNumber}?`)) {
@@ -409,17 +400,17 @@ export default function ApprovalsPage() {
       <div className="mt-[4.5rem] bg-gradient-to-r from-indigo-50 to-indigo-100 border-y border-indigo-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2 rounded-lg">
-            <CheckCircle size={16} className="text-white" />
+            <Folder size={16} className="text-white" />
           </div>
           <h1 className="text-sm font-medium text-indigo-900 tracking-tight">
-            Aprobaciones pendientes
+            {projectName}
           </h1>
         </div>
         <Link
-          href="/dashboard"
+          href={`/project/${id}/accounting`}
           className="text-indigo-600 hover:text-indigo-900 transition-colors text-sm font-medium"
         >
-          Volver al dashboard
+          Volver a contabilidad
         </Link>
       </div>
 
@@ -469,19 +460,6 @@ export default function ApprovalsPage() {
               <option value="po">Solo POs</option>
               <option value="invoice">Solo Facturas</option>
             </select>
-
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-            >
-              <option value="all">Todos los proyectos</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Main Content */}
@@ -492,7 +470,7 @@ export default function ApprovalsPage() {
                 No hay aprobaciones pendientes
               </h3>
               <p className="text-slate-600">
-                {typeFilter !== "all" || projectFilter !== "all"
+                {typeFilter !== "all"
                   ? "Intenta ajustar los filtros"
                   : "¡Buen trabajo! Estás al día con todas tus aprobaciones"}
               </p>
