@@ -699,7 +699,7 @@ export default function InvoicesPage() {
                 <TrendingUp size={14} className="text-green-600" />
               </div>
               <p className="text-lg font-bold text-green-900">
-                {stats.paidAmount.toLocaleString()} €
+                {(stats.paidAmount || 0).toLocaleString()} €
               </p>
             </div>
 
@@ -709,7 +709,7 @@ export default function InvoicesPage() {
                 <DollarSign size={14} className="text-amber-600" />
               </div>
               <p className="text-lg font-bold text-amber-900">
-                {stats.pendingAmount.toLocaleString()} €
+                {(stats.pendingAmount || 0).toLocaleString()} €
               </p>
             </div>
 
@@ -719,7 +719,7 @@ export default function InvoicesPage() {
                 <AlertCircle size={14} className="text-red-600" />
               </div>
               <p className="text-lg font-bold text-red-900">
-                {stats.overdueAmount.toLocaleString()} €
+                {(stats.overdueAmount || 0).toLocaleString()} €
               </p>
             </div>
           </div>
