@@ -44,6 +44,7 @@ import {
   Shield,
   Eye,
   Edit3,
+  CheckCircle,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -91,6 +92,36 @@ interface Department {
   name: string;
 }
 
+interface Member {
+  userId: string;
+  role?: string;
+  department?: string;
+  position?: string;
+}
+
+interface ApprovalStep {
+  id: string;
+  order: number;
+  approverType: "fixed" | "role" | "hod" | "coordinator";
+  approvers?: string[];
+  roles?: string[];
+  department?: string;
+  requireAll: boolean;
+}
+
+interface ApprovalStepStatus {
+  id: string;
+  order: number;
+  approverType: "fixed" | "role" | "hod" | "coordinator";
+  approvers: string[];
+  roles?: string[];
+  department?: string;
+  approvedBy: string[];
+  rejectedBy: string[];
+  status: "pending" | "approved" | "rejected";
+  requireAll: boolean;
+}
+
 const PO_TYPES = [
   { value: "rental", label: "Alquiler", icon: ShoppingCart, color: "blue" },
   { value: "purchase", label: "Compra", icon: Package, color: "green" },
@@ -133,9 +164,13 @@ export default function NewPOAdvancedPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [subAccounts, setSubAccounts] = useState<SubAccount[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [nextPONumber, setNextPONumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // Approval config
+  const [approvalConfig, setApprovalConfig] = useState<ApprovalStep[]>([]);
   
   // Modals
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -190,6 +225,7 @@ export default function NewPOAdvancedPage() {
       if (user) {
         setUserId(user.uid);
         setUserName(user.displayName || user.email || "Usuario");
+        console.log("✅ Usuario autenticado:", user.uid);
       } else {
         router.push("/");
       }
@@ -210,6 +246,7 @@ export default function NewPOAdvancedPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log("🔄 Cargando datos para nueva PO...");
 
       // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
@@ -217,6 +254,7 @@ export default function NewPOAdvancedPage() {
         setProjectName(projectDoc.data().name || "Proyecto");
         const depts = projectDoc.data().departments || [];
         setDepartments(depts.map((d: string) => ({ name: d })));
+        console.log("✅ Proyecto cargado:", projectDoc.data().name);
       }
 
       // Load user member data
@@ -230,6 +268,39 @@ export default function NewPOAdvancedPage() {
         if (memberData.department) {
           setFormData(prev => ({ ...prev, department: memberData.department }));
         }
+        console.log("✅ Rol de usuario:", memberData.role || "Sin rol");
+      }
+
+      // Load all members (for approval resolution)
+      const membersSnapshot = await getDocs(collection(db, `projects/${id}/members`));
+      const membersData = membersSnapshot.docs.map((doc) => ({
+        userId: doc.id,
+        role: doc.data().role,
+        department: doc.data().department,
+        position: doc.data().position,
+      }));
+      setMembers(membersData);
+      console.log(`✅ ${membersData.length} miembros cargados`);
+
+      // Load approval configuration
+      const approvalConfigDoc = await getDoc(doc(db, `projects/${id}/config/approvals`));
+      if (approvalConfigDoc.exists()) {
+        const config = approvalConfigDoc.data();
+        setApprovalConfig(config.poApprovals || []);
+        console.log(`✅ Configuración de aprobaciones: ${(config.poApprovals || []).length} niveles`);
+      } else {
+        // Default approval config
+        const defaultConfig: ApprovalStep[] = [
+          {
+            id: "default-1",
+            order: 1,
+            approverType: "role",
+            roles: ["PM", "EP"],
+            requireAll: false,
+          },
+        ];
+        setApprovalConfig(defaultConfig);
+        console.log("ℹ️ Usando configuración de aprobaciones por defecto");
       }
 
       // Load suppliers
@@ -239,12 +310,13 @@ export default function NewPOAdvancedPage() {
       const suppliersData = suppliersSnapshot.docs.map((doc) => ({
         id: doc.id,
         fiscalName: doc.data().fiscalName,
-        commercialName: doc.data().commercialName,
+        commercialName: doc.data().commercialName || "",
         country: doc.data().country,
         taxId: doc.data().taxId,
         paymentMethod: doc.data().paymentMethod,
       })) as Supplier[];
       setSuppliers(suppliersData);
+      console.log(`✅ ${suppliersData.length} proveedores cargados`);
 
       // Load accounts and subaccounts
       const accountsSnapshot = await getDocs(
@@ -263,14 +335,17 @@ export default function NewPOAdvancedPage() {
         
         subAccountsSnapshot.docs.forEach((subDoc) => {
           const data = subDoc.data();
-          const available = data.budgeted - data.committed - data.actual;
+          const budgeted = data.budgeted || 0;
+          const committed = data.committed || 0;
+          const actual = data.actual || 0;
+          const available = budgeted - committed - actual;
           allSubAccounts.push({
             id: subDoc.id,
             code: data.code,
             description: data.description,
-            budgeted: data.budgeted,
-            committed: data.committed,
-            actual: data.actual,
+            budgeted,
+            committed,
+            actual,
             available,
             accountId: accountDoc.id,
             accountCode: accountData.code,
@@ -279,17 +354,113 @@ export default function NewPOAdvancedPage() {
         });
       }
       setSubAccounts(allSubAccounts);
+      console.log(`✅ ${allSubAccounts.length} subcuentas cargadas`);
 
       // Generate next PO number
       const posSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
       const nextNumber = String(posSnapshot.size + 1).padStart(4, "0");
       setNextPONumber(nextNumber);
+      console.log(`✅ Número de PO: ${nextNumber}`);
     } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.error("❌ Error cargando datos:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  // ==========================================
+  // APPROVAL SYSTEM FUNCTIONS
+  // ==========================================
+
+  /**
+   * Resuelve los aprobadores para un paso de aprobación
+   * Convierte roles, HOD, Coordinator a userIds específicos
+   */
+  const resolveApprovers = (
+    step: ApprovalStep,
+    documentDepartment?: string
+  ): string[] => {
+    switch (step.approverType) {
+      case "fixed":
+        return step.approvers || [];
+
+      case "role":
+        // Obtener todos los usuarios que tienen alguno de los roles especificados
+        const roleApprovers = members
+          .filter((m) => m.role && step.roles?.includes(m.role))
+          .map((m) => m.userId);
+        return roleApprovers;
+
+      case "hod":
+        // Obtener el HOD del departamento especificado o del documento
+        const hodDepartment = step.department || documentDepartment;
+        const hods = members
+          .filter((m) => m.position === "HOD" && m.department === hodDepartment)
+          .map((m) => m.userId);
+        return hods;
+
+      case "coordinator":
+        // Obtener el Coordinator del departamento especificado o del documento
+        const coordDepartment = step.department || documentDepartment;
+        const coordinators = members
+          .filter((m) => m.position === "Coordinator" && m.department === coordDepartment)
+          .map((m) => m.userId);
+        return coordinators;
+
+      default:
+        return [];
+    }
+  };
+
+  /**
+   * Genera los pasos de aprobación con estado inicial para la nueva PO
+   */
+  const generateApprovalSteps = (documentDepartment?: string): ApprovalStepStatus[] => {
+    if (approvalConfig.length === 0) {
+      console.log("ℹ️ Sin niveles de aprobación configurados");
+      return [];
+    }
+
+    // Generar pasos con aprobadores resueltos
+    const steps: ApprovalStepStatus[] = approvalConfig.map((step) => {
+      const resolvedApprovers = resolveApprovers(step, documentDepartment);
+
+      return {
+        id: step.id,
+        order: step.order,
+        approverType: step.approverType,
+        approvers: resolvedApprovers,
+        roles: step.roles,
+        department: step.department,
+        approvedBy: [],
+        rejectedBy: [],
+        status: "pending" as const,
+        requireAll: step.requireAll,
+      };
+    });
+
+    console.log(`✅ Generados ${steps.length} pasos de aprobación`);
+    steps.forEach((step, index) => {
+      console.log(`  Nivel ${index + 1}: ${step.approvers.length} aprobadores posibles (${step.approverType})`);
+    });
+
+    return steps;
+  };
+
+  /**
+   * Verifica si un documento debe ser aprobado automáticamente
+   */
+  const shouldAutoApprove = (steps: ApprovalStepStatus[]): boolean => {
+    if (steps.length === 0) {
+      return true;
+    }
+    // Si algún paso tiene aprobadores, no se auto-aprueba
+    return steps.every((step) => step.approvers.length === 0);
+  };
+
+  // ==========================================
+  // END APPROVAL SYSTEM FUNCTIONS
+  // ==========================================
 
   const calculateItemTotal = (item: POItem) => {
     const baseAmount = item.quantity * item.unitPrice;
@@ -390,7 +561,7 @@ export default function NewPOAdvancedPage() {
   const filteredSuppliers = suppliers.filter(
     (s) =>
       s.fiscalName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
-      s.commercialName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+      (s.commercialName && s.commercialName.toLowerCase().includes(supplierSearch.toLowerCase())) ||
       s.taxId.toLowerCase().includes(supplierSearch.toLowerCase())
   );
 
@@ -477,16 +648,20 @@ export default function NewPOAdvancedPage() {
   const savePO = async (status: "draft" | "pending") => {
     setSaving(true);
     try {
+      console.log(`📝 Guardando PO con estado: ${status}...`);
+      
       let fileUrl = "";
       
       // Upload file if exists
       if (uploadedFile) {
+        console.log("📤 Subiendo archivo adjunto...");
         const fileRef = ref(
           storage,
           `projects/${id}/pos/${nextPONumber}/${uploadedFile.name}`
         );
         await uploadBytes(fileRef, uploadedFile);
         fileUrl = await getDownloadURL(fileRef);
+        console.log("✅ Archivo subido");
       }
 
       // Prepare items data
@@ -506,7 +681,8 @@ export default function NewPOAdvancedPage() {
         totalAmount: item.totalAmount,
       }));
 
-      const poData = {
+      // Base PO data
+      const poData: any = {
         number: nextPONumber,
         supplier: formData.supplierName,
         supplierId: formData.supplier,
@@ -521,7 +697,6 @@ export default function NewPOAdvancedPage() {
         vatAmount: totals.vatAmount,
         irpfAmount: totals.irpfAmount,
         totalAmount: totals.totalAmount,
-        status,
         attachmentUrl: fileUrl,
         attachmentFileName: uploadedFile?.name || "",
         createdAt: Timestamp.now(),
@@ -529,20 +704,50 @@ export default function NewPOAdvancedPage() {
         createdByName: userName,
       };
 
-      await addDoc(collection(db, `projects/${id}/pos`), poData);
+      // Handle approval workflow for pending status
+      if (status === "pending") {
+        console.log("🔄 Generando flujo de aprobación...");
+        const approvalSteps = generateApprovalSteps(formData.department);
 
-      setSuccessMessage(
-        status === "draft"
-          ? "Borrador guardado correctamente"
-          : "PO enviada para aprobación"
-      );
+        if (shouldAutoApprove(approvalSteps)) {
+          // Auto-aprobar si no hay aprobadores configurados
+          console.log("✅ Auto-aprobación: no hay aprobadores configurados");
+          poData.status = "approved";
+          poData.approvedAt = Timestamp.now();
+          poData.approvedBy = userId;
+          poData.approvedByName = userName;
+          poData.autoApproved = true;
+        } else {
+          // Enviar para aprobación
+          console.log(`📋 PO requiere aprobación: ${approvalSteps.length} niveles`);
+          poData.status = "pending";
+          poData.approvalSteps = approvalSteps;
+          poData.currentApprovalStep = 0;
+        }
+      } else {
+        // Draft status
+        poData.status = "draft";
+      }
+
+      console.log("📤 Guardando PO en Firebase...");
+      const docRef = await addDoc(collection(db, `projects/${id}/pos`), poData);
+      console.log(`✅ PO guardada con ID: ${docRef.id}`);
+
+      // Set success message based on final status
+      if (poData.status === "approved") {
+        setSuccessMessage("PO aprobada automáticamente (sin niveles de aprobación configurados)");
+      } else if (poData.status === "pending") {
+        setSuccessMessage("PO enviada para aprobación");
+      } else {
+        setSuccessMessage("Borrador guardado correctamente");
+      }
 
       setTimeout(() => {
         router.push(`/project/${id}/accounting/pos`);
       }, 1500);
-    } catch (error) {
-      console.error("Error guardando PO:", error);
-      alert("Error al guardar la PO");
+    } catch (error: any) {
+      console.error("❌ Error guardando PO:", error);
+      alert(`Error al guardar la PO: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -550,6 +755,27 @@ export default function NewPOAdvancedPage() {
 
   const getCurrencySymbol = () => {
     return CURRENCIES.find((c) => c.value === formData.currency)?.symbol || "€";
+  };
+
+  // Get approval preview info
+  const getApprovalPreview = () => {
+    if (approvalConfig.length === 0) {
+      return { levels: 0, autoApprove: true, message: "Se aprobará automáticamente" };
+    }
+
+    const steps = generateApprovalSteps(formData.department);
+    const hasApprovers = steps.some((s) => s.approvers.length > 0);
+
+    if (!hasApprovers) {
+      return { levels: 0, autoApprove: true, message: "Se aprobará automáticamente (sin aprobadores asignados)" };
+    }
+
+    return {
+      levels: steps.length,
+      autoApprove: false,
+      message: `${steps.length} nivel${steps.length > 1 ? "es" : ""} de aprobación`,
+      steps,
+    };
   };
 
   if (loading) {
@@ -564,6 +790,8 @@ export default function NewPOAdvancedPage() {
       </div>
     );
   }
+
+  const approvalPreview = getApprovalPreview();
 
   return (
     <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
@@ -618,7 +846,7 @@ export default function NewPOAdvancedPage() {
           {/* Success Message */}
           {successMessage && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-700">
-              <Check size={20} />
+              <CheckCircle size={20} />
               <span className="font-medium">{successMessage}</span>
             </div>
           )}
@@ -884,7 +1112,7 @@ export default function NewPOAdvancedPage() {
                               step="1"
                               value={item.quantity}
                               onChange={(e) =>
-                                updateItem(index, "quantity", parseFloat(e.target.value))
+                                updateItem(index, "quantity", parseFloat(e.target.value) || 0)
                               }
                               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             />
@@ -901,7 +1129,7 @@ export default function NewPOAdvancedPage() {
                                 step="0.01"
                                 value={item.unitPrice}
                                 onChange={(e) =>
-                                  updateItem(index, "unitPrice", parseFloat(e.target.value))
+                                  updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
                                 }
                                 className="w-full pl-6 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
@@ -1115,6 +1343,52 @@ export default function NewPOAdvancedPage() {
                   </div>
                 </div>
 
+                {/* Approval Preview Card */}
+                <div className={`border rounded-xl p-4 ${
+                  approvalPreview.autoApprove 
+                    ? "bg-emerald-50 border-emerald-200" 
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    {approvalPreview.autoApprove ? (
+                      <CheckCircle size={20} className="text-emerald-600 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={20} className="text-amber-600 mt-0.5" />
+                    )}
+                    <div>
+                      <p className={`font-semibold text-sm ${
+                        approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800"
+                      }`}>
+                        {approvalPreview.autoApprove ? "Aprobación automática" : "Requiere aprobación"}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700"
+                      }`}>
+                        {approvalPreview.message}
+                      </p>
+                      {!approvalPreview.autoApprove && approvalPreview.steps && (
+                        <div className="mt-2 space-y-1">
+                          {approvalPreview.steps.map((step, idx) => (
+                            <div key={step.id} className="text-xs text-amber-700 flex items-center gap-1">
+                              <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-semibold text-[10px]">
+                                {idx + 1}
+                              </span>
+                              <span>
+                                {step.approverType === "role" && step.roles
+                                  ? step.roles.join(", ")
+                                  : step.approverType === "fixed"
+                                  ? `${step.approvers.length} usuario(s)`
+                                  : step.approverType}
+                                {step.approvers.length > 0 && ` (${step.approvers.length})`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Actions Card */}
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
                   <h3 className="text-sm font-semibold text-slate-900 mb-4">
@@ -1135,7 +1409,7 @@ export default function NewPOAdvancedPage() {
                       ) : (
                         <>
                           <Send size={18} />
-                          Enviar para aprobación
+                          {approvalPreview.autoApprove ? "Crear PO" : "Enviar para aprobación"}
                         </>
                       )}
                     </button>
