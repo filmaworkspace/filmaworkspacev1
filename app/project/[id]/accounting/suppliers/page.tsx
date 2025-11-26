@@ -15,6 +15,7 @@ import {
   query,
   where,
   Timestamp,
+  orderBy,
 } from "firebase/firestore";
 import {
   Folder,
@@ -40,6 +41,7 @@ import {
   FileText,
   Clock,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -103,6 +105,7 @@ export default function SuppliersPage() {
   const id = params?.id as string;
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +113,9 @@ export default function SuppliersPage() {
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired">("all");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -133,9 +139,26 @@ export default function SuppliersPage() {
     contractorsCertificate: { file: null as File | null, expiryDate: "" },
   });
 
+  // Auth listener
   useEffect(() => {
-    loadData();
-  }, [id]);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+        console.log("✅ Usuario autenticado:", user.uid);
+      } else {
+        console.log("❌ Usuario no autenticado");
+        setErrorMessage("Debes iniciar sesión para acceder a esta página");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId && id) {
+      console.log("📦 Cargando datos para proyecto:", id);
+      loadData();
+    }
+  }, [userId, id]);
 
   useEffect(() => {
     filterSuppliers();
@@ -144,33 +167,76 @@ export default function SuppliersPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) {
-        setProjectName(projectDoc.data().name || "Proyecto");
+      setErrorMessage("");
+      
+      console.log("🔄 Iniciando carga de datos...");
+      
+      // Verificar que tenemos ID de proyecto
+      if (!id) {
+        throw new Error("No se encontró el ID del proyecto");
       }
 
-      const suppliersSnapshot = await getDocs(
-        collection(db, `projects/${id}/suppliers`)
-      );
-      const suppliersData = suppliersSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        certificates: {
-          bankOwnership: {
-            ...doc.data().certificates?.bankOwnership,
-            expiryDate: doc.data().certificates?.bankOwnership?.expiryDate?.toDate(),
+      // Cargar proyecto
+      console.log("📁 Cargando proyecto:", id);
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      
+      if (!projectDoc.exists()) {
+        throw new Error(`El proyecto ${id} no existe`);
+      }
+      
+      setProjectName(projectDoc.data().name || "Proyecto");
+      console.log("✅ Proyecto cargado:", projectDoc.data().name);
+
+      // Cargar proveedores
+      console.log("👥 Cargando proveedores...");
+      const suppliersRef = collection(db, `projects/${id}/suppliers`);
+      const suppliersQuery = query(suppliersRef, orderBy("fiscalName", "asc"));
+      const suppliersSnapshot = await getDocs(suppliersQuery);
+      
+      console.log(`👥 Encontrados ${suppliersSnapshot.size} proveedores`);
+
+      const suppliersData = suppliersSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          fiscalName: data.fiscalName || "",
+          commercialName: data.commercialName || "",
+          country: data.country || "ES",
+          taxId: data.taxId || "",
+          address: data.address || {
+            street: "",
+            number: "",
+            city: "",
+            province: "",
+            postalCode: "",
           },
-          contractorsCertificate: {
-            ...doc.data().certificates?.contractorsCertificate,
-            expiryDate: doc.data().certificates?.contractorsCertificate?.expiryDate?.toDate(),
+          paymentMethod: data.paymentMethod || "transferencia",
+          bankAccount: data.bankAccount || "",
+          certificates: {
+            bankOwnership: {
+              ...data.certificates?.bankOwnership,
+              expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(),
+              uploaded: data.certificates?.bankOwnership?.uploaded || false,
+            },
+            contractorsCertificate: {
+              ...data.certificates?.contractorsCertificate,
+              expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(),
+              uploaded: data.certificates?.contractorsCertificate?.uploaded || false,
+            },
           },
-        },
-      })) as Supplier[];
+          createdAt: data.createdAt?.toDate() || new Date(),
+          createdBy: data.createdBy || "",
+          hasAssignedPOs: data.hasAssignedPOs || false,
+          hasAssignedInvoices: data.hasAssignedInvoices || false,
+        };
+      }) as Supplier[];
 
       setSuppliers(suppliersData);
-    } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.log("✅ Proveedores cargados correctamente");
+      
+    } catch (error: any) {
+      console.error("❌ Error cargando datos:", error);
+      setErrorMessage(`Error cargando datos: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -231,10 +297,41 @@ export default function SuppliersPage() {
     return "valid";
   };
 
+  const validateForm = () => {
+    if (!formData.fiscalName.trim()) {
+      setErrorMessage("El nombre fiscal es obligatorio");
+      return false;
+    }
+    if (!formData.taxId.trim()) {
+      setErrorMessage("El NIF/CIF es obligatorio");
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateSupplier = async () => {
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setErrorMessage("");
+
     try {
+      console.log("📝 Creando proveedor:", formData.fiscalName);
+      
       const newSupplier = {
-        ...formData,
+        fiscalName: formData.fiscalName.trim(),
+        commercialName: formData.commercialName.trim(),
+        country: formData.country,
+        taxId: formData.taxId.trim().toUpperCase(),
+        address: {
+          street: formData.address.street.trim(),
+          number: formData.address.number.trim(),
+          city: formData.address.city.trim(),
+          province: formData.address.province.trim(),
+          postalCode: formData.address.postalCode.trim(),
+        },
+        paymentMethod: formData.paymentMethod,
+        bankAccount: formData.bankAccount.trim(),
         certificates: {
           bankOwnership: {
             uploaded: !!certificates.bankOwnership.file,
@@ -253,28 +350,55 @@ export default function SuppliersPage() {
           },
         },
         createdAt: Timestamp.now(),
-        createdBy: auth.currentUser?.uid || "",
+        createdBy: userId || "",
         hasAssignedPOs: false,
         hasAssignedInvoices: false,
       };
 
-      await addDoc(collection(db, `projects/${id}/suppliers`), newSupplier);
+      console.log("📤 Datos a guardar:", newSupplier);
+
+      const docRef = await addDoc(collection(db, `projects/${id}/suppliers`), newSupplier);
       
-      // Reset form
+      console.log("✅ Proveedor creado con ID:", docRef.id);
+      
+      setSuccessMessage("Proveedor creado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error creando proveedor:", error);
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error creando proveedor:", error);
+      setErrorMessage(`Error creando proveedor: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdateSupplier = async () => {
     if (!selectedSupplier) return;
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setErrorMessage("");
 
     try {
+      console.log("📝 Actualizando proveedor:", selectedSupplier.id);
+      
       const updatedData = {
-        ...formData,
+        fiscalName: formData.fiscalName.trim(),
+        commercialName: formData.commercialName.trim(),
+        country: formData.country,
+        taxId: formData.taxId.trim().toUpperCase(),
+        address: {
+          street: formData.address.street.trim(),
+          number: formData.address.number.trim(),
+          city: formData.address.city.trim(),
+          province: formData.address.province.trim(),
+          postalCode: formData.address.postalCode.trim(),
+        },
+        paymentMethod: formData.paymentMethod,
+        bankAccount: formData.bankAccount.trim(),
         certificates: {
           bankOwnership: {
             ...selectedSupplier.certificates.bankOwnership,
@@ -303,12 +427,20 @@ export default function SuppliersPage() {
         doc(db, `projects/${id}/suppliers`, selectedSupplier.id),
         updatedData
       );
+      
+      console.log("✅ Proveedor actualizado");
+      
+      setSuccessMessage("Proveedor actualizado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
 
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error actualizando proveedor:", error);
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error actualizando proveedor:", error);
+      setErrorMessage(`Error actualizando proveedor: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -316,17 +448,28 @@ export default function SuppliersPage() {
     const supplier = suppliers.find((s) => s.id === supplierId);
     
     if (supplier?.hasAssignedPOs || supplier?.hasAssignedInvoices) {
-      alert("No se puede eliminar un proveedor con POs o facturas asignadas");
+      setErrorMessage("No se puede eliminar un proveedor con POs o facturas asignadas");
+      setTimeout(() => setErrorMessage(""), 5000);
       return;
     }
 
-    if (confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {
-      try {
-        await deleteDoc(doc(db, `projects/${id}/suppliers`, supplierId));
-        loadData();
-      } catch (error) {
-        console.error("Error eliminando proveedor:", error);
-      }
+    if (!confirm(`¿Estás seguro de que quieres eliminar a ${supplier?.fiscalName}?`)) {
+      return;
+    }
+
+    try {
+      console.log("🗑️ Eliminando proveedor:", supplierId);
+      await deleteDoc(doc(db, `projects/${id}/suppliers`, supplierId));
+      
+      console.log("✅ Proveedor eliminado");
+      
+      setSuccessMessage("Proveedor eliminado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error eliminando proveedor:", error);
+      setErrorMessage(`Error eliminando proveedor: ${error.message}`);
     }
   };
 
@@ -351,6 +494,7 @@ export default function SuppliersPage() {
       contractorsCertificate: { file: null, expiryDate: "" },
     });
     setSelectedSupplier(null);
+    setErrorMessage("");
   };
 
   const openCreateModal = () => {
@@ -441,13 +585,39 @@ export default function SuppliersPage() {
     }
   };
 
+  const exportSuppliers = () => {
+    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "MÉTODO PAGO", "CUENTA BANCARIA"]];
+
+    suppliers.forEach((supplier) => {
+      rows.push([
+        supplier.fiscalName,
+        supplier.commercialName,
+        supplier.country,
+        supplier.taxId,
+        supplier.paymentMethod,
+        supplier.bankAccount,
+      ]);
+    });
+
+    const csvContent = rows.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `proveedores_${projectName}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <p className="text-slate-600 text-sm font-medium">Cargando proveedores...</p>
           </div>
         </main>
       </div>
@@ -467,15 +637,33 @@ export default function SuppliersPage() {
           </h1>
         </div>
         <Link
-          href="/dashboard"
+          href={`/project/${id}/accounting`}
           className="text-indigo-600 hover:text-indigo-900 transition-colors text-sm font-medium"
         >
-          Volver a proyectos
+          Volver a contabilidad
         </Link>
       </div>
 
       <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
+          {/* Mensajes de error y éxito */}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+              <AlertCircle size={20} />
+              <span>{errorMessage}</span>
+              <button onClick={() => setErrorMessage("")} className="ml-auto">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+              <CheckCircle size={20} />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {/* Header */}
           <header className="mb-8">
             <div className="flex items-center justify-between">
@@ -492,13 +680,22 @@ export default function SuppliersPage() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <Plus size={20} />
-                Añadir proveedor
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={loadData}
+                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl font-medium transition-all hover:bg-slate-50"
+                  title="Recargar datos"
+                >
+                  <RefreshCw size={20} />
+                </button>
+                <button
+                  onClick={openCreateModal}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <Plus size={20} />
+                  Añadir proveedor
+                </button>
+              </div>
             </div>
           </header>
 
@@ -598,7 +795,10 @@ export default function SuppliersPage() {
                   <option value="expired">Caducados/Sin certificados</option>
                 </select>
 
-                <button className="px-4 py-2.5 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2 font-medium">
+                <button 
+                  onClick={exportSuppliers}
+                  className="px-4 py-2.5 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2 font-medium"
+                >
                   <Download size={18} />
                   Exportar
                 </button>
@@ -696,7 +896,7 @@ export default function SuppliersPage() {
                               {
                                 PAYMENT_METHODS.find(
                                   (pm) => pm.value === supplier.paymentMethod
-                                )?.label
+                                )?.label || supplier.paymentMethod
                               }
                             </span>
                           </td>
@@ -775,7 +975,10 @@ export default function SuppliersPage() {
                 {modalMode === "view" && "Detalles del proveedor"}
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
                 className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
               >
                 <X size={20} />
@@ -783,6 +986,13 @@ export default function SuppliersPage() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              {errorMessage && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  {errorMessage}
+                </div>
+              )}
+              
               <div className="space-y-6">
                 {/* Información básica */}
                 <div>
@@ -793,11 +1003,11 @@ export default function SuppliersPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Nombre fiscal
+                        Nombre fiscal *
                       </label>
                       <input
                         type="text"
-                        value={formData.fiscalName}
+                        value={modalMode === "view" ? selectedSupplier?.fiscalName : formData.fiscalName}
                         onChange={(e) =>
                           setFormData({ ...formData, fiscalName: e.target.value })
                         }
@@ -813,7 +1023,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.commercialName}
+                        value={modalMode === "view" ? selectedSupplier?.commercialName : formData.commercialName}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -831,7 +1041,7 @@ export default function SuppliersPage() {
                         País
                       </label>
                       <select
-                        value={formData.country}
+                        value={modalMode === "view" ? selectedSupplier?.country : formData.country}
                         onChange={(e) =>
                           setFormData({ ...formData, country: e.target.value })
                         }
@@ -848,11 +1058,11 @@ export default function SuppliersPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        NIF/CIF
+                        NIF/CIF *
                       </label>
                       <input
                         type="text"
-                        value={formData.taxId}
+                        value={modalMode === "view" ? selectedSupplier?.taxId : formData.taxId}
                         onChange={(e) =>
                           setFormData({ ...formData, taxId: e.target.value })
                         }
@@ -877,7 +1087,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.address.street}
+                        value={modalMode === "view" ? selectedSupplier?.address?.street : formData.address.street}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -896,7 +1106,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.address.number}
+                        value={modalMode === "view" ? selectedSupplier?.address?.number : formData.address.number}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -915,7 +1125,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.address.city}
+                        value={modalMode === "view" ? selectedSupplier?.address?.city : formData.address.city}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -934,7 +1144,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.address.province}
+                        value={modalMode === "view" ? selectedSupplier?.address?.province : formData.address.province}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -953,7 +1163,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.address.postalCode}
+                        value={modalMode === "view" ? selectedSupplier?.address?.postalCode : formData.address.postalCode}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -983,7 +1193,7 @@ export default function SuppliersPage() {
                         Método de pago
                       </label>
                       <select
-                        value={formData.paymentMethod}
+                        value={modalMode === "view" ? selectedSupplier?.paymentMethod : formData.paymentMethod}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
@@ -1007,7 +1217,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.bankAccount}
+                        value={modalMode === "view" ? selectedSupplier?.bankAccount : formData.bankAccount}
                         onChange={(e) =>
                           setFormData({ ...formData, bankAccount: e.target.value })
                         }
@@ -1061,8 +1271,7 @@ export default function SuppliersPage() {
                                 />
                                 {certificates.bankOwnership.file && (
                                   <p className="text-xs text-emerald-600 mt-1">
-                                    Archivo seleccionado:{" "}
-                                    {certificates.bankOwnership.file.name}
+                                    ✓ {certificates.bankOwnership.file.name}
                                   </p>
                                 )}
                               </div>
@@ -1124,8 +1333,7 @@ export default function SuppliersPage() {
                                 />
                                 {certificates.contractorsCertificate.file && (
                                   <p className="text-xs text-emerald-600 mt-1">
-                                    Archivo seleccionado:{" "}
-                                    {certificates.contractorsCertificate.file.name}
+                                    ✓ {certificates.contractorsCertificate.file.name}
                                   </p>
                                 )}
                               </div>
@@ -1210,7 +1418,10 @@ export default function SuppliersPage() {
               {/* Botones de acción */}
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
                   className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
                 >
                   {modalMode === "view" ? "Cerrar" : "Cancelar"}
@@ -1222,8 +1433,12 @@ export default function SuppliersPage() {
                         ? handleCreateSupplier
                         : handleUpdateSupplier
                     }
-                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-lg"
+                    disabled={saving}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
+                    {saving && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    )}
                     {modalMode === "create" ? "Crear proveedor" : "Guardar cambios"}
                   </button>
                 )}
@@ -1235,4 +1450,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-
