@@ -40,6 +40,7 @@ import {
   CheckCircle,
   AlertTriangle,
   TrendingDown,
+  Send,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -50,12 +51,13 @@ interface PO {
   supplier: string;
   supplierId: string;
   amount: number;
+  totalAmount: number;
   status: string;
   items: POItem[];
 }
 
 interface POItem {
-  id: string;
+  id?: string;
   description: string;
   subAccountId: string;
   subAccountCode: string;
@@ -101,6 +103,43 @@ interface SubAccount {
   accountDescription: string;
 }
 
+interface Supplier {
+  id: string;
+  fiscalName: string;
+  commercialName: string;
+  taxId: string;
+}
+
+interface Member {
+  userId: string;
+  role?: string;
+  department?: string;
+  position?: string;
+}
+
+interface ApprovalStep {
+  id: string;
+  order: number;
+  approverType: "fixed" | "role" | "hod" | "coordinator";
+  approvers?: string[];
+  roles?: string[];
+  department?: string;
+  requireAll: boolean;
+}
+
+interface ApprovalStepStatus {
+  id: string;
+  order: number;
+  approverType: "fixed" | "role" | "hod" | "coordinator";
+  approvers: string[];
+  roles?: string[];
+  department?: string;
+  approvedBy: string[];
+  rejectedBy: string[];
+  status: "pending" | "approved" | "rejected";
+  requireAll: boolean;
+}
+
 const VAT_RATES = [
   { value: 0, label: "0% (Exento)" },
   { value: 4, label: "4% (Superreducido)" },
@@ -129,11 +168,17 @@ export default function NewInvoicePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Approval system
+  const [members, setMembers] = useState<Member[]>([]);
+  const [approvalConfig, setApprovalConfig] = useState<ApprovalStep[]>([]);
+
   // Modals
   const [showPOModal, setShowPOModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [poSearch, setPOSearch] = useState("");
   const [accountSearch, setAccountSearch] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
 
   // File upload
@@ -143,6 +188,7 @@ export default function NewInvoicePage() {
   // Data
   const [pos, setPOs] = useState<PO[]>([]);
   const [subAccounts, setSubAccounts] = useState<SubAccount[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedPO, setSelectedPO] = useState<PO | null>(null);
 
   const [formData, setFormData] = useState({
@@ -177,6 +223,7 @@ export default function NewInvoicePage() {
       if (user) {
         setUserId(user.uid);
         setUserName(user.displayName || user.email || "Usuario");
+        console.log("✅ Usuario autenticado:", user.uid);
       } else {
         router.push("/");
       }
@@ -203,11 +250,45 @@ export default function NewInvoicePage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log("🔄 Cargando datos para nueva factura...");
 
       // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
+        console.log("✅ Proyecto:", projectDoc.data().name);
+      }
+
+      // Load members (for approval resolution)
+      const membersSnapshot = await getDocs(collection(db, `projects/${id}/members`));
+      const membersData = membersSnapshot.docs.map((doc) => ({
+        userId: doc.id,
+        role: doc.data().role,
+        department: doc.data().department,
+        position: doc.data().position,
+      }));
+      setMembers(membersData);
+      console.log(`✅ ${membersData.length} miembros cargados`);
+
+      // Load approval configuration for invoices
+      const approvalConfigDoc = await getDoc(doc(db, `projects/${id}/config/approvals`));
+      if (approvalConfigDoc.exists()) {
+        const config = approvalConfigDoc.data();
+        setApprovalConfig(config.invoiceApprovals || []);
+        console.log(`✅ Configuración de aprobaciones: ${(config.invoiceApprovals || []).length} niveles`);
+      } else {
+        // Default approval config
+        const defaultConfig: ApprovalStep[] = [
+          {
+            id: "default-1",
+            order: 1,
+            approverType: "role",
+            roles: ["Controller", "PM", "EP"],
+            requireAll: false,
+          },
+        ];
+        setApprovalConfig(defaultConfig);
+        console.log("ℹ️ Usando configuración de aprobaciones por defecto");
       }
 
       // Load approved POs
@@ -219,11 +300,32 @@ export default function NewInvoicePage() {
       const posSnapshot = await getDocs(posQuery);
       const posData = posSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
-        items: doc.data().items || [],
+        number: doc.data().number,
+        supplier: doc.data().supplier,
+        supplierId: doc.data().supplierId,
+        amount: doc.data().totalAmount || doc.data().amount || 0,
+        totalAmount: doc.data().totalAmount || doc.data().amount || 0,
+        status: doc.data().status,
+        items: (doc.data().items || []).map((item: any, idx: number) => ({
+          ...item,
+          id: item.id || `item-${idx}`,
+        })),
       })) as PO[];
-
       setPOs(posData);
+      console.log(`✅ ${posData.length} POs aprobadas cargadas`);
+
+      // Load suppliers
+      const suppliersSnapshot = await getDocs(
+        query(collection(db, `projects/${id}/suppliers`), orderBy("fiscalName", "asc"))
+      );
+      const suppliersData = suppliersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        fiscalName: doc.data().fiscalName || "",
+        commercialName: doc.data().commercialName || "",
+        taxId: doc.data().taxId || "",
+      }));
+      setSuppliers(suppliersData);
+      console.log(`✅ ${suppliersData.length} proveedores cargados`);
 
       // Load accounts and subaccounts
       const accountsSnapshot = await getDocs(
@@ -242,14 +344,17 @@ export default function NewInvoicePage() {
 
         subAccountsSnapshot.docs.forEach((subDoc) => {
           const data = subDoc.data();
-          const available = data.budgeted - data.committed - data.actual;
+          const budgeted = data.budgeted || 0;
+          const committed = data.committed || 0;
+          const actual = data.actual || 0;
+          const available = budgeted - committed - actual;
           allSubAccounts.push({
             id: subDoc.id,
             code: data.code,
             description: data.description,
-            budgeted: data.budgeted,
-            committed: data.committed,
-            actual: data.actual,
+            budgeted,
+            committed,
+            actual,
             available,
             accountId: accountDoc.id,
             accountCode: accountData.code,
@@ -258,11 +363,13 @@ export default function NewInvoicePage() {
         });
       }
       setSubAccounts(allSubAccounts);
+      console.log(`✅ ${allSubAccounts.length} subcuentas cargadas`);
 
       // Generate next invoice number
       const invoicesSnapshot = await getDocs(collection(db, `projects/${id}/invoices`));
       const nextNumber = String(invoicesSnapshot.size + 1).padStart(4, "0");
       setNextInvoiceNumber(nextNumber);
+      console.log(`✅ Número de factura: ${nextNumber}`);
 
       // Set default due date (30 days from now)
       const defaultDueDate = new Date();
@@ -272,11 +379,110 @@ export default function NewInvoicePage() {
         dueDate: defaultDueDate.toISOString().split("T")[0],
       }));
     } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.error("❌ Error cargando datos:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  // ==========================================
+  // APPROVAL SYSTEM FUNCTIONS
+  // ==========================================
+
+  const resolveApprovers = (
+    step: ApprovalStep,
+    documentDepartment?: string
+  ): string[] => {
+    switch (step.approverType) {
+      case "fixed":
+        return step.approvers || [];
+
+      case "role":
+        const roleApprovers = members
+          .filter((m) => m.role && step.roles?.includes(m.role))
+          .map((m) => m.userId);
+        return roleApprovers;
+
+      case "hod":
+        const hodDepartment = step.department || documentDepartment;
+        const hods = members
+          .filter((m) => m.position === "HOD" && m.department === hodDepartment)
+          .map((m) => m.userId);
+        return hods;
+
+      case "coordinator":
+        const coordDepartment = step.department || documentDepartment;
+        const coordinators = members
+          .filter((m) => m.position === "Coordinator" && m.department === coordDepartment)
+          .map((m) => m.userId);
+        return coordinators;
+
+      default:
+        return [];
+    }
+  };
+
+  const generateApprovalSteps = (documentDepartment?: string): ApprovalStepStatus[] => {
+    if (approvalConfig.length === 0) {
+      console.log("ℹ️ Sin niveles de aprobación configurados para facturas");
+      return [];
+    }
+
+    const steps: ApprovalStepStatus[] = approvalConfig.map((step) => {
+      const resolvedApprovers = resolveApprovers(step, documentDepartment);
+
+      return {
+        id: step.id,
+        order: step.order,
+        approverType: step.approverType,
+        approvers: resolvedApprovers,
+        roles: step.roles,
+        department: step.department,
+        approvedBy: [],
+        rejectedBy: [],
+        status: "pending" as const,
+        requireAll: step.requireAll,
+      };
+    });
+
+    console.log(`✅ Generados ${steps.length} pasos de aprobación para factura`);
+    steps.forEach((step, index) => {
+      console.log(`  Nivel ${index + 1}: ${step.approvers.length} aprobadores posibles (${step.approverType})`);
+    });
+
+    return steps;
+  };
+
+  const shouldAutoApprove = (steps: ApprovalStepStatus[]): boolean => {
+    if (steps.length === 0) {
+      return true;
+    }
+    return steps.every((step) => step.approvers.length === 0);
+  };
+
+  const getApprovalPreview = () => {
+    if (approvalConfig.length === 0) {
+      return { levels: 0, autoApprove: true, message: "Se procesará directamente como pendiente de pago" };
+    }
+
+    const steps = generateApprovalSteps();
+    const hasApprovers = steps.some((s) => s.approvers.length > 0);
+
+    if (!hasApprovers) {
+      return { levels: 0, autoApprove: true, message: "Se procesará directamente (sin aprobadores asignados)" };
+    }
+
+    return {
+      levels: steps.length,
+      autoApprove: false,
+      message: `${steps.length} nivel${steps.length > 1 ? "es" : ""} de aprobación`,
+      steps,
+    };
+  };
+
+  // ==========================================
+  // END APPROVAL SYSTEM FUNCTIONS
+  // ==========================================
 
   const calculateItemTotal = (item: InvoiceItem) => {
     const baseAmount = item.quantity * item.unitPrice;
@@ -355,7 +561,7 @@ export default function NewInvoicePage() {
       const invoicesQuery = query(
         collection(db, `projects/${id}/invoices`),
         where("poId", "==", selectedPO.id),
-        where("status", "in", ["pending", "paid", "overdue"])
+        where("status", "in", ["pending", "approved", "paid", "overdue"])
       );
       const invoicesSnapshot = await getDocs(invoicesQuery);
       
@@ -366,12 +572,14 @@ export default function NewInvoicePage() {
 
       const currentInvoiceAmount = totals.totalAmount;
       const totalInvoiced = invoicedAmount + currentInvoiceAmount;
-      const remainingAmount = selectedPO.amount - totalInvoiced;
-      const percentageInvoiced = (totalInvoiced / selectedPO.amount) * 100;
-      const isOverInvoiced = totalInvoiced > selectedPO.amount;
+      const remainingAmount = selectedPO.totalAmount - totalInvoiced;
+      const percentageInvoiced = selectedPO.totalAmount > 0 
+        ? (totalInvoiced / selectedPO.totalAmount) * 100 
+        : 0;
+      const isOverInvoiced = totalInvoiced > selectedPO.totalAmount;
 
       setPOStats({
-        totalAmount: selectedPO.amount,
+        totalAmount: selectedPO.totalAmount,
         invoicedAmount: totalInvoiced,
         remainingAmount,
         percentageInvoiced,
@@ -392,6 +600,16 @@ export default function NewInvoicePage() {
     });
     setShowPOModal(false);
     setPOSearch("");
+  };
+
+  const selectSupplier = (supplier: Supplier) => {
+    setFormData({
+      ...formData,
+      supplier: supplier.id,
+      supplierName: supplier.fiscalName,
+    });
+    setShowSupplierModal(false);
+    setSupplierSearch("");
   };
 
   const addPOItem = (poItem: POItem) => {
@@ -450,6 +668,13 @@ export default function NewInvoicePage() {
       s.code.toLowerCase().includes(accountSearch.toLowerCase()) ||
       s.description.toLowerCase().includes(accountSearch.toLowerCase()) ||
       s.accountDescription.toLowerCase().includes(accountSearch.toLowerCase())
+  );
+
+  const filteredSuppliers = suppliers.filter(
+    (s) =>
+      s.fiscalName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+      s.commercialName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+      s.taxId.toLowerCase().includes(supplierSearch.toLowerCase())
   );
 
   const handleFileUpload = (file: File) => {
@@ -544,16 +769,20 @@ export default function NewInvoicePage() {
 
     setSaving(true);
     try {
+      console.log("📝 Creando factura...");
+
       let fileUrl = "";
 
       // Upload file
       if (uploadedFile) {
+        console.log("📤 Subiendo archivo...");
         const fileRef = ref(
           storage,
           `projects/${id}/invoices/${nextInvoiceNumber}/${uploadedFile.name}`
         );
         await uploadBytes(fileRef, uploadedFile);
         fileUrl = await getDownloadURL(fileRef);
+        console.log("✅ Archivo subido");
       }
 
       // Prepare items data
@@ -574,7 +803,8 @@ export default function NewInvoicePage() {
         totalAmount: item.totalAmount,
       }));
 
-      const invoiceData = {
+      // Base invoice data
+      const invoiceData: any = {
         number: nextInvoiceNumber,
         supplier: formData.supplierName,
         supplierId: formData.supplier,
@@ -587,7 +817,6 @@ export default function NewInvoicePage() {
         vatAmount: totals.vatAmount,
         irpfAmount: totals.irpfAmount,
         totalAmount: totals.totalAmount,
-        status: "pending",
         dueDate: Timestamp.fromDate(new Date(formData.dueDate)),
         attachmentUrl: fileUrl,
         attachmentFileName: uploadedFile?.name || "",
@@ -596,20 +825,48 @@ export default function NewInvoicePage() {
         createdByName: userName,
       };
 
-      await addDoc(collection(db, `projects/${id}/invoices`), invoiceData);
+      // Generate approval steps
+      console.log("🔄 Generando flujo de aprobación...");
+      const approvalSteps = generateApprovalSteps();
 
-      setSuccessMessage("Factura creada correctamente");
+      if (shouldAutoApprove(approvalSteps)) {
+        // Si no hay aprobadores, va directamente a pendiente de pago
+        console.log("✅ Sin aprobación requerida: estado 'pending' (pendiente de pago)");
+        invoiceData.status = "pending"; // pending = pendiente de pago
+        invoiceData.approvalStatus = "approved";
+        invoiceData.autoApproved = true;
+      } else {
+        // Requiere aprobación
+        console.log(`📋 Factura requiere aprobación: ${approvalSteps.length} niveles`);
+        invoiceData.status = "pending_approval"; // pending_approval = pendiente de aprobación
+        invoiceData.approvalStatus = "pending";
+        invoiceData.approvalSteps = approvalSteps;
+        invoiceData.currentApprovalStep = 0;
+      }
+
+      console.log("📤 Guardando factura en Firebase...");
+      const docRef = await addDoc(collection(db, `projects/${id}/invoices`), invoiceData);
+      console.log(`✅ Factura guardada con ID: ${docRef.id}`);
+
+      // Set success message
+      if (invoiceData.autoApproved) {
+        setSuccessMessage("Factura creada y pendiente de pago");
+      } else {
+        setSuccessMessage("Factura enviada para aprobación");
+      }
 
       setTimeout(() => {
         router.push(`/project/${id}/accounting/invoices`);
       }, 1500);
-    } catch (error) {
-      console.error("Error creando factura:", error);
-      alert("Error al crear la factura");
+    } catch (error: any) {
+      console.error("❌ Error creando factura:", error);
+      alert(`Error al crear la factura: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
+
+  const approvalPreview = getApprovalPreview();
 
   if (loading) {
     return (
@@ -667,7 +924,7 @@ export default function NewInvoicePage() {
                     Nueva factura
                   </h1>
                   <p className="text-slate-600 text-sm mt-1">
-                    INV-{nextInvoiceNumber} • {userName}
+                    FAC-{nextInvoiceNumber} • {userName}
                   </p>
                 </div>
               </div>
@@ -677,7 +934,7 @@ export default function NewInvoicePage() {
           {/* Success Message */}
           {successMessage && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-700">
-              <Check size={20} />
+              <CheckCircle size={20} />
               <span className="font-medium">{successMessage}</span>
             </div>
           )}
@@ -689,13 +946,8 @@ export default function NewInvoicePage() {
                 <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-red-900 mb-1">
-                    Hay errores en el formulario:
+                    Hay errores en el formulario
                   </p>
-                  <ul className="text-sm text-red-700 list-disc list-inside">
-                    {Object.values(errors).map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
                 </div>
               </div>
             </div>
@@ -714,7 +966,7 @@ export default function NewInvoicePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     onClick={() => {
-                      setFormData({ ...formData, invoiceType: "with-po" });
+                      setFormData({ ...formData, invoiceType: "with-po", supplier: "", supplierName: "" });
                       setItems([]);
                       setSelectedPO(null);
                     }}
@@ -738,7 +990,7 @@ export default function NewInvoicePage() {
 
                   <button
                     onClick={() => {
-                      setFormData({ ...formData, invoiceType: "without-po" });
+                      setFormData({ ...formData, invoiceType: "without-po", supplier: "", supplierName: "" });
                       setItems([]);
                       setSelectedPO(null);
                     }}
@@ -787,10 +1039,7 @@ export default function NewInvoicePage() {
                     ) : (
                       <span className="text-slate-400">Seleccionar orden de compra...</span>
                     )}
-                    <Search
-                      size={18}
-                      className="text-slate-400 group-hover:text-emerald-600"
-                    />
+                    <Search size={18} className="text-slate-400 group-hover:text-emerald-600" />
                   </button>
                   {errors.po && (
                     <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
@@ -831,22 +1080,6 @@ export default function NewInvoicePage() {
                                 {poStats.invoicedAmount.toLocaleString()} €
                               </p>
                             </div>
-                            <div>
-                              <p className="text-slate-600">Restante</p>
-                              <p className={`font-semibold ${
-                                poStats.remainingAmount < 0 ? "text-red-600" : "text-slate-900"
-                              }`}>
-                                {poStats.remainingAmount.toLocaleString()} €
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-slate-600">Porcentaje</p>
-                              <p className={`font-semibold ${
-                                poStats.percentageInvoiced > 100 ? "text-red-600" : "text-slate-900"
-                              }`}>
-                                {poStats.percentageInvoiced.toFixed(1)}%
-                              </p>
-                            </div>
                           </div>
                           
                           {/* Progress bar */}
@@ -864,12 +1097,6 @@ export default function NewInvoicePage() {
                               />
                             </div>
                           </div>
-
-                          {poStats.isOverInvoiced && (
-                            <p className="text-xs text-red-700 mt-2">
-                              Esta factura excede el importe de la PO. Verifica los importes antes de continuar.
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -882,11 +1109,11 @@ export default function NewInvoicePage() {
                         Ítems disponibles en la PO
                       </h3>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {selectedPO.items.map((poItem) => {
+                        {selectedPO.items.map((poItem, idx) => {
                           const alreadyAdded = items.find((item) => item.poItemId === poItem.id);
                           return (
                             <div
-                              key={poItem.id}
+                              key={poItem.id || idx}
                               className={`flex items-center justify-between p-3 rounded-lg border ${
                                 alreadyAdded
                                   ? "bg-emerald-50 border-emerald-200"
@@ -922,6 +1149,39 @@ export default function NewInvoicePage() {
                 </div>
               )}
 
+              {/* Supplier Selection (if without-po) */}
+              {formData.invoiceType === "without-po" && (
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <Building2 size={20} className="text-emerald-600" />
+                    Proveedor
+                  </h2>
+
+                  <button
+                    onClick={() => setShowSupplierModal(true)}
+                    className={`w-full px-4 py-3 border-2 ${
+                      errors.supplier ? "border-red-300" : "border-slate-300"
+                    } rounded-lg hover:border-emerald-400 transition-colors text-left flex items-center justify-between group`}
+                  >
+                    {formData.supplierName ? (
+                      <div className="flex items-center gap-2">
+                        <Building2 size={18} className="text-emerald-600" />
+                        <span className="font-medium text-slate-900">{formData.supplierName}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">Seleccionar proveedor...</span>
+                    )}
+                    <Search size={18} className="text-slate-400 group-hover:text-emerald-600" />
+                  </button>
+                  {errors.supplier && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.supplier}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Basic Info */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -946,9 +1206,6 @@ export default function NewInvoicePage() {
                         errors.description ? "border-red-300" : "border-slate-300"
                       } rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none`}
                     />
-                    {errors.description && (
-                      <p className="text-xs text-red-600 mt-1">{errors.description}</p>
-                    )}
                   </div>
 
                   {/* Due Date */}
@@ -967,9 +1224,6 @@ export default function NewInvoicePage() {
                         } rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none`}
                       />
                     </div>
-                    {errors.dueDate && (
-                      <p className="text-xs text-red-600 mt-1">{errors.dueDate}</p>
-                    )}
                   </div>
 
                   {/* Notes */}
@@ -1052,11 +1306,7 @@ export default function NewInvoicePage() {
                             onChange={(e) => updateItem(index, "description", e.target.value)}
                             disabled={!item.isNewItem}
                             placeholder="Descripción del ítem..."
-                            className={`w-full px-3 py-2 border ${
-                              errors[`item_${index}_description`]
-                                ? "border-red-300"
-                                : "border-slate-300"
-                            } rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50`}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50"
                           />
                         </div>
 
@@ -1068,11 +1318,7 @@ export default function NewInvoicePage() {
                             </label>
                             <button
                               onClick={() => openAccountModal(index)}
-                              className={`w-full px-3 py-2 border ${
-                                errors[`item_${index}_account`]
-                                  ? "border-red-300"
-                                  : "border-slate-300"
-                              } rounded-lg text-sm text-left flex items-center justify-between hover:border-emerald-400 transition-colors`}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-left flex items-center justify-between hover:border-emerald-400 transition-colors"
                             >
                               {item.subAccountCode ? (
                                 <span className="font-mono text-slate-900">
@@ -1098,7 +1344,7 @@ export default function NewInvoicePage() {
                               step="1"
                               value={item.quantity}
                               onChange={(e) =>
-                                updateItem(index, "quantity", parseFloat(e.target.value))
+                                updateItem(index, "quantity", parseFloat(e.target.value) || 0)
                               }
                               disabled={!item.isNewItem}
                               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50"
@@ -1115,7 +1361,7 @@ export default function NewInvoicePage() {
                               step="0.01"
                               value={item.unitPrice}
                               onChange={(e) =>
-                                updateItem(index, "unitPrice", parseFloat(e.target.value))
+                                updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
                               }
                               disabled={!item.isNewItem}
                               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50"
@@ -1123,7 +1369,7 @@ export default function NewInvoicePage() {
                           </div>
                         </div>
 
-                        {/* VAT and IRPF (only editable for new items) */}
+                        {/* VAT and IRPF */}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -1267,12 +1513,6 @@ export default function NewInvoicePage() {
                     </label>
                   )}
                 </div>
-                {errors.file && (
-                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
-                    <AlertCircle size={12} />
-                    {errors.file}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -1316,6 +1556,51 @@ export default function NewInvoicePage() {
                   </div>
                 </div>
 
+                {/* Approval Preview Card */}
+                <div className={`border rounded-xl p-4 ${
+                  approvalPreview.autoApprove 
+                    ? "bg-emerald-50 border-emerald-200" 
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    {approvalPreview.autoApprove ? (
+                      <CheckCircle size={20} className="text-emerald-600 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={20} className="text-amber-600 mt-0.5" />
+                    )}
+                    <div>
+                      <p className={`font-semibold text-sm ${
+                        approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800"
+                      }`}>
+                        {approvalPreview.autoApprove ? "Sin aprobación" : "Requiere aprobación"}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700"
+                      }`}>
+                        {approvalPreview.message}
+                      </p>
+                      {!approvalPreview.autoApprove && approvalPreview.steps && (
+                        <div className="mt-2 space-y-1">
+                          {approvalPreview.steps.map((step, idx) => (
+                            <div key={step.id} className="text-xs text-amber-700 flex items-center gap-1">
+                              <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-semibold text-[10px]">
+                                {idx + 1}
+                              </span>
+                              <span>
+                                {step.approverType === "role" && step.roles
+                                  ? step.roles.join(", ")
+                                  : step.approverType === "fixed"
+                                  ? `${step.approvers.length} usuario(s)`
+                                  : step.approverType}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Actions Card */}
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
                   <h3 className="text-sm font-semibold text-slate-900 mb-4">Acciones</h3>
@@ -1333,8 +1618,8 @@ export default function NewInvoicePage() {
                         </>
                       ) : (
                         <>
-                          <Save size={18} />
-                          Crear factura
+                          {approvalPreview.autoApprove ? <Save size={18} /> : <Send size={18} />}
+                          {approvalPreview.autoApprove ? "Crear factura" : "Enviar para aprobación"}
                         </>
                       )}
                     </button>
@@ -1357,7 +1642,6 @@ export default function NewInvoicePage() {
                         <li>• El archivo de la factura es obligatorio</li>
                         <li>• Los ítems de PO no son editables</li>
                         <li>• Puedes agregar ítems nuevos adicionales</li>
-                        <li>• La factura quedará como pendiente de pago</li>
                       </ul>
                     </div>
                   </div>
@@ -1420,7 +1704,7 @@ export default function NewInvoicePage() {
                               PO-{po.number}
                             </p>
                             <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
-                              {po.status}
+                              Aprobada
                             </span>
                           </div>
                           <p className="text-sm text-slate-600">{po.supplier}</p>
@@ -1430,9 +1714,77 @@ export default function NewInvoicePage() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-slate-900">
-                            {po.amount.toLocaleString()} €
+                            {po.totalAmount.toLocaleString()} €
                           </p>
                         </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Selection Modal */}
+      {showSupplierModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] flex flex-col">
+            <div className="bg-gradient-to-r from-emerald-500 to-emerald-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-xl font-bold text-white">Seleccionar proveedor</h2>
+              <button
+                onClick={() => {
+                  setShowSupplierModal(false);
+                  setSupplierSearch("");
+                }}
+                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="relative mb-4">
+                <Search
+                  size={20}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
+                  placeholder="Buscar por nombre o NIF..."
+                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {filteredSuppliers.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">
+                    No se encontraron proveedores
+                  </p>
+                ) : (
+                  filteredSuppliers.map((supplier) => (
+                    <button
+                      key={supplier.id}
+                      onClick={() => selectSupplier(supplier)}
+                      className="w-full text-left p-4 border-2 border-slate-200 rounded-lg hover:border-emerald-400 hover:bg-emerald-50 transition-all group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-900 group-hover:text-emerald-700">
+                            {supplier.fiscalName}
+                          </p>
+                          {supplier.commercialName && (
+                            <p className="text-sm text-slate-600">{supplier.commercialName}</p>
+                          )}
+                          <p className="text-xs text-slate-500 mt-1">
+                            NIF: {supplier.taxId}
+                          </p>
+                        </div>
+                        <Building2 size={20} className="text-slate-400 group-hover:text-emerald-600" />
                       </div>
                     </button>
                   ))
@@ -1498,9 +1850,6 @@ export default function NewInvoicePage() {
                           </p>
                           <p className="text-sm text-slate-700">
                             {subAccount.description}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {subAccount.accountCode} - {subAccount.accountDescription}
                           </p>
                         </div>
                       </div>
