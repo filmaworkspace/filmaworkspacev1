@@ -38,6 +38,8 @@ import {
   TrendingUp,
   Building2,
   AlertTriangle,
+  Send,
+  RefreshCw,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -73,7 +75,10 @@ interface Invoice {
   vatAmount: number;
   irpfAmount: number;
   totalAmount: number;
-  status: "pending" | "paid" | "overdue" | "cancelled";
+  status: "pending_approval" | "pending" | "paid" | "overdue" | "cancelled" | "rejected";
+  approvalStatus?: "pending" | "approved" | "rejected";
+  approvalSteps?: any[];
+  currentApprovalStep?: number;
   dueDate: Date;
   paymentDate?: Date;
   attachmentUrl: string;
@@ -85,14 +90,20 @@ interface Invoice {
   paidBy?: string;
   paidByName?: string;
   notes?: string;
+  rejectedAt?: Date;
+  rejectedBy?: string;
+  rejectedByName?: string;
+  rejectionReason?: string;
 }
 
 interface InvoiceStats {
   total: number;
+  pendingApproval: number;
   pending: number;
   paid: number;
   overdue: number;
   cancelled: number;
+  rejected: number;
   totalAmount: number;
   paidAmount: number;
   pendingAmount: number;
@@ -120,10 +131,12 @@ export default function InvoicesPage() {
 
   const [stats, setStats] = useState<InvoiceStats>({
     total: 0,
+    pendingApproval: 0,
     pending: 0,
     paid: 0,
     overdue: 0,
     cancelled: 0,
+    rejected: 0,
     totalAmount: 0,
     paidAmount: 0,
     pendingAmount: 0,
@@ -156,6 +169,7 @@ export default function InvoicesPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log("🔄 Cargando facturas...");
 
       // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
@@ -178,16 +192,20 @@ export default function InvoicesPage() {
       const invoicesData = invoicesSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        dueDate: doc.data().dueDate?.toDate(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        dueDate: doc.data().dueDate?.toDate() || new Date(),
         paymentDate: doc.data().paymentDate?.toDate(),
         paidAt: doc.data().paidAt?.toDate(),
+        rejectedAt: doc.data().rejectedAt?.toDate(),
       })) as Invoice[];
 
-      // Update overdue status
+      console.log(`✅ ${invoicesData.length} facturas cargadas`);
+
+      // Update overdue status for pending invoices
       const now = new Date();
       for (const invoice of invoicesData) {
         if (invoice.status === "pending" && invoice.dueDate < now) {
+          console.log(`⚠️ Factura ${invoice.number} vencida, actualizando estado...`);
           await updateDoc(doc(db, `projects/${id}/invoices`, invoice.id), {
             status: "overdue",
           });
@@ -200,20 +218,22 @@ export default function InvoicesPage() {
       // Calculate stats
       const newStats: InvoiceStats = {
         total: invoicesData.length,
+        pendingApproval: invoicesData.filter((inv) => inv.status === "pending_approval").length,
         pending: invoicesData.filter((inv) => inv.status === "pending").length,
         paid: invoicesData.filter((inv) => inv.status === "paid").length,
         overdue: invoicesData.filter((inv) => inv.status === "overdue").length,
         cancelled: invoicesData.filter((inv) => inv.status === "cancelled").length,
-        totalAmount: invoicesData.reduce((sum, inv) => sum + inv.totalAmount, 0),
+        rejected: invoicesData.filter((inv) => inv.status === "rejected").length,
+        totalAmount: invoicesData.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
         paidAmount: invoicesData
           .filter((inv) => inv.status === "paid")
-          .reduce((sum, inv) => sum + inv.totalAmount, 0),
+          .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
         pendingAmount: invoicesData
-          .filter((inv) => inv.status === "pending")
-          .reduce((sum, inv) => sum + inv.totalAmount, 0),
+          .filter((inv) => inv.status === "pending" || inv.status === "pending_approval")
+          .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
         overdueAmount: invoicesData
           .filter((inv) => inv.status === "overdue")
-          .reduce((sum, inv) => sum + inv.totalAmount, 0),
+          .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0),
       };
       setStats(newStats);
 
@@ -227,7 +247,7 @@ export default function InvoicesPage() {
       }));
       setSuppliers(suppliersData);
     } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.error("❌ Error cargando datos:", error);
     } finally {
       setLoading(false);
     }
@@ -303,7 +323,7 @@ export default function InvoicesPage() {
 
     if (
       !confirm(
-        `¿Estás seguro de que deseas eliminar la factura ${invoice.number}? Esta acción no se puede deshacer.`
+        `¿Estás seguro de que deseas eliminar la factura FAC-${invoice.number}? Esta acción no se puede deshacer.`
       )
     ) {
       return;
@@ -311,9 +331,10 @@ export default function InvoicesPage() {
 
     try {
       await deleteDoc(doc(db, `projects/${id}/invoices`, invoiceId));
+      console.log(`✅ Factura ${invoice.number} eliminada`);
       loadData();
     } catch (error) {
-      console.error("Error eliminando factura:", error);
+      console.error("❌ Error eliminando factura:", error);
       alert("Error al eliminar la factura");
     }
   };
@@ -322,9 +343,14 @@ export default function InvoicesPage() {
     const invoice = invoices.find((i) => i.id === invoiceId);
     if (!invoice) return;
 
+    if (invoice.status === "pending_approval") {
+      alert("La factura debe ser aprobada antes de marcarla como pagada.");
+      return;
+    }
+
     if (
       !confirm(
-        `¿Marcar la factura ${invoice.number} como pagada? Se registrará la fecha de pago.`
+        `¿Marcar la factura FAC-${invoice.number} como pagada? Se actualizará el presupuesto.`
       )
     ) {
       return;
@@ -341,25 +367,29 @@ export default function InvoicesPage() {
         paymentDate: Timestamp.now(),
       });
 
-      // Update actual amount in budget
-      for (const item of invoice.items) {
-        if (item.subAccountId) {
-          const poDoc = await getDoc(doc(db, `projects/${id}/pos`, invoice.poId!));
-          if (poDoc.exists()) {
-            const poData = poDoc.data();
-            const budgetAccountId = poData.budgetAccountId;
-            
-            const subAccountRef = doc(
-              db,
-              `projects/${id}/accounts/${budgetAccountId}/subaccounts`,
-              item.subAccountId
-            );
-            const subAccountSnap = await getDoc(subAccountRef);
-            if (subAccountSnap.exists()) {
-              const currentActual = subAccountSnap.data().actual || 0;
-              await updateDoc(subAccountRef, {
-                actual: currentActual + item.totalAmount,
-              });
+      console.log(`✅ Factura ${invoice.number} marcada como pagada`);
+
+      // Update actual amount in budget for each item
+      if (invoice.items && invoice.items.length > 0) {
+        for (const item of invoice.items) {
+          if (item.subAccountId) {
+            // Find account ID
+            const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
+            for (const accountDoc of accountsSnapshot.docs) {
+              const subAccountRef = doc(
+                db,
+                `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
+                item.subAccountId
+              );
+              const subAccountSnap = await getDoc(subAccountRef);
+              if (subAccountSnap.exists()) {
+                const currentActual = subAccountSnap.data().actual || 0;
+                await updateDoc(subAccountRef, {
+                  actual: currentActual + item.totalAmount,
+                });
+                console.log(`✅ Actualizado presupuesto: +${item.totalAmount}€ en ${item.subAccountCode}`);
+                break;
+              }
             }
           }
         }
@@ -367,7 +397,7 @@ export default function InvoicesPage() {
 
       loadData();
     } catch (error) {
-      console.error("Error marcando factura como pagada:", error);
+      console.error("❌ Error marcando factura como pagada:", error);
       alert("Error al marcar la factura como pagada");
     }
   };
@@ -376,7 +406,12 @@ export default function InvoicesPage() {
     const invoice = invoices.find((i) => i.id === invoiceId);
     if (!invoice) return;
 
-    const reason = prompt(`¿Por qué cancelas la factura ${invoice.number}?`);
+    if (invoice.status === "paid") {
+      alert("No se puede cancelar una factura pagada.");
+      return;
+    }
+
+    const reason = prompt(`¿Por qué cancelas la factura FAC-${invoice.number}?`);
     if (!reason) return;
 
     try {
@@ -387,48 +422,89 @@ export default function InvoicesPage() {
         cancellationReason: reason,
       });
 
+      console.log(`✅ Factura ${invoice.number} cancelada`);
       loadData();
     } catch (error) {
-      console.error("Error cancelando factura:", error);
+      console.error("❌ Error cancelando factura:", error);
       alert("Error al cancelar la factura");
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
+    const styles: Record<string, string> = {
+      pending_approval: "bg-purple-100 text-purple-700 border-purple-200",
       pending: "bg-amber-100 text-amber-700 border-amber-200",
       paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
       overdue: "bg-red-100 text-red-700 border-red-200",
       cancelled: "bg-slate-100 text-slate-700 border-slate-200",
+      rejected: "bg-red-100 text-red-700 border-red-200",
     };
 
-    const labels = {
-      pending: "Pendiente",
+    const labels: Record<string, string> = {
+      pending_approval: "Pend. aprobación",
+      pending: "Pend. pago",
       paid: "Pagada",
       overdue: "Vencida",
       cancelled: "Cancelada",
+      rejected: "Rechazada",
     };
 
-    const icons = {
+    const icons: Record<string, JSX.Element> = {
+      pending_approval: <Send size={12} />,
       pending: <Clock size={12} />,
       paid: <CheckCircle size={12} />,
       overdue: <AlertTriangle size={12} />,
       cancelled: <XCircle size={12} />,
+      rejected: <XCircle size={12} />,
     };
 
     return (
       <span
-        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${
-          styles[status as keyof typeof styles]
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
+          styles[status] || styles.pending
         }`}
       >
-        {icons[status as keyof typeof icons]}
-        {labels[status as keyof typeof labels]}
+        {icons[status] || icons.pending}
+        {labels[status] || status}
       </span>
     );
   };
 
+  const getApprovalProgress = (invoice: Invoice) => {
+    if (!invoice.approvalSteps || invoice.approvalSteps.length === 0) {
+      return null;
+    }
+
+    const currentStep = invoice.currentApprovalStep || 0;
+    const totalSteps = invoice.approvalSteps.length;
+    const approvedSteps = invoice.approvalSteps.filter((s) => s.status === "approved").length;
+
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        {invoice.approvalSteps.map((step, idx) => (
+          <div
+            key={step.id || idx}
+            className={`w-2 h-2 rounded-full ${
+              step.status === "approved"
+                ? "bg-emerald-500"
+                : step.status === "rejected"
+                ? "bg-red-500"
+                : idx === currentStep
+                ? "bg-amber-500"
+                : "bg-slate-300"
+            }`}
+            title={`Nivel ${idx + 1}: ${step.status}`}
+          />
+        ))}
+        <span className="text-xs text-slate-500 ml-1">
+          {approvedSteps}/{totalSteps}
+        </span>
+      </div>
+    );
+  };
+
   const formatDate = (date: Date) => {
+    if (!date) return "-";
     return new Intl.DateTimeFormat("es-ES", {
       day: "2-digit",
       month: "short",
@@ -461,9 +537,9 @@ export default function InvoicesPage() {
 
     filteredInvoices.forEach((inv) => {
       rows.push([
-        inv.number,
+        `FAC-${inv.number}`,
         inv.supplier,
-        inv.poNumber || "Sin PO",
+        inv.poNumber ? `PO-${inv.poNumber}` : "Sin PO",
         inv.description,
         inv.totalAmount.toString(),
         inv.status,
@@ -503,7 +579,7 @@ export default function InvoicesPage() {
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <p className="text-slate-600 text-sm font-medium">Cargando facturas...</p>
           </div>
         </main>
       </div>
@@ -557,85 +633,92 @@ export default function InvoicesPage() {
                   </p>
                 </div>
               </div>
-              <Link href={`/project/${id}/accounting/invoices/new`}>
-                <button className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105">
-                  <Plus size={20} />
-                  Nueva factura
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={loadData}
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-slate-300 text-slate-700 rounded-xl font-medium transition-all hover:bg-slate-50"
+                >
+                  <RefreshCw size={18} />
+                  Actualizar
                 </button>
-              </Link>
+                <Link href={`/project/${id}/accounting/invoices/new`}>
+                  <button className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105">
+                    <Plus size={20} />
+                    Nueva factura
+                  </button>
+                </Link>
+              </div>
             </div>
           </header>
 
           {/* Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-blue-700 font-medium">Total</p>
-                <Receipt size={16} className="text-blue-600" />
+                <Receipt size={14} className="text-blue-600" />
               </div>
               <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-amber-700 font-medium">Pendientes</p>
-                <Clock size={16} className="text-amber-600" />
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-purple-700 font-medium">Por aprobar</p>
+                <Send size={14} className="text-purple-600" />
+              </div>
+              <p className="text-2xl font-bold text-purple-900">{stats.pendingApproval}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-amber-700 font-medium">Por pagar</p>
+                <Clock size={14} className="text-amber-600" />
               </div>
               <p className="text-2xl font-bold text-amber-900">{stats.pending}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-emerald-700 font-medium">Pagadas</p>
-                <CheckCircle size={16} className="text-emerald-600" />
+                <CheckCircle size={14} className="text-emerald-600" />
               </div>
               <p className="text-2xl font-bold text-emerald-900">{stats.paid}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-red-700 font-medium">Vencidas</p>
-                <AlertTriangle size={16} className="text-red-600" />
+                <AlertTriangle size={14} className="text-red-600" />
               </div>
               <p className="text-2xl font-bold text-red-900">{stats.overdue}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-purple-700 font-medium">Importe total</p>
-                <DollarSign size={16} className="text-purple-600" />
-              </div>
-              <p className="text-xl font-bold text-purple-900">
-                {stats.totalAmount.toLocaleString()} €
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-green-700 font-medium">Pagado</p>
-                <TrendingUp size={16} className="text-green-600" />
+                <TrendingUp size={14} className="text-green-600" />
               </div>
-              <p className="text-xl font-bold text-green-900">
+              <p className="text-lg font-bold text-green-900">
                 {stats.paidAmount.toLocaleString()} €
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-amber-700 font-medium">Pendiente</p>
-                <Clock size={16} className="text-amber-600" />
+                <DollarSign size={14} className="text-amber-600" />
               </div>
-              <p className="text-xl font-bold text-amber-900">
+              <p className="text-lg font-bold text-amber-900">
                 {stats.pendingAmount.toLocaleString()} €
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-red-700 font-medium">Vencido</p>
-                <AlertCircle size={16} className="text-red-600" />
+                <AlertCircle size={14} className="text-red-600" />
               </div>
-              <p className="text-xl font-bold text-red-900">
+              <p className="text-lg font-bold text-red-900">
                 {stats.overdueAmount.toLocaleString()} €
               </p>
             </div>
@@ -688,9 +771,11 @@ export default function InvoicesPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
                 >
                   <option value="all">Todos</option>
-                  <option value="pending">Pendientes</option>
+                  <option value="pending_approval">Pend. aprobación</option>
+                  <option value="pending">Pend. pago</option>
                   <option value="paid">Pagadas</option>
                   <option value="overdue">Vencidas</option>
+                  <option value="rejected">Rechazadas</option>
                   <option value="cancelled">Canceladas</option>
                 </select>
               </div>
@@ -737,32 +822,6 @@ export default function InvoicesPage() {
                     {sortOrder === "asc" ? "↑" : "↓"}
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Date Range */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-2">
-                  Desde
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.from}
-                  onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-2">
-                  Hasta
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.to}
-                  onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
-                />
               </div>
             </div>
           </div>
@@ -818,7 +877,7 @@ export default function InvoicesPage() {
                         Proveedor
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        PO Asociada
+                        PO
                       </th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Importe
@@ -843,8 +902,11 @@ export default function InvoicesPage() {
                         <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-semibold text-emerald-600">
-                              INV-{invoice.number}
+                              FAC-{invoice.number}
                             </span>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[150px]">
+                              {invoice.description}
+                            </p>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -858,7 +920,7 @@ export default function InvoicesPage() {
                                 PO-{invoice.poNumber}
                               </span>
                             ) : (
-                              <span className="text-xs text-slate-400">Sin PO</span>
+                              <span className="text-xs text-slate-400">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -867,7 +929,10 @@ export default function InvoicesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {getStatusBadge(invoice.status)}
+                            <div className="flex flex-col items-center">
+                              {getStatusBadge(invoice.status)}
+                              {invoice.status === "pending_approval" && getApprovalProgress(invoice)}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -887,7 +952,7 @@ export default function InvoicesPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
@@ -899,7 +964,7 @@ export default function InvoicesPage() {
                                 <Eye size={16} />
                               </button>
 
-                              {invoice.status === "pending" || invoice.status === "overdue" ? (
+                              {(invoice.status === "pending" || invoice.status === "overdue") && (
                                 <>
                                   <button
                                     onClick={() => handleMarkAsPaid(invoice.id)}
@@ -916,9 +981,9 @@ export default function InvoicesPage() {
                                     <XCircle size={16} />
                                   </button>
                                 </>
-                              ) : null}
+                              )}
 
-                              {invoice.status !== "paid" && (
+                              {invoice.status !== "paid" && invoice.status !== "cancelled" && (
                                 <button
                                   onClick={() => handleDeleteInvoice(invoice.id)}
                                   className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -958,7 +1023,7 @@ export default function InvoicesPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="bg-gradient-to-r from-emerald-500 to-emerald-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
               <h2 className="text-xl font-bold text-white">
-                Detalles de INV-{selectedInvoice.number}
+                Detalles de FAC-{selectedInvoice.number}
               </h2>
               <button
                 onClick={() => {
@@ -974,7 +1039,10 @@ export default function InvoicesPage() {
             <div className="p-6 space-y-6">
               {/* Status and Amount */}
               <div className="flex items-center justify-between">
-                <div>{getStatusBadge(selectedInvoice.status)}</div>
+                <div className="flex items-center gap-3">
+                  {getStatusBadge(selectedInvoice.status)}
+                  {selectedInvoice.status === "pending_approval" && getApprovalProgress(selectedInvoice)}
+                </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-slate-900">
                     {selectedInvoice.totalAmount.toLocaleString()} €
@@ -982,6 +1050,24 @@ export default function InvoicesPage() {
                   <p className="text-xs text-slate-500">Importe total</p>
                 </div>
               </div>
+
+              {/* Rejection reason if rejected */}
+              {selectedInvoice.status === "rejected" && selectedInvoice.rejectionReason && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <XCircle size={18} className="text-red-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800">Motivo de rechazo</p>
+                      <p className="text-sm text-red-700 mt-1">{selectedInvoice.rejectionReason}</p>
+                      {selectedInvoice.rejectedByName && (
+                        <p className="text-xs text-red-600 mt-2">
+                          Rechazada por {selectedInvoice.rejectedByName} el {formatDate(selectedInvoice.rejectedAt!)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">
@@ -1034,12 +1120,12 @@ export default function InvoicesPage() {
               {/* Items */}
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">
-                  Ítems de la factura ({selectedInvoice.items.length})
+                  Ítems de la factura ({selectedInvoice.items?.length || 0})
                 </h3>
                 <div className="space-y-2">
-                  {selectedInvoice.items.map((item, index) => (
+                  {selectedInvoice.items?.map((item, index) => (
                     <div
-                      key={item.id}
+                      key={item.id || index}
                       className="border border-slate-200 rounded-lg p-3 bg-slate-50"
                     >
                       <div className="flex items-start justify-between mb-2">
@@ -1050,11 +1136,6 @@ export default function InvoicesPage() {
                           <p className="text-xs text-slate-600 mt-1">
                             {item.subAccountCode} - {item.subAccountDescription}
                           </p>
-                          {item.isNewItem && (
-                            <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mt-1">
-                              Ítem nuevo
-                            </span>
-                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-slate-900">
@@ -1064,13 +1145,6 @@ export default function InvoicesPage() {
                             {item.quantity} × {item.unitPrice.toLocaleString()} €
                           </p>
                         </div>
-                      </div>
-                      <div className="flex gap-4 text-xs text-slate-600">
-                        <span>Base: {item.baseAmount.toFixed(2)} €</span>
-                        <span>IVA ({item.vatRate}%): {item.vatAmount.toFixed(2)} €</span>
-                        {item.irpfRate > 0 && (
-                          <span>IRPF ({item.irpfRate}%): -{item.irpfAmount.toFixed(2)} €</span>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -1118,48 +1192,6 @@ export default function InvoicesPage() {
                   </p>
                 </div>
               )}
-
-              {/* Timeline */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">
-                  Historial
-                </h3>
-                <div className="space-y-3">
-                  {/* Created */}
-                  <div className="flex items-start gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg mt-1">
-                      <Receipt size={16} className="text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">
-                        Factura creada
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {formatDate(selectedInvoice.createdAt)} por{" "}
-                        {selectedInvoice.createdByName}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Paid */}
-                  {selectedInvoice.status === "paid" && selectedInvoice.paidAt && (
-                    <div className="flex items-start gap-3">
-                      <div className="bg-emerald-100 p-2 rounded-lg mt-1">
-                        <CheckCircle size={16} className="text-emerald-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">
-                          Factura pagada
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          {formatDate(selectedInvoice.paidAt)} por{" "}
-                          {selectedInvoice.paidByName}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               {/* Actions */}
               <div className="border-t pt-4 flex justify-end gap-3">
