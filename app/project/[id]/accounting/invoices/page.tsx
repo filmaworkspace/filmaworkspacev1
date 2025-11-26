@@ -925,7 +925,7 @@ export default function InvoicesPage() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="font-semibold text-slate-900">
-                              {invoice.totalAmount.toLocaleString()} €
+                              {(invoice.totalAmount || 0).toLocaleString()} €
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -1045,7 +1045,7 @@ export default function InvoicesPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-slate-900">
-                    {selectedInvoice.totalAmount.toLocaleString()} €
+                    {(selectedInvoice.totalAmount || 0).toLocaleString()} €
                   </p>
                   <p className="text-xs text-slate-500">Importe total</p>
                 </div>
@@ -1139,10 +1139,10 @@ export default function InvoicesPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-slate-900">
-                            {item.totalAmount.toLocaleString()} €
+                            {(item.totalAmount || 0).toLocaleString()} €
                           </p>
                           <p className="text-xs text-slate-500">
-                            {item.quantity} × {item.unitPrice.toLocaleString()} €
+                            {item.quantity || 0} × {(item.unitPrice || 0).toLocaleString()} €
                           </p>
                         </div>
                       </div>
