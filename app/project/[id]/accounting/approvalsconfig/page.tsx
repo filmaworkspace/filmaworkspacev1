@@ -18,6 +18,7 @@ import {
   Shield,
   UserCheck,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -28,6 +29,7 @@ import {
   setDoc,
   collection,
   getDocs,
+  Timestamp,
 } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -41,19 +43,19 @@ interface Member {
   position?: string;
 }
 
-interface ApprovalConfig {
-  type: "po" | "invoice";
-  steps: ApprovalStep[];
-}
-
 interface ApprovalStep {
   id: string;
   order: number;
-  approverType: "fixed" | "hod" | "coordinator";
+  approverType: "fixed" | "hod" | "coordinator" | "role";
   approvers?: string[]; // userIds for fixed approvers
+  roles?: string[]; // roles for role-based approval
   department?: string; // for HOD/Coordinator
   requireAll: boolean; // Si se requieren todos los aprobadores o solo uno
+  minAmount?: number; // Monto mínimo para este nivel (opcional)
+  maxAmount?: number; // Monto máximo para este nivel (opcional)
 }
+
+const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 
 export default function ConfigApprovals() {
   const { id } = useParams();
@@ -79,6 +81,7 @@ export default function ConfigApprovals() {
         router.push("/");
       } else {
         setUserId(user.uid);
+        console.log("✅ Usuario autenticado:", user.uid);
       }
     });
     return () => unsubscribe();
@@ -87,78 +90,110 @@ export default function ConfigApprovals() {
   // Load data
   useEffect(() => {
     if (!userId || !id) return;
-
-    const loadData = async () => {
-      try {
-        // Check permissions - must have accounting access
-        const userProjectRef = doc(db, `userProjects/${userId}/projects/${id}`);
-        const userProjectSnap = await getDoc(userProjectRef);
-
-        if (!userProjectSnap.exists()) {
-          setErrorMessage("No tienes acceso a este proyecto");
-          setLoading(false);
-          return;
-        }
-
-        const userProjectData = userProjectSnap.data();
-        const hasAccountingAccess = userProjectData.permissions?.accounting || false;
-
-        // Also check if user is EP or PM
-        const memberRef = doc(db, `projects/${id}/members`, userId);
-        const memberSnap = await getDoc(memberRef);
-        const isEPorPM = memberSnap.exists() && ["EP", "PM"].includes(memberSnap.data().role);
-
-        setHasAccess(hasAccountingAccess || isEPorPM);
-
-        if (!hasAccountingAccess && !isEPorPM) {
-          setErrorMessage("No tienes permisos para acceder a la configuración de aprobaciones");
-          setLoading(false);
-          return;
-        }
-
-        // Load project
-        const projectRef = doc(db, "projects", id as string);
-        const projectSnap = await getDoc(projectRef);
-
-        if (projectSnap.exists()) {
-          const projectData = projectSnap.data();
-          setProjectName(projectData.name);
-          setDepartments(projectData.departments || []);
-        }
-
-        // Load members
-        const membersRef = collection(db, `projects/${id}/members`);
-        const membersSnap = await getDocs(membersRef);
-        const membersData: Member[] = membersSnap.docs.map((doc) => ({
-          userId: doc.id,
-          name: doc.data().name,
-          email: doc.data().email,
-          role: doc.data().role,
-          department: doc.data().department,
-          position: doc.data().position,
-        }));
-        setMembers(membersData);
-
-        // Load approval configurations
-        const approvalConfigRef = doc(db, `projects/${id}/config/approvals`);
-        const approvalConfigSnap = await getDoc(approvalConfigRef);
-
-        if (approvalConfigSnap.exists()) {
-          const config = approvalConfigSnap.data();
-          setPoApprovals(config.poApprovals || []);
-          setInvoiceApprovals(config.invoiceApprovals || []);
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-        setErrorMessage("Error al cargar los datos");
-        setLoading(false);
-      }
-    };
-
     loadData();
-  }, [userId, id, router]);
+  }, [userId, id]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+      console.log("🔄 Cargando configuración de aprobaciones...");
+
+      // Check permissions - must have accounting access
+      const userProjectRef = doc(db, `userProjects/${userId}/projects/${id}`);
+      const userProjectSnap = await getDoc(userProjectRef);
+
+      if (!userProjectSnap.exists()) {
+        setErrorMessage("No tienes acceso a este proyecto");
+        setLoading(false);
+        return;
+      }
+
+      const userProjectData = userProjectSnap.data();
+      const hasAccountingAccess = userProjectData.permissions?.accounting || false;
+      const accountingLevel = userProjectData.accountingAccessLevel;
+
+      // Also check if user is EP or PM
+      const memberRef = doc(db, `projects/${id}/members`, userId!);
+      const memberSnap = await getDoc(memberRef);
+      const memberData = memberSnap.exists() ? memberSnap.data() : null;
+      const isEPorPM = memberData && ["EP", "PM"].includes(memberData.role);
+      const hasExtendedAccess = accountingLevel === "accounting_extended";
+
+      setHasAccess(hasAccountingAccess && (isEPorPM || hasExtendedAccess));
+
+      if (!hasAccountingAccess || (!isEPorPM && !hasExtendedAccess)) {
+        setErrorMessage("No tienes permisos para acceder a la configuración de aprobaciones");
+        setLoading(false);
+        return;
+      }
+
+      // Load project
+      const projectRef = doc(db, "projects", id as string);
+      const projectSnap = await getDoc(projectRef);
+
+      if (projectSnap.exists()) {
+        const projectData = projectSnap.data();
+        setProjectName(projectData.name);
+        setDepartments(projectData.departments || []);
+        console.log("✅ Proyecto cargado:", projectData.name);
+      }
+
+      // Load members
+      const membersRef = collection(db, `projects/${id}/members`);
+      const membersSnap = await getDocs(membersRef);
+      const membersData: Member[] = membersSnap.docs.map((doc) => ({
+        userId: doc.id,
+        name: doc.data().name || doc.data().email,
+        email: doc.data().email,
+        role: doc.data().role,
+        department: doc.data().department,
+        position: doc.data().position,
+      }));
+      setMembers(membersData);
+      console.log(`✅ ${membersData.length} miembros cargados`);
+
+      // Load approval configurations
+      const approvalConfigRef = doc(db, `projects/${id}/config/approvals`);
+      const approvalConfigSnap = await getDoc(approvalConfigRef);
+
+      if (approvalConfigSnap.exists()) {
+        const config = approvalConfigSnap.data();
+        setPoApprovals(config.poApprovals || []);
+        setInvoiceApprovals(config.invoiceApprovals || []);
+        console.log("✅ Configuración de aprobaciones cargada");
+      } else {
+        console.log("ℹ️ No hay configuración de aprobaciones, usando valores por defecto");
+        // Crear configuración por defecto
+        const defaultPOApprovals: ApprovalStep[] = [
+          {
+            id: "default-po-1",
+            order: 1,
+            approverType: "role",
+            roles: ["PM", "EP"],
+            requireAll: false,
+          },
+        ];
+        const defaultInvoiceApprovals: ApprovalStep[] = [
+          {
+            id: "default-inv-1",
+            order: 1,
+            approverType: "role",
+            roles: ["Controller", "PM", "EP"],
+            requireAll: false,
+          },
+        ];
+        setPoApprovals(defaultPOApprovals);
+        setInvoiceApprovals(defaultInvoiceApprovals);
+      }
+
+      setLoading(false);
+    } catch (error: any) {
+      console.error("❌ Error cargando datos:", error);
+      setErrorMessage(`Error al cargar los datos: ${error.message}`);
+      setLoading(false);
+    }
+  };
 
   const addApprovalStep = (type: "po" | "invoice") => {
     const currentSteps = type === "po" ? poApprovals : invoiceApprovals;
@@ -257,6 +292,13 @@ export default function ConfigApprovals() {
       [field]: value,
     };
 
+    // Reset dependent fields when approverType changes
+    if (field === "approverType") {
+      currentSteps[stepIndex].approvers = [];
+      currentSteps[stepIndex].roles = [];
+      currentSteps[stepIndex].department = undefined;
+    }
+
     if (type === "po") {
       setPoApprovals(currentSteps);
     } else {
@@ -287,27 +329,53 @@ export default function ConfigApprovals() {
     }
   };
 
+  const toggleRole = (type: "po" | "invoice", stepId: string, role: string) => {
+    const currentSteps = type === "po" ? [...poApprovals] : [...invoiceApprovals];
+    const stepIndex = currentSteps.findIndex((s) => s.id === stepId);
+
+    if (stepIndex === -1) return;
+
+    const currentRoles = currentSteps[stepIndex].roles || [];
+    const newRoles = currentRoles.includes(role)
+      ? currentRoles.filter((r) => r !== role)
+      : [...currentRoles, role];
+
+    currentSteps[stepIndex] = {
+      ...currentSteps[stepIndex],
+      roles: newRoles,
+    };
+
+    if (type === "po") {
+      setPoApprovals(currentSteps);
+    } else {
+      setInvoiceApprovals(currentSteps);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setErrorMessage("");
     setSuccessMessage("");
 
     try {
+      console.log("💾 Guardando configuración de aprobaciones...");
+      
       const approvalConfigRef = doc(db, `projects/${id}/config/approvals`);
       
       await setDoc(approvalConfigRef, {
         poApprovals,
         invoiceApprovals,
-        updatedAt: new Date(),
+        updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
 
+      console.log("✅ Configuración guardada");
       setSuccessMessage("Configuración guardada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error guardando configuración:", error);
-      setErrorMessage("Error al guardar la configuración");
-      setTimeout(() => setErrorMessage(""), 3000);
+    } catch (error: any) {
+      console.error("❌ Error guardando configuración:", error);
+      setErrorMessage(`Error al guardar: ${error.message}`);
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setSaving(false);
     }
@@ -316,6 +384,10 @@ export default function ConfigApprovals() {
   const getApproverName = (approverId: string) => {
     const member = members.find((m) => m.userId === approverId);
     return member?.name || member?.email || "Usuario desconocido";
+  };
+
+  const getMembersByRole = (role: string) => {
+    return members.filter((m) => m.role === role);
   };
 
   const renderApprovalStep = (step: ApprovalStep, type: "po" | "invoice", index: number) => {
@@ -373,11 +445,85 @@ export default function ConfigApprovals() {
               }
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
             >
-              <option value="fixed">Aprobadores fijos</option>
+              <option value="fixed">Usuarios específicos</option>
+              <option value="role">Por rol (EP, PM, Controller, PC)</option>
               <option value="hod">Head of Department (HOD)</option>
               <option value="coordinator">Coordinator del departamento</option>
             </select>
           </div>
+
+          {/* Role-based Approvers */}
+          {step.approverType === "role" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Seleccionar roles que pueden aprobar
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {PROJECT_ROLES.map((role) => {
+                  const membersWithRole = getMembersByRole(role);
+                  return (
+                    <label
+                      key={role}
+                      className={`flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        step.roles?.includes(role)
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={step.roles?.includes(role) || false}
+                        onChange={() => toggleRole(type, step.id, role)}
+                        className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{role}</p>
+                        <p className="text-xs text-slate-500">
+                          {membersWithRole.length} usuario{membersWithRole.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Show members with selected roles */}
+              {step.roles && step.roles.length > 0 && (
+                <div className="mt-3 bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <p className="text-xs font-medium text-slate-700 mb-2">
+                    Usuarios que podrán aprobar:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {step.roles.flatMap((role) =>
+                      getMembersByRole(role).map((member) => (
+                        <span
+                          key={member.userId}
+                          className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium"
+                        >
+                          {member.name} ({role})
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Require All */}
+              <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={step.requireAll}
+                  onChange={(e) =>
+                    updateStep(type, step.id, "requireAll", e.target.checked)
+                  }
+                  className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                />
+                <span className="text-sm text-slate-700">
+                  Requiere aprobación de todos los roles seleccionados
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Fixed Approvers */}
           {step.approverType === "fixed" && (
@@ -386,9 +532,12 @@ export default function ConfigApprovals() {
                 Seleccionar aprobadores
               </label>
               <div className="border border-slate-300 rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
-                {members
-                  .filter((m) => m.role && ["EP", "PM", "Controller", "PC"].includes(m.role))
-                  .map((member) => (
+                {members.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">
+                    No hay miembros en el proyecto
+                  </p>
+                ) : (
+                  members.map((member) => (
                     <label
                       key={member.userId}
                       className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer"
@@ -402,11 +551,12 @@ export default function ConfigApprovals() {
                       <div className="flex-1">
                         <p className="text-sm font-medium text-slate-900">{member.name}</p>
                         <p className="text-xs text-slate-500">
-                          {member.role} • {member.email}
+                          {member.role || member.position || "Sin rol"} • {member.email}
                         </p>
                       </div>
                     </label>
-                  ))}
+                  ))
+                )}
               </div>
 
               {/* Require All */}
@@ -437,7 +587,7 @@ export default function ConfigApprovals() {
                 onChange={(e) => updateStep(type, step.id, "department", e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
               >
-                <option value="">Seleccionar departamento</option>
+                <option value="">-- Departamento del solicitante --</option>
                 {departments.map((dept) => (
                   <option key={dept} value={dept}>
                     {dept}
@@ -445,14 +595,14 @@ export default function ConfigApprovals() {
                 ))}
               </select>
               <p className="text-xs text-slate-500 mt-2">
-                {step.approverType === "hod"
-                  ? "El HOD del departamento seleccionado aprobará automáticamente"
-                  : "El Coordinator del departamento seleccionado aprobará automáticamente"}
+                {step.department
+                  ? `El ${step.approverType === "hod" ? "HOD" : "Coordinator"} del departamento "${step.department}" aprobará`
+                  : `El ${step.approverType === "hod" ? "HOD" : "Coordinator"} del departamento del solicitante aprobará automáticamente`}
               </p>
             </div>
           )}
 
-          {/* Preview */}
+          {/* Preview for fixed approvers */}
           {step.approverType === "fixed" && step.approvers && step.approvers.length > 0 && (
             <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
               <p className="text-xs font-medium text-slate-700 mb-2">Vista previa:</p>
@@ -495,8 +645,8 @@ export default function ConfigApprovals() {
         <div className="text-center max-w-md">
           <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
           <p className="text-slate-700 mb-4">{errorMessage}</p>
-          <Link href="/dashboard" className="text-indigo-600 hover:underline font-medium">
-            Volver al panel principal
+          <Link href={`/project/${id}/accounting`} className="text-indigo-600 hover:underline font-medium">
+            Volver a contabilidad
           </Link>
         </div>
       </div>
@@ -537,23 +687,35 @@ export default function ConfigApprovals() {
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
               <AlertCircle size={20} />
               <span>{errorMessage}</span>
+              <button onClick={() => setErrorMessage("")} className="ml-auto">
+                <X size={16} />
+              </button>
             </div>
           )}
 
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                <Settings size={28} className="text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
+                  <Settings size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
+                    Configuración de aprobaciones
+                  </h1>
+                  <p className="text-slate-600 text-sm mt-1">
+                    Define el flujo de aprobación para POs y facturas
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                  Configuración de aprobaciones
-                </h1>
-                <p className="text-slate-600 text-sm mt-1">
-                  Define el flujo de aprobación para POs y facturas
-                </p>
-              </div>
+              <button
+                onClick={loadData}
+                className="p-2.5 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+                title="Recargar"
+              >
+                <RefreshCw size={20} />
+              </button>
             </div>
           </div>
 
@@ -564,14 +726,11 @@ export default function ConfigApprovals() {
               <div className="text-sm text-blue-800">
                 <p className="font-semibold mb-1">Cómo funcionan las aprobaciones</p>
                 <ul className="space-y-1 list-disc list-inside">
-                  <li>Las aprobaciones se procesan en el orden definido</li>
-                  <li>
-                    Puedes elegir aprobadores fijos o asignar automáticamente al HOD/Coordinator
-                  </li>
-                  <li>
-                    En aprobadores fijos, puedes requerir que todos aprueben o solo uno
-                  </li>
-                  <li>El orden de los niveles determina la secuencia de aprobación</li>
+                  <li>Las aprobaciones se procesan en el orden definido (nivel 1, luego nivel 2, etc.)</li>
+                  <li><strong>Por rol:</strong> Cualquier usuario con ese rol puede aprobar</li>
+                  <li><strong>Usuarios específicos:</strong> Solo los usuarios seleccionados pueden aprobar</li>
+                  <li><strong>HOD/Coordinator:</strong> El jefe/coordinador del departamento aprueba automáticamente</li>
+                  <li>Si no hay ningún nivel configurado, las POs/Facturas se aprueban automáticamente</li>
                 </ul>
               </div>
             </div>
@@ -588,10 +747,10 @@ export default function ConfigApprovals() {
               }`}
             >
               <FileText size={18} />
-              Órdenes de compra
+              Órdenes de compra (PO)
               {poApprovals.length > 0 && (
                 <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                  {poApprovals.length}
+                  {poApprovals.length} nivel{poApprovals.length !== 1 ? "es" : ""}
                 </span>
               )}
             </button>
@@ -607,7 +766,7 @@ export default function ConfigApprovals() {
               Facturas
               {invoiceApprovals.length > 0 && (
                 <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                  {invoiceApprovals.length}
+                  {invoiceApprovals.length} nivel{invoiceApprovals.length !== 1 ? "es" : ""}
                 </span>
               )}
             </button>
@@ -617,7 +776,17 @@ export default function ConfigApprovals() {
           <div className="space-y-4">
             {activeTab === "po" ? (
               <>
-                {poApprovals.map((step, index) => renderApprovalStep(step, "po", index))}
+                {poApprovals.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                    <AlertCircle size={32} className="text-amber-600 mx-auto mb-2" />
+                    <p className="text-amber-800 font-medium">No hay niveles de aprobación configurados</p>
+                    <p className="text-amber-700 text-sm mt-1">
+                      Las POs se aprobarán automáticamente sin revisión
+                    </p>
+                  </div>
+                ) : (
+                  poApprovals.map((step, index) => renderApprovalStep(step, "po", index))
+                )}
                 
                 <button
                   onClick={() => addApprovalStep("po")}
@@ -629,8 +798,18 @@ export default function ConfigApprovals() {
               </>
             ) : (
               <>
-                {invoiceApprovals.map((step, index) =>
-                  renderApprovalStep(step, "invoice", index)
+                {invoiceApprovals.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                    <AlertCircle size={32} className="text-amber-600 mx-auto mb-2" />
+                    <p className="text-amber-800 font-medium">No hay niveles de aprobación configurados</p>
+                    <p className="text-amber-700 text-sm mt-1">
+                      Las facturas se aprobarán automáticamente sin revisión
+                    </p>
+                  </div>
+                ) : (
+                  invoiceApprovals.map((step, index) =>
+                    renderApprovalStep(step, "invoice", index)
+                  )
                 )}
                 
                 <button
