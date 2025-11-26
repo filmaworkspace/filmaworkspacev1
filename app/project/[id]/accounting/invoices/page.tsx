@@ -1157,25 +1157,25 @@ export default function InvoicesPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Base imponible</span>
                     <span className="font-semibold text-slate-900">
-                      {selectedInvoice.baseAmount.toFixed(2)} €
+                      {(selectedInvoice.baseAmount || 0).toFixed(2)} €
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">IVA</span>
                     <span className="font-semibold text-emerald-600">
-                      +{selectedInvoice.vatAmount.toFixed(2)} €
+                      +{(selectedInvoice.vatAmount || 0).toFixed(2)} €
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">IRPF</span>
                     <span className="font-semibold text-red-600">
-                      -{selectedInvoice.irpfAmount.toFixed(2)} €
+                      -{(selectedInvoice.irpfAmount || 0).toFixed(2)} €
                     </span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
                     <span>Total</span>
                     <span className="text-emerald-600">
-                      {selectedInvoice.totalAmount.toFixed(2)} €
+                      {(selectedInvoice.totalAmount || 0).toFixed(2)} €
                     </span>
                   </div>
                 </div>
