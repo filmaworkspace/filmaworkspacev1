@@ -1268,25 +1268,25 @@ export default function EditPOPage() {
                             <div>
                               <p className="text-slate-600">Base</p>
                               <p className="font-semibold text-slate-900">
-                                {item.baseAmount.toFixed(2)} {getCurrencySymbol()}
+                                {(item.baseAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IVA</p>
                               <p className="font-semibold text-emerald-600">
-                                +{item.vatAmount.toFixed(2)} {getCurrencySymbol()}
+                                +{(item.vatAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IRPF</p>
                               <p className="font-semibold text-red-600">
-                                -{item.irpfAmount.toFixed(2)} {getCurrencySymbol()}
+                                -{(item.irpfAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">Total</p>
                               <p className="font-bold text-emerald-600 text-sm">
-                                {item.totalAmount.toFixed(2)} {getCurrencySymbol()}
+                                {(item.totalAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                           </div>
@@ -1403,22 +1403,22 @@ export default function EditPOPage() {
                   <div className="space-y-3 mb-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">Base imponible</span>
-                      <span className="font-semibold">{totals.baseAmount.toFixed(2)} {getCurrencySymbol()}</span>
+                      <span className="font-semibold">{(totals.baseAmount || 0).toFixed(2)} {getCurrencySymbol()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">IVA</span>
-                      <span className="font-semibold text-emerald-200">+{totals.vatAmount.toFixed(2)} {getCurrencySymbol()}</span>
+                      <span className="font-semibold text-emerald-200">+{(totals.vatAmount || 0).toFixed(2)} {getCurrencySymbol()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">IRPF</span>
-                      <span className="font-semibold text-red-300">-{totals.irpfAmount.toFixed(2)} {getCurrencySymbol()}</span>
+                      <span className="font-semibold text-red-300">-{(totals.irpfAmount || 0).toFixed(2)} {getCurrencySymbol()}</span>
                     </div>
                   </div>
 
                   <div className="border-t border-emerald-400 pt-3">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total</span>
-                      <span className="text-3xl font-bold">{totals.totalAmount.toFixed(2)} {getCurrencySymbol()}</span>
+                      <span className="text-3xl font-bold">{(totals.totalAmount || 0).toFixed(2)} {getCurrencySymbol()}</span>
                     </div>
                   </div>
                 </div>
