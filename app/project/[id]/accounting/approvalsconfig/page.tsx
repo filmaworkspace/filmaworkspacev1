@@ -352,6 +352,37 @@ export default function ConfigApprovals() {
     }
   };
 
+  // Función para limpiar los datos antes de guardar (eliminar undefined)
+  const cleanApprovalSteps = (steps: ApprovalStep[]): any[] => {
+    return steps.map((step) => {
+      const cleanStep: any = {
+        id: step.id || `step-${Date.now()}`,
+        order: step.order || 1,
+        approverType: step.approverType || "fixed",
+        requireAll: step.requireAll || false,
+      };
+
+      // Solo incluir campos que tengan valores válidos
+      if (step.approverType === "fixed" && step.approvers && step.approvers.length > 0) {
+        cleanStep.approvers = step.approvers;
+      } else if (step.approverType === "fixed") {
+        cleanStep.approvers = [];
+      }
+
+      if (step.approverType === "role" && step.roles && step.roles.length > 0) {
+        cleanStep.roles = step.roles;
+      } else if (step.approverType === "role") {
+        cleanStep.roles = [];
+      }
+
+      if ((step.approverType === "hod" || step.approverType === "coordinator") && step.department) {
+        cleanStep.department = step.department;
+      }
+
+      return cleanStep;
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setErrorMessage("");
@@ -360,11 +391,18 @@ export default function ConfigApprovals() {
     try {
       console.log("💾 Guardando configuración de aprobaciones...");
       
+      // Limpiar los datos antes de guardar
+      const cleanedPOApprovals = cleanApprovalSteps(poApprovals);
+      const cleanedInvoiceApprovals = cleanApprovalSteps(invoiceApprovals);
+
+      console.log("📤 PO Approvals a guardar:", cleanedPOApprovals);
+      console.log("📤 Invoice Approvals a guardar:", cleanedInvoiceApprovals);
+
       const approvalConfigRef = doc(db, `projects/${id}/config/approvals`);
       
       await setDoc(approvalConfigRef, {
-        poApprovals,
-        invoiceApprovals,
+        poApprovals: cleanedPOApprovals,
+        invoiceApprovals: cleanedInvoiceApprovals,
         updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
