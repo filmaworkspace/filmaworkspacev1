@@ -1069,7 +1069,7 @@ export default function NewInvoicePage() {
                             <div>
                               <p className="text-slate-600">Total PO</p>
                               <p className="font-semibold text-slate-900">
-                                {poStats.totalAmount.toLocaleString()} €
+                                {(poStats.totalAmount || 0).toLocaleString()} €
                               </p>
                             </div>
                             <div>
@@ -1077,7 +1077,7 @@ export default function NewInvoicePage() {
                               <p className={`font-semibold ${
                                 poStats.isOverInvoiced ? "text-red-600" : "text-emerald-600"
                               }`}>
-                                {poStats.invoicedAmount.toLocaleString()} €
+                                {(poStats.invoicedAmount || 0).toLocaleString()} €
                               </p>
                             </div>
                           </div>
@@ -1122,10 +1122,10 @@ export default function NewInvoicePage() {
                             >
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-slate-900">
-                                  {poItem.description}
+                                  {poItem.description || "Sin descripción"}
                                 </p>
                                 <p className="text-xs text-slate-600">
-                                  {poItem.quantity} × {poItem.unitPrice.toLocaleString()} € = {poItem.totalAmount.toLocaleString()} €
+                                  {poItem.quantity || 0} × {(poItem.unitPrice || 0).toLocaleString()} € = {(poItem.totalAmount || 0).toLocaleString()} €
                                 </p>
                               </div>
                               {alreadyAdded ? (
@@ -1709,12 +1709,12 @@ export default function NewInvoicePage() {
                           </div>
                           <p className="text-sm text-slate-600">{po.supplier}</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            {po.items.length} ítems
+                            {(po.items || []).length} ítems
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-slate-900">
-                            {po.totalAmount.toLocaleString()} €
+                            {(po.totalAmount || 0).toLocaleString()} €
                           </p>
                         </div>
                       </div>
@@ -1857,33 +1857,33 @@ export default function NewInvoicePage() {
                         <div>
                           <p className="text-slate-600">Presupuestado</p>
                           <p className="font-semibold text-slate-900">
-                            {subAccount.budgeted.toLocaleString()} €
+                            {(subAccount.budgeted || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Comprometido</p>
                           <p className="font-semibold text-amber-600">
-                            {subAccount.committed.toLocaleString()} €
+                            {(subAccount.committed || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Realizado</p>
                           <p className="font-semibold text-emerald-600">
-                            {subAccount.actual.toLocaleString()} €
+                            {(subAccount.actual || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Disponible</p>
                           <p
                             className={`font-bold ${
-                              subAccount.available < 0
+                              (subAccount.available || 0) < 0
                                 ? "text-red-600"
-                                : subAccount.available < subAccount.budgeted * 0.1
+                                : (subAccount.available || 0) < (subAccount.budgeted || 0) * 0.1
                                 ? "text-amber-600"
                                 : "text-emerald-600"
                             }`}
                           >
-                            {subAccount.available.toLocaleString()} €
+                            {(subAccount.available || 0).toLocaleString()} €
                           </p>
                         </div>
                       </div>
