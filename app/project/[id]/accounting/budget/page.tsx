@@ -35,6 +35,7 @@ import {
   Eye,
   EyeOff,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -70,6 +71,7 @@ export default function BudgetPage() {
   const id = params?.id as string;
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
@@ -78,6 +80,9 @@ export default function BudgetPage() {
   const [selectedSubAccount, setSelectedSubAccount] = useState<SubAccount | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     code: "",
@@ -92,9 +97,26 @@ export default function BudgetPage() {
     totalAvailable: 0,
   });
 
+  // Auth listener
   useEffect(() => {
-    loadData();
-  }, [id]);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+        console.log("✅ Usuario autenticado:", user.uid);
+      } else {
+        console.log("❌ Usuario no autenticado");
+        setErrorMessage("Debes iniciar sesión para acceder a esta página");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId && id) {
+      console.log("📦 Cargando datos para proyecto:", id);
+      loadData();
+    }
+  }, [userId, id]);
 
   useEffect(() => {
     calculateSummary();
@@ -103,44 +125,70 @@ export default function BudgetPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) {
-        setProjectName(projectDoc.data().name || "Proyecto");
+      setErrorMessage("");
+      
+      console.log("🔄 Iniciando carga de datos...");
+      
+      // Verificar que tenemos ID de proyecto
+      if (!id) {
+        throw new Error("No se encontró el ID del proyecto");
       }
 
+      // Cargar proyecto
+      console.log("📁 Cargando proyecto:", id);
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      
+      if (!projectDoc.exists()) {
+        throw new Error(`El proyecto ${id} no existe`);
+      }
+      
+      setProjectName(projectDoc.data().name || "Proyecto");
+      console.log("✅ Proyecto cargado:", projectDoc.data().name);
+
       // Cargar cuentas
-      const accountsSnapshot = await getDocs(
-        query(collection(db, `projects/${id}/accounts`), orderBy("code", "asc"))
-      );
+      console.log("📊 Cargando cuentas...");
+      const accountsRef = collection(db, `projects/${id}/accounts`);
+      const accountsQuery = query(accountsRef, orderBy("code", "asc"));
+      const accountsSnapshot = await getDocs(accountsQuery);
+      
+      console.log(`📊 Encontradas ${accountsSnapshot.size} cuentas`);
 
       const accountsData = await Promise.all(
         accountsSnapshot.docs.map(async (accountDoc) => {
+          console.log(`  → Cargando cuenta: ${accountDoc.data().code}`);
+          
           // Cargar subcuentas para cada cuenta
-          const subAccountsSnapshot = await getDocs(
-            query(
-              collection(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`),
-              orderBy("code", "asc")
-            )
-          );
+          const subAccountsRef = collection(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`);
+          const subAccountsQuery = query(subAccountsRef, orderBy("code", "asc"));
+          const subAccountsSnapshot = await getDocs(subAccountsQuery);
+          
+          console.log(`    → ${subAccountsSnapshot.size} subcuentas`);
 
           const subAccounts = subAccountsSnapshot.docs.map((subDoc) => ({
             id: subDoc.id,
             ...subDoc.data(),
-            createdAt: subDoc.data().createdAt?.toDate(),
+            budgeted: subDoc.data().budgeted || 0,
+            committed: subDoc.data().committed || 0,
+            actual: subDoc.data().actual || 0,
+            createdAt: subDoc.data().createdAt?.toDate() || new Date(),
           })) as SubAccount[];
 
           return {
             id: accountDoc.id,
-            ...accountDoc.data(),
+            code: accountDoc.data().code || "",
+            description: accountDoc.data().description || "",
             subAccounts,
-            createdAt: accountDoc.data().createdAt?.toDate(),
+            createdAt: accountDoc.data().createdAt?.toDate() || new Date(),
           } as Account;
         })
       );
 
       setAccounts(accountsData);
-    } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.log("✅ Datos cargados correctamente");
+      
+    } catch (error: any) {
+      console.error("❌ Error cargando datos:", error);
+      setErrorMessage(`Error cargando datos: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -153,9 +201,9 @@ export default function BudgetPage() {
 
     accounts.forEach((account) => {
       account.subAccounts.forEach((sub) => {
-        totalBudgeted += sub.budgeted;
-        totalCommitted += sub.committed;
-        totalActual += sub.actual;
+        totalBudgeted += sub.budgeted || 0;
+        totalCommitted += sub.committed || 0;
+        totalActual += sub.actual || 0;
       });
     });
 
@@ -168,9 +216,9 @@ export default function BudgetPage() {
   };
 
   const getAccountTotals = (account: Account) => {
-    const budgeted = account.subAccounts.reduce((sum, sub) => sum + sub.budgeted, 0);
-    const committed = account.subAccounts.reduce((sum, sub) => sum + sub.committed, 0);
-    const actual = account.subAccounts.reduce((sum, sub) => sum + sub.actual, 0);
+    const budgeted = account.subAccounts.reduce((sum, sub) => sum + (sub.budgeted || 0), 0);
+    const committed = account.subAccounts.reduce((sum, sub) => sum + (sub.committed || 0), 0);
+    const actual = account.subAccounts.reduce((sum, sub) => sum + (sub.actual || 0), 0);
     const available = budgeted - committed - actual;
 
     return { budgeted, committed, actual, available };
@@ -187,52 +235,107 @@ export default function BudgetPage() {
   };
 
   const handleCreateAccount = async () => {
+    if (!formData.code.trim() || !formData.description.trim()) {
+      setErrorMessage("El código y la descripción son obligatorios");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    
     try {
-      await addDoc(collection(db, `projects/${id}/accounts`), {
+      console.log("📝 Creando cuenta:", formData);
+      
+      const accountData = {
         code: formData.code.padStart(2, "0"),
-        description: formData.description,
+        description: formData.description.trim(),
         createdAt: Timestamp.now(),
-        createdBy: auth.currentUser?.uid || "",
-      });
+        createdBy: userId || "",
+      };
+      
+      console.log("📤 Datos a guardar:", accountData);
+      
+      const docRef = await addDoc(collection(db, `projects/${id}/accounts`), accountData);
+      
+      console.log("✅ Cuenta creada con ID:", docRef.id);
+      
+      setSuccessMessage("Cuenta creada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
 
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error creando cuenta:", error);
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error creando cuenta:", error);
+      setErrorMessage(`Error creando cuenta: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCreateSubAccount = async () => {
-    if (!selectedAccount) return;
+    if (!selectedAccount) {
+      setErrorMessage("Debes seleccionar una cuenta padre");
+      return;
+    }
+
+    if (!formData.code.trim() || !formData.description.trim()) {
+      setErrorMessage("El código y la descripción son obligatorios");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
 
     try {
-      await addDoc(
+      console.log("📝 Creando subcuenta para cuenta:", selectedAccount.id);
+      
+      const subAccountData = {
+        code: formData.code,
+        description: formData.description.trim(),
+        budgeted: formData.budgeted || 0,
+        committed: 0,
+        actual: 0,
+        accountId: selectedAccount.id,
+        createdAt: Timestamp.now(),
+        createdBy: userId || "",
+      };
+      
+      console.log("📤 Datos a guardar:", subAccountData);
+      
+      const docRef = await addDoc(
         collection(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`),
-        {
-          code: formData.code,
-          description: formData.description,
-          budgeted: formData.budgeted,
-          committed: 0,
-          actual: 0,
-          accountId: selectedAccount.id,
-          createdAt: Timestamp.now(),
-          createdBy: auth.currentUser?.uid || "",
-        }
+        subAccountData
       );
+      
+      console.log("✅ Subcuenta creada con ID:", docRef.id);
+      
+      setSuccessMessage("Subcuenta creada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
 
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error creando subcuenta:", error);
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error creando subcuenta:", error);
+      setErrorMessage(`Error creando subcuenta: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdateSubAccount = async () => {
-    if (!selectedAccount || !selectedSubAccount) return;
+    if (!selectedAccount || !selectedSubAccount) {
+      setErrorMessage("Error: No se encontró la subcuenta a actualizar");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
 
     try {
+      console.log("📝 Actualizando subcuenta:", selectedSubAccount.id);
+      
       await updateDoc(
         doc(
           db,
@@ -240,46 +343,73 @@ export default function BudgetPage() {
           selectedSubAccount.id
         ),
         {
-          description: formData.description,
-          budgeted: formData.budgeted,
+          description: formData.description.trim(),
+          budgeted: formData.budgeted || 0,
         }
       );
+      
+      console.log("✅ Subcuenta actualizada");
+      
+      setSuccessMessage("Subcuenta actualizada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
 
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error actualizando subcuenta:", error);
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error actualizando subcuenta:", error);
+      setErrorMessage(`Error actualizando subcuenta: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeleteAccount = async (accountId: string) => {
     const account = accounts.find((a) => a.id === accountId);
     if (account && account.subAccounts.length > 0) {
-      alert("No se puede eliminar una cuenta con subcuentas. Elimina primero las subcuentas.");
+      setErrorMessage("No se puede eliminar una cuenta con subcuentas. Elimina primero las subcuentas.");
+      setTimeout(() => setErrorMessage(""), 5000);
       return;
     }
 
-    if (confirm("¿Estás seguro de que quieres eliminar esta cuenta?")) {
-      try {
-        await deleteDoc(doc(db, `projects/${id}/accounts`, accountId));
-        loadData();
-      } catch (error) {
-        console.error("Error eliminando cuenta:", error);
-      }
+    if (!confirm("¿Estás seguro de que quieres eliminar esta cuenta?")) {
+      return;
+    }
+
+    try {
+      console.log("🗑️ Eliminando cuenta:", accountId);
+      await deleteDoc(doc(db, `projects/${id}/accounts`, accountId));
+      console.log("✅ Cuenta eliminada");
+      
+      setSuccessMessage("Cuenta eliminada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error eliminando cuenta:", error);
+      setErrorMessage(`Error eliminando cuenta: ${error.message}`);
     }
   };
 
   const handleDeleteSubAccount = async (accountId: string, subAccountId: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar esta subcuenta?")) {
-      try {
-        await deleteDoc(
-          doc(db, `projects/${id}/accounts/${accountId}/subaccounts`, subAccountId)
-        );
-        loadData();
-      } catch (error) {
-        console.error("Error eliminando subcuenta:", error);
-      }
+    if (!confirm("¿Estás seguro de que quieres eliminar esta subcuenta?")) {
+      return;
+    }
+
+    try {
+      console.log("🗑️ Eliminando subcuenta:", subAccountId);
+      await deleteDoc(
+        doc(db, `projects/${id}/accounts/${accountId}/subaccounts`, subAccountId)
+      );
+      console.log("✅ Subcuenta eliminada");
+      
+      setSuccessMessage("Subcuenta eliminada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      
+      await loadData();
+    } catch (error: any) {
+      console.error("❌ Error eliminando subcuenta:", error);
+      setErrorMessage(`Error eliminando subcuenta: ${error.message}`);
     }
   };
 
@@ -357,13 +487,19 @@ export default function BudgetPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setSaving(true);
+    setErrorMessage("");
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
       const lines = text.split("\n").slice(1); // Skip header
 
       try {
+        console.log("📥 Importando presupuesto...");
         const accountsMap = new Map<string, string>();
+        let accountsCreated = 0;
+        let subAccountsCreated = 0;
 
         for (const line of lines) {
           const [code, description, type, budgeted] = line.split(",").map((s) => s.trim());
@@ -372,20 +508,21 @@ export default function BudgetPage() {
           if (type.toUpperCase() === "INSTRUCCIONES:") break;
 
           if (type.toUpperCase() === "CUENTA") {
-            // Crear cuenta
+            console.log(`  → Creando cuenta: ${code}`);
             const accountRef = await addDoc(collection(db, `projects/${id}/accounts`), {
               code: code.padStart(2, "0"),
               description,
               createdAt: Timestamp.now(),
-              createdBy: auth.currentUser?.uid || "",
+              createdBy: userId || "",
             });
             accountsMap.set(code, accountRef.id);
+            accountsCreated++;
           } else if (type.toUpperCase() === "SUBCUENTA") {
-            // Encontrar cuenta padre
             const accountCode = code.split("-")[0];
             const accountId = accountsMap.get(accountCode);
             
             if (accountId) {
+              console.log(`  → Creando subcuenta: ${code}`);
               await addDoc(
                 collection(db, `projects/${id}/accounts/${accountId}/subaccounts`),
                 {
@@ -396,19 +533,28 @@ export default function BudgetPage() {
                   actual: 0,
                   accountId,
                   createdAt: Timestamp.now(),
-                  createdBy: auth.currentUser?.uid || "",
+                  createdBy: userId || "",
                 }
               );
+              subAccountsCreated++;
+            } else {
+              console.warn(`  ⚠️ Cuenta padre no encontrada para: ${code}`);
             }
           }
         }
 
+        console.log(`✅ Importación completada: ${accountsCreated} cuentas, ${subAccountsCreated} subcuentas`);
+        
+        setSuccessMessage(`Importación completada: ${accountsCreated} cuentas y ${subAccountsCreated} subcuentas creadas`);
+        setTimeout(() => setSuccessMessage(""), 5000);
+        
         setShowImportModal(false);
-        loadData();
-        alert("Presupuesto importado correctamente");
-      } catch (error) {
-        console.error("Error importando presupuesto:", error);
-        alert("Error al importar el presupuesto. Verifica el formato del archivo.");
+        await loadData();
+      } catch (error: any) {
+        console.error("❌ Error importando presupuesto:", error);
+        setErrorMessage(`Error al importar: ${error.message}`);
+      } finally {
+        setSaving(false);
       }
     };
     reader.readAsText(file);
@@ -494,7 +640,7 @@ export default function BudgetPage() {
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <p className="text-slate-600 text-sm font-medium">Cargando presupuesto...</p>
           </div>
         </main>
       </div>
@@ -514,15 +660,33 @@ export default function BudgetPage() {
           </h1>
         </div>
         <Link
-          href="/dashboard"
+          href={`/project/${id}/accounting`}
           className="text-indigo-600 hover:text-indigo-900 transition-colors text-sm font-medium"
         >
-          Volver a proyectos
+          Volver a contabilidad
         </Link>
       </div>
 
       <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
+          {/* Mensajes de error y éxito */}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+              <AlertCircle size={20} />
+              <span>{errorMessage}</span>
+              <button onClick={() => setErrorMessage("")} className="ml-auto">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+              <CheckCircle size={20} />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {/* Header */}
           <header className="mb-8">
             <div className="flex items-center justify-between">
@@ -540,6 +704,13 @@ export default function BudgetPage() {
                 </div>
               </div>
               <div className="flex gap-3">
+                <button
+                  onClick={loadData}
+                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl font-medium transition-all hover:bg-slate-50"
+                  title="Recargar datos"
+                >
+                  <RefreshCw size={20} />
+                </button>
                 <button
                   onClick={() => setShowImportModal(true)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
@@ -881,6 +1052,13 @@ export default function BudgetPage() {
             </div>
 
             <div className="p-6">
+              {errorMessage && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  {errorMessage}
+                </div>
+              )}
+              
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -890,7 +1068,7 @@ export default function BudgetPage() {
                     type="text"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    disabled={modalMode === "subaccount"}
+                    disabled={modalMode === "subaccount" && !selectedSubAccount}
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-600"
                     placeholder={modalMode === "account" ? "01" : "01-01-01"}
                   />
@@ -964,8 +1142,12 @@ export default function BudgetPage() {
                       ? handleUpdateSubAccount
                       : handleCreateSubAccount
                   }
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg"
+                  disabled={saving}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
+                  {saving && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
                   {modalMode === "account"
                     ? "Crear cuenta"
                     : selectedSubAccount
@@ -1026,12 +1208,13 @@ export default function BudgetPage() {
                     <label className="cursor-pointer">
                       <span className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all shadow-md">
                         <Upload size={20} />
-                        Seleccionar archivo CSV
+                        {saving ? "Importando..." : "Seleccionar archivo CSV"}
                       </span>
                       <input
                         type="file"
                         accept=".csv"
                         onChange={handleImportCSV}
+                        disabled={saving}
                         className="hidden"
                       />
                     </label>
