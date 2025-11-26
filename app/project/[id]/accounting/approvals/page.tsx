@@ -197,17 +197,17 @@ export default function ApprovalsPage() {
         }
       }
 
-      // Load Invoices with status "pending"
-      console.log("🧾 Buscando facturas pendientes...");
+      // Load Invoices with status "pending_approval"
+      console.log("🧾 Buscando facturas pendientes de aprobación...");
       try {
         const invoicesRef = collection(db, `projects/${id}/invoices`);
         const invoicesQuery = query(
           invoicesRef,
-          where("status", "==", "pending"),
+          where("status", "==", "pending_approval"),
           orderBy("createdAt", "desc")
         );
         const invoicesSnap = await getDocs(invoicesQuery);
-        console.log(`  → ${invoicesSnap.size} facturas pendientes encontradas`);
+        console.log(`  → ${invoicesSnap.size} facturas pendientes de aprobación encontradas`);
 
         for (const invDoc of invoicesSnap.docs) {
           const invData = invDoc.data();
@@ -355,7 +355,13 @@ export default function ApprovalsPage() {
         console.log(`  → Avanzando a nivel ${currentStepIndex + 2}`);
       } else if (allStepsComplete) {
         // Fully approve document
-        updates.status = "approved";
+        if (approval.type === "po") {
+          updates.status = "approved";
+        } else {
+          // For invoices: approved means ready for payment (pending)
+          updates.status = "pending";
+          updates.approvalStatus = "approved";
+        }
         updates.approvedAt = Timestamp.now();
         updates.approvedBy = userId;
         updates.approvedByName = userName;
