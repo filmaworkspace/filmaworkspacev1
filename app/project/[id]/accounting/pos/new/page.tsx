@@ -1187,25 +1187,25 @@ export default function NewPOAdvancedPage() {
                             <div>
                               <p className="text-slate-600">Base</p>
                               <p className="font-semibold text-slate-900">
-                                {item.baseAmount.toFixed(2)} {getCurrencySymbol()}
+                                {(item.baseAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IVA</p>
                               <p className="font-semibold text-emerald-600">
-                                +{item.vatAmount.toFixed(2)} {getCurrencySymbol()}
+                                +{(item.vatAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IRPF</p>
                               <p className="font-semibold text-red-600">
-                                -{item.irpfAmount.toFixed(2)} {getCurrencySymbol()}
+                                -{(item.irpfAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">Total</p>
                               <p className="font-bold text-indigo-600 text-sm">
-                                {item.totalAmount.toFixed(2)} {getCurrencySymbol()}
+                                {(item.totalAmount || 0).toFixed(2)} {getCurrencySymbol()}
                               </p>
                             </div>
                           </div>
@@ -1316,19 +1316,19 @@ export default function NewPOAdvancedPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-indigo-100">Base imponible</span>
                       <span className="font-semibold">
-                        {totals.baseAmount.toFixed(2)} {getCurrencySymbol()}
+                        {(totals.baseAmount || 0).toFixed(2)} {getCurrencySymbol()}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-indigo-100">IVA</span>
                       <span className="font-semibold text-emerald-300">
-                        +{totals.vatAmount.toFixed(2)} {getCurrencySymbol()}
+                        +{(totals.vatAmount || 0).toFixed(2)} {getCurrencySymbol()}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-indigo-100">IRPF</span>
                       <span className="font-semibold text-red-300">
-                        -{totals.irpfAmount.toFixed(2)} {getCurrencySymbol()}
+                        -{(totals.irpfAmount || 0).toFixed(2)} {getCurrencySymbol()}
                       </span>
                     </div>
                   </div>
@@ -1337,7 +1337,7 @@ export default function NewPOAdvancedPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total</span>
                       <span className="text-3xl font-bold">
-                        {totals.totalAmount.toFixed(2)} {getCurrencySymbol()}
+                        {(totals.totalAmount || 0).toFixed(2)} {getCurrencySymbol()}
                       </span>
                     </div>
                   </div>
@@ -1588,33 +1588,33 @@ export default function NewPOAdvancedPage() {
                         <div>
                           <p className="text-slate-600">Presupuestado</p>
                           <p className="font-semibold text-slate-900">
-                            {subAccount.budgeted.toLocaleString()} €
+                            {(subAccount.budgeted || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Comprometido</p>
                           <p className="font-semibold text-amber-600">
-                            {subAccount.committed.toLocaleString()} €
+                            {(subAccount.committed || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Realizado</p>
                           <p className="font-semibold text-emerald-600">
-                            {subAccount.actual.toLocaleString()} €
+                            {(subAccount.actual || 0).toLocaleString()} €
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-600">Disponible</p>
                           <p
                             className={`font-bold ${
-                              subAccount.available < 0
+                              (subAccount.available || 0) < 0
                                 ? "text-red-600"
-                                : subAccount.available < subAccount.budgeted * 0.1
+                                : (subAccount.available || 0) < (subAccount.budgeted || 0) * 0.1
                                 ? "text-amber-600"
                                 : "text-emerald-600"
                             }`}
                           >
-                            {subAccount.available.toLocaleString()} €
+                            {(subAccount.available || 0).toLocaleString()} €
                           </p>
                         </div>
                       </div>
