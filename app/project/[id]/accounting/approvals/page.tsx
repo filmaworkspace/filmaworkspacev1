@@ -21,6 +21,9 @@ import {
   X,
   Filter,
   Folder,
+  RefreshCw,
+  Package,
+  Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -38,6 +41,19 @@ import {
 } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+
+interface ApprovalStepStatus {
+  id: string;
+  order: number;
+  approverType: "fixed" | "role" | "hod" | "coordinator";
+  approvers: string[];
+  roles?: string[];
+  department?: string;
+  approvedBy: string[];
+  rejectedBy: string[];
+  status: "pending" | "approved" | "rejected";
+  requireAll: boolean;
+}
 
 interface PendingApproval {
   id: string;
@@ -57,16 +73,11 @@ interface PendingApproval {
   attachmentUrl?: string;
   items?: any[];
   department?: string;
+  poType?: string;
+  currency?: string;
 }
 
-interface ApprovalStepStatus {
-  order: number;
-  approvers: string[];
-  approvedBy: string[];
-  rejectedBy: string[];
-  status: "pending" | "approved" | "rejected";
-  requireAll: boolean;
-}
+const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 
 export default function ApprovalsPage() {
   const params = useParams();
@@ -75,12 +86,14 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [userDepartment, setUserDepartment] = useState("");
+  const [userPosition, setUserPosition] = useState("");
   const [projectName, setProjectName] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [filteredApprovals, setFilteredApprovals] = useState<PendingApproval[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [typeFilter, setTypeFilter] = useState<"all" | "po" | "invoice">("all");
-  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<PendingApproval | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectionModal, setShowRejectionModal] = useState(false);
@@ -96,116 +109,17 @@ export default function ApprovalsPage() {
       } else {
         setUserId(user.uid);
         setUserName(user.displayName || user.email || "Usuario");
+        console.log("✅ Usuario autenticado:", user.uid);
       }
     });
     return () => unsubscribe();
   }, [router]);
 
-  // Load project name and pending approvals
+  // Load data
   useEffect(() => {
     if (!userId || !id) return;
-
-    const loadPendingApprovals = async () => {
-      try {
-        setLoading(true);
-        const approvals: PendingApproval[] = [];
-
-        // Load project name
-        const projectDoc = await getDoc(doc(db, "projects", id));
-        if (projectDoc.exists()) {
-          setProjectName(projectDoc.data().name || "Proyecto");
-        }
-
-        // Load POs
-        const posRef = collection(db, `projects/${id}/pos`);
-        const posQuery = query(posRef, where("status", "==", "pending"), orderBy("createdAt", "desc"));
-        const posSnap = await getDocs(posQuery);
-
-        for (const poDoc of posSnap.docs) {
-          const poData = poDoc.data();
-          
-          // Check if user is an approver in current step
-          if (poData.approvalSteps && poData.currentApprovalStep !== undefined) {
-            const currentStep = poData.approvalSteps[poData.currentApprovalStep];
-            
-            if (currentStep && currentStep.approvers?.includes(userId)) {
-              approvals.push({
-                id: poDoc.id,
-                type: "po",
-                documentId: poDoc.id,
-                documentNumber: poData.number,
-                projectId: id,
-                projectName: projectName,
-                supplier: poData.supplier,
-                amount: poData.totalAmount || poData.amount,
-                description: poData.generalDescription || poData.description,
-                createdAt: poData.createdAt?.toDate(),
-                createdBy: poData.createdBy,
-                createdByName: poData.createdByName,
-                currentApprovalStep: poData.currentApprovalStep,
-                approvalSteps: poData.approvalSteps,
-                attachmentUrl: poData.attachmentUrl,
-                items: poData.items,
-                department: poData.department,
-              });
-            }
-          }
-        }
-
-        // Load Invoices
-        const invoicesRef = collection(db, `projects/${id}/invoices`);
-        const invoicesQuery = query(
-          invoicesRef,
-          where("status", "==", "pending"),
-          orderBy("createdAt", "desc")
-        );
-        const invoicesSnap = await getDocs(invoicesQuery);
-
-        for (const invDoc of invoicesSnap.docs) {
-          const invData = invDoc.data();
-          
-          // Check if user is an approver in current step
-          if (invData.approvalSteps && invData.currentApprovalStep !== undefined) {
-            const currentStep = invData.approvalSteps[invData.currentApprovalStep];
-            
-            if (currentStep && currentStep.approvers?.includes(userId)) {
-              approvals.push({
-                id: invDoc.id,
-                type: "invoice",
-                documentId: invDoc.id,
-                documentNumber: invData.number,
-                projectId: id,
-                projectName: projectName,
-                supplier: invData.supplier,
-                amount: invData.totalAmount,
-                description: invData.description,
-                createdAt: invData.createdAt?.toDate(),
-                createdBy: invData.createdBy,
-                createdByName: invData.createdByName,
-                currentApprovalStep: invData.currentApprovalStep,
-                approvalSteps: invData.approvalSteps,
-                attachmentUrl: invData.attachmentUrl,
-                items: invData.items,
-              });
-            }
-          }
-        }
-
-        // Sort by date
-        approvals.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-        setPendingApprovals(approvals);
-        setFilteredApprovals(approvals);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error cargando aprobaciones:", error);
-        setErrorMessage("Error al cargar las aprobaciones pendientes");
-        setLoading(false);
-      }
-    };
-
     loadPendingApprovals();
-  }, [userId, id, router, projectName]);
+  }, [userId, id]);
 
   // Apply filters
   useEffect(() => {
@@ -219,6 +133,166 @@ export default function ApprovalsPage() {
     setCurrentIndex(0);
   }, [typeFilter, pendingApprovals]);
 
+  const loadPendingApprovals = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+      console.log("🔄 Cargando aprobaciones pendientes...");
+
+      const approvals: PendingApproval[] = [];
+
+      // Load project name and user role
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      if (projectDoc.exists()) {
+        setProjectName(projectDoc.data().name || "Proyecto");
+      }
+
+      // Load user member data
+      const memberDoc = await getDoc(doc(db, `projects/${id}/members`, userId!));
+      if (memberDoc.exists()) {
+        const memberData = memberDoc.data();
+        setUserRole(memberData.role || "");
+        setUserDepartment(memberData.department || "");
+        setUserPosition(memberData.position || "");
+        console.log(`ℹ️ Usuario es ${memberData.role || memberData.position} en ${memberData.department || "proyecto"}`);
+      }
+
+      // Load POs with status "pending"
+      console.log("📄 Buscando POs pendientes...");
+      const posRef = collection(db, `projects/${id}/pos`);
+      const posQuery = query(
+        posRef,
+        where("status", "==", "pending"),
+        orderBy("createdAt", "desc")
+      );
+      const posSnap = await getDocs(posQuery);
+      console.log(`  → ${posSnap.size} POs pendientes encontradas`);
+
+      for (const poDoc of posSnap.docs) {
+        const poData = poDoc.data();
+        
+        // Check if user can approve this PO
+        if (canUserApprove(poData, userId!, userRole, userDepartment, userPosition)) {
+          approvals.push({
+            id: poDoc.id,
+            type: "po",
+            documentId: poDoc.id,
+            documentNumber: poData.number,
+            projectId: id,
+            projectName: projectName,
+            supplier: poData.supplier,
+            amount: poData.totalAmount || poData.amount || 0,
+            description: poData.generalDescription || poData.description || "",
+            createdAt: poData.createdAt?.toDate() || new Date(),
+            createdBy: poData.createdBy,
+            createdByName: poData.createdByName || "Usuario",
+            currentApprovalStep: poData.currentApprovalStep || 0,
+            approvalSteps: poData.approvalSteps || [],
+            attachmentUrl: poData.attachmentUrl,
+            items: poData.items || [],
+            department: poData.department,
+            poType: poData.poType,
+            currency: poData.currency || "EUR",
+          });
+        }
+      }
+
+      // Load Invoices with status "pending"
+      console.log("🧾 Buscando facturas pendientes...");
+      try {
+        const invoicesRef = collection(db, `projects/${id}/invoices`);
+        const invoicesQuery = query(
+          invoicesRef,
+          where("status", "==", "pending"),
+          orderBy("createdAt", "desc")
+        );
+        const invoicesSnap = await getDocs(invoicesQuery);
+        console.log(`  → ${invoicesSnap.size} facturas pendientes encontradas`);
+
+        for (const invDoc of invoicesSnap.docs) {
+          const invData = invDoc.data();
+          
+          // Check if user can approve this Invoice
+          if (canUserApprove(invData, userId!, userRole, userDepartment, userPosition)) {
+            approvals.push({
+              id: invDoc.id,
+              type: "invoice",
+              documentId: invDoc.id,
+              documentNumber: invData.number,
+              projectId: id,
+              projectName: projectName,
+              supplier: invData.supplier,
+              amount: invData.totalAmount || 0,
+              description: invData.description || "",
+              createdAt: invData.createdAt?.toDate() || new Date(),
+              createdBy: invData.createdBy,
+              createdByName: invData.createdByName || "Usuario",
+              currentApprovalStep: invData.currentApprovalStep || 0,
+              approvalSteps: invData.approvalSteps || [],
+              attachmentUrl: invData.attachmentUrl,
+              items: invData.items || [],
+            });
+          }
+        }
+      } catch (e) {
+        console.log("ℹ️ No hay colección de facturas o está vacía");
+      }
+
+      // Sort by date
+      approvals.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      console.log(`✅ ${approvals.length} aprobaciones pendientes para este usuario`);
+      setPendingApprovals(approvals);
+      setFilteredApprovals(approvals);
+      setLoading(false);
+    } catch (error: any) {
+      console.error("❌ Error cargando aprobaciones:", error);
+      setErrorMessage(`Error al cargar: ${error.message}`);
+      setLoading(false);
+    }
+  };
+
+  const canUserApprove = (
+    docData: any,
+    userId: string,
+    userRole: string,
+    userDepartment: string,
+    userPosition: string
+  ): boolean => {
+    if (!docData.approvalSteps || docData.currentApprovalStep === undefined) {
+      return false;
+    }
+
+    const currentStep = docData.approvalSteps[docData.currentApprovalStep];
+    if (!currentStep || currentStep.status !== "pending") {
+      return false;
+    }
+
+    // Check if user already approved/rejected
+    if (currentStep.approvedBy?.includes(userId) || currentStep.rejectedBy?.includes(userId)) {
+      return false;
+    }
+
+    switch (currentStep.approverType) {
+      case "fixed":
+        return currentStep.approvers?.includes(userId) || false;
+
+      case "role":
+        return currentStep.roles?.includes(userRole) || false;
+
+      case "hod":
+        const hodDept = currentStep.department || docData.department;
+        return userPosition === "HOD" && userDepartment === hodDept;
+
+      case "coordinator":
+        const coordDept = currentStep.department || docData.department;
+        return userPosition === "Coordinator" && userDepartment === coordDept;
+
+      default:
+        return false;
+    }
+  };
+
   const handleApprove = async (approval: PendingApproval) => {
     if (!confirm(`¿Aprobar ${approval.type === "po" ? "la PO" : "la factura"} ${approval.documentNumber}?`)) {
       return;
@@ -226,38 +300,49 @@ export default function ApprovalsPage() {
 
     setProcessing(true);
     try {
-      const docRef = doc(
-        db,
-        `projects/${approval.projectId}/${approval.type === "po" ? "pos" : "invoices"}`,
-        approval.documentId
-      );
+      console.log(`✅ Aprobando ${approval.type} ${approval.documentNumber}...`);
+      
+      const collectionName = approval.type === "po" ? "pos" : "invoices";
+      const docRef = doc(db, `projects/${approval.projectId}/${collectionName}`, approval.documentId);
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists()) {
         setErrorMessage("El documento ya no existe");
+        setProcessing(false);
         return;
       }
 
       const docData = docSnap.data();
-      const currentStep = docData.approvalSteps[docData.currentApprovalStep];
+      const currentStepIndex = docData.currentApprovalStep || 0;
+      const currentStep = docData.approvalSteps[currentStepIndex];
 
       // Add user to approvedBy
       const newApprovedBy = [...(currentStep.approvedBy || []), userId];
 
-      // Check if step is complete
-      const isStepComplete = currentStep.requireAll
-        ? newApprovedBy.length === currentStep.approvers.length
-        : true;
+      // Determine if step is complete
+      let isStepComplete = false;
+      if (currentStep.requireAll) {
+        // Need all approvers
+        const totalApproversNeeded = currentStep.approverType === "fixed"
+          ? currentStep.approvers.length
+          : currentStep.approverType === "role"
+          ? currentStep.roles?.length || 1
+          : 1;
+        isStepComplete = newApprovedBy.length >= totalApproversNeeded;
+      } else {
+        // Only need one
+        isStepComplete = true;
+      }
 
       const updatedSteps = [...docData.approvalSteps];
-      updatedSteps[docData.currentApprovalStep] = {
+      updatedSteps[currentStepIndex] = {
         ...currentStep,
         approvedBy: newApprovedBy,
         status: isStepComplete ? "approved" : "pending",
       };
 
       // Check if all steps are complete
-      const isLastStep = docData.currentApprovalStep === docData.approvalSteps.length - 1;
+      const isLastStep = currentStepIndex === docData.approvalSteps.length - 1;
       const allStepsComplete = isStepComplete && isLastStep;
 
       const updates: any = {
@@ -266,39 +351,53 @@ export default function ApprovalsPage() {
 
       if (isStepComplete && !isLastStep) {
         // Move to next step
-        updates.currentApprovalStep = docData.currentApprovalStep + 1;
+        updates.currentApprovalStep = currentStepIndex + 1;
+        console.log(`  → Avanzando a nivel ${currentStepIndex + 2}`);
       } else if (allStepsComplete) {
-        // Approve document
+        // Fully approve document
         updates.status = "approved";
         updates.approvedAt = Timestamp.now();
         updates.approvedBy = userId;
         updates.approvedByName = userName;
+        console.log(`  → Documento completamente aprobado`);
 
         // If PO, update budget commitment
-        if (approval.type === "po") {
-          // Update subaccount committed amount
-          for (const item of approval.items || []) {
+        if (approval.type === "po" && approval.items) {
+          console.log(`  → Actualizando presupuesto comprometido...`);
+          for (const item of approval.items) {
             if (item.subAccountId) {
+              // Find the subaccount and update committed
               const accountsRef = collection(db, `projects/${approval.projectId}/accounts`);
               const accountsSnap = await getDocs(accountsRef);
               
               for (const accountDoc of accountsSnap.docs) {
-                const subAccountRef = doc(
-                  db,
-                  `projects/${approval.projectId}/accounts/${accountDoc.id}/subaccounts`,
-                  item.subAccountId
-                );
-                const subAccountSnap = await getDoc(subAccountRef);
-                
-                if (subAccountSnap.exists()) {
-                  const currentCommitted = subAccountSnap.data().committed || 0;
-                  await updateDoc(subAccountRef, {
-                    committed: currentCommitted + item.totalAmount,
-                  });
+                try {
+                  const subAccountRef = doc(
+                    db,
+                    `projects/${approval.projectId}/accounts/${accountDoc.id}/subaccounts`,
+                    item.subAccountId
+                  );
+                  const subAccountSnap = await getDoc(subAccountRef);
+                  
+                  if (subAccountSnap.exists()) {
+                    const currentCommitted = subAccountSnap.data().committed || 0;
+                    const itemAmount = item.totalAmount || item.baseAmount || 0;
+                    await updateDoc(subAccountRef, {
+                      committed: currentCommitted + itemAmount,
+                    });
+                    console.log(`    → Subcuenta ${item.subAccountId}: +${itemAmount} €`);
+                    break;
+                  }
+                } catch (e) {
+                  // Continue to next account
                 }
               }
             }
           }
+
+          // Update PO with committed amount
+          updates.committedAmount = approval.amount;
+          updates.remainingAmount = approval.amount;
         }
       }
 
@@ -310,18 +409,18 @@ export default function ApprovalsPage() {
       setSuccessMessage(
         allStepsComplete
           ? `${approval.type === "po" ? "PO" : "Factura"} aprobada completamente`
-          : "Aprobación registrada correctamente"
+          : "Aprobación registrada. Pendiente de más aprobadores."
       );
       setTimeout(() => setSuccessMessage(""), 3000);
 
-      // Move to next approval
+      // Adjust current index
       if (currentIndex >= filteredApprovals.length - 1) {
         setCurrentIndex(Math.max(0, currentIndex - 1));
       }
-    } catch (error) {
-      console.error("Error aprobando:", error);
-      setErrorMessage("Error al aprobar el documento");
-      setTimeout(() => setErrorMessage(""), 3000);
+    } catch (error: any) {
+      console.error("❌ Error aprobando:", error);
+      setErrorMessage(`Error al aprobar: ${error.message}`);
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setProcessing(false);
     }
@@ -336,9 +435,12 @@ export default function ApprovalsPage() {
 
     setProcessing(true);
     try {
+      console.log(`❌ Rechazando ${selectedApproval.type} ${selectedApproval.documentNumber}...`);
+      
+      const collectionName = selectedApproval.type === "po" ? "pos" : "invoices";
       const docRef = doc(
         db,
-        `projects/${selectedApproval.projectId}/${selectedApproval.type === "po" ? "pos" : "invoices"}`,
+        `projects/${selectedApproval.projectId}/${collectionName}`,
         selectedApproval.documentId
       );
 
@@ -360,14 +462,14 @@ export default function ApprovalsPage() {
       setRejectionReason("");
       setSelectedApproval(null);
 
-      // Move to next approval
+      // Adjust current index
       if (currentIndex >= filteredApprovals.length - 1) {
         setCurrentIndex(Math.max(0, currentIndex - 1));
       }
-    } catch (error) {
-      console.error("Error rechazando:", error);
-      setErrorMessage("Error al rechazar el documento");
-      setTimeout(() => setErrorMessage(""), 3000);
+    } catch (error: any) {
+      console.error("❌ Error rechazando:", error);
+      setErrorMessage(`Error al rechazar: ${error.message}`);
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setProcessing(false);
     }
@@ -381,6 +483,17 @@ export default function ApprovalsPage() {
       month: "short",
       year: "numeric",
     }).format(date);
+  };
+
+  const formatCurrency = (amount: number, currency: string = "EUR") => {
+    const symbols: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
+    return `${amount.toLocaleString()} ${symbols[currency] || currency}`;
+  };
+
+  const getApprovalProgress = (approval: PendingApproval) => {
+    const totalSteps = approval.approvalSteps.length;
+    const completedSteps = approval.approvalSteps.filter((s) => s.status === "approved").length;
+    return { completed: completedSteps, total: totalSteps };
   };
 
   if (loading) {
@@ -428,24 +541,37 @@ export default function ApprovalsPage() {
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
               <AlertCircle size={20} />
               <span>{errorMessage}</span>
+              <button onClick={() => setErrorMessage("")} className="ml-auto">
+                <X size={16} />
+              </button>
             </div>
           )}
 
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                <CheckCircle size={28} className="text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
+                  <CheckCircle size={28} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
+                    Mis aprobaciones
+                  </h1>
+                  <p className="text-slate-600 text-sm mt-1">
+                    {filteredApprovals.length}{" "}
+                    {filteredApprovals.length === 1 ? "documento pendiente" : "documentos pendientes"}
+                    {userRole && <span className="text-indigo-600"> • {userRole}</span>}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                  Mis aprobaciones
-                </h1>
-                <p className="text-slate-600 text-sm mt-1">
-                  {filteredApprovals.length}{" "}
-                  {filteredApprovals.length === 1 ? "documento pendiente" : "documentos pendientes"}
-                </p>
-              </div>
+              <button
+                onClick={loadPendingApprovals}
+                className="flex items-center gap-2 px-4 py-2 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+              >
+                <RefreshCw size={18} />
+                Actualizar
+              </button>
             </div>
           </div>
 
@@ -454,18 +580,26 @@ export default function ApprovalsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
             >
               <option value="all">Todos los tipos</option>
               <option value="po">Solo POs</option>
               <option value="invoice">Solo Facturas</option>
             </select>
+
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <Filter size={16} />
+              <span>
+                {pendingApprovals.filter((a) => a.type === "po").length} POs,{" "}
+                {pendingApprovals.filter((a) => a.type === "invoice").length} Facturas
+              </span>
+            </div>
           </div>
 
           {/* Main Content */}
           {filteredApprovals.length === 0 ? (
             <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
-              <CheckCircle size={64} className="text-slate-300 mx-auto mb-4" />
+              <CheckCircle size={64} className="text-emerald-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-slate-900 mb-2">
                 No hay aprobaciones pendientes
               </h3>
@@ -479,42 +613,49 @@ export default function ApprovalsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Navigation Sidebar */}
               <div className="lg:col-span-1">
-                <div className="bg-white border border-slate-200 rounded-xl p-4 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto shadow-sm">
                   <h3 className="text-sm font-semibold text-slate-900 mb-3">
                     Lista de aprobaciones
                   </h3>
                   <div className="space-y-2">
-                    {filteredApprovals.map((approval, index) => (
-                      <button
-                        key={approval.id}
-                        onClick={() => setCurrentIndex(index)}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                          index === currentIndex
-                            ? "border-indigo-500 bg-indigo-50"
-                            : "border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        <div className="flex items-start gap-2 mb-1">
-                          {approval.type === "po" ? (
-                            <FileText size={16} className="text-indigo-600 mt-0.5" />
-                          ) : (
-                            <Receipt size={16} className="text-emerald-600 mt-0.5" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
-                              {approval.type === "po" ? "PO" : "INV"}-{approval.documentNumber}
-                            </p>
-                            <p className="text-xs text-slate-600 truncate">
-                              {approval.projectName}
-                            </p>
+                    {filteredApprovals.map((approval, index) => {
+                      const progress = getApprovalProgress(approval);
+                      return (
+                        <button
+                          key={approval.id}
+                          onClick={() => setCurrentIndex(index)}
+                          className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                            index === currentIndex
+                              ? "border-indigo-500 bg-indigo-50"
+                              : "border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2 mb-1">
+                            {approval.type === "po" ? (
+                              <FileText size={16} className="text-indigo-600 mt-0.5" />
+                            ) : (
+                              <Receipt size={16} className="text-emerald-600 mt-0.5" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {approval.type === "po" ? "PO" : "FAC"}-{approval.documentNumber}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {approval.supplier}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <p className="text-xs text-slate-500">{approval.supplier}</p>
-                        <p className="text-xs font-semibold text-slate-900 mt-1">
-                          {approval.amount.toLocaleString()} €
-                        </p>
-                      </button>
-                    ))}
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs font-bold text-slate-900">
+                              {formatCurrency(approval.amount, approval.currency)}
+                            </p>
+                            <span className="text-xs text-slate-500">
+                              {progress.completed}/{progress.total} niveles
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -540,18 +681,19 @@ export default function ApprovalsPage() {
                           )}
                           <div>
                             <h2 className="text-2xl font-bold text-white">
-                              {currentApproval.type === "po" ? "PO" : "INV"}-
+                              {currentApproval.type === "po" ? "PO" : "FAC"}-
                               {currentApproval.documentNumber}
                             </h2>
                             <p className="text-white/80 text-sm">
-                              {currentApproval.projectName}
+                              {currentApproval.department && `${currentApproval.department} • `}
+                              {currentApproval.poType && `${currentApproval.poType}`}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-white/80 text-xs">Importe</p>
+                          <p className="text-white/80 text-xs">Importe total</p>
                           <p className="text-3xl font-bold text-white">
-                            {currentApproval.amount.toLocaleString()} €
+                            {formatCurrency(currentApproval.amount, currentApproval.currency)}
                           </p>
                         </div>
                       </div>
@@ -629,7 +771,7 @@ export default function ApprovalsPage() {
                       <div className="mb-6">
                         <p className="text-xs text-slate-500 mb-2">Descripción</p>
                         <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
-                          {currentApproval.description}
+                          {currentApproval.description || "Sin descripción"}
                         </p>
                       </div>
 
@@ -641,7 +783,7 @@ export default function ApprovalsPage() {
                         <div className="space-y-2">
                           {currentApproval.approvalSteps.map((step, index) => (
                             <div
-                              key={index}
+                              key={step.id || index}
                               className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
                                 index === currentApproval.currentApprovalStep
                                   ? "border-indigo-300 bg-indigo-50"
@@ -668,16 +810,23 @@ export default function ApprovalsPage() {
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-slate-900">
                                   Nivel {step.order}
+                                  {step.approverType === "role" && step.roles && (
+                                    <span className="text-slate-500 font-normal">
+                                      {" "}
+                                      ({step.roles.join(", ")})
+                                    </span>
+                                  )}
                                 </p>
                                 <p className="text-xs text-slate-600">
-                                  {step.approvedBy.length} de {step.approvers.length} aprobado
+                                  {(step.approvedBy || []).length} aprobación
+                                  {(step.approvedBy || []).length !== 1 ? "es" : ""}
                                   {step.requireAll && " (se requieren todos)"}
                                 </p>
                               </div>
                               {step.status === "approved" && (
                                 <CheckCircle size={20} className="text-emerald-500" />
                               )}
-                              {index === currentApproval.currentApprovalStep && (
+                              {index === currentApproval.currentApprovalStep && step.status === "pending" && (
                                 <Clock size={20} className="text-indigo-500" />
                               )}
                             </div>
@@ -695,18 +844,19 @@ export default function ApprovalsPage() {
                             {currentApproval.items.map((item: any, index: number) => (
                               <div
                                 key={index}
-                                className="flex items-start justify-between text-sm"
+                                className="flex items-start justify-between text-sm border-b border-slate-200 pb-2 last:border-0"
                               >
                                 <div className="flex-1">
                                   <p className="font-medium text-slate-900">
                                     {item.description}
                                   </p>
                                   <p className="text-xs text-slate-600">
-                                    {item.quantity} × {item.unitPrice.toLocaleString()} €
+                                    {item.subAccountCode && `${item.subAccountCode} • `}
+                                    {item.quantity} × {item.unitPrice?.toLocaleString() || 0} €
                                   </p>
                                 </div>
                                 <p className="font-semibold text-slate-900">
-                                  {item.totalAmount.toLocaleString()} €
+                                  {(item.totalAmount || 0).toLocaleString()} €
                                 </p>
                               </div>
                             ))}
@@ -760,17 +910,6 @@ export default function ApprovalsPage() {
                           <XCircle size={20} />
                           Rechazar
                         </button>
-
-                        <button
-                          onClick={() => {
-                            setSelectedApproval(currentApproval);
-                            setShowDetailModal(true);
-                          }}
-                          className="px-4 py-3 border-2 border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl font-medium transition-colors"
-                          title="Ver detalles completos"
-                        >
-                          <Eye size={20} />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -792,7 +931,7 @@ export default function ApprovalsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Rechazar documento</h3>
                 <p className="text-sm text-slate-600">
-                  {selectedApproval.type === "po" ? "PO" : "INV"}-
+                  {selectedApproval.type === "po" ? "PO" : "FAC"}-
                   {selectedApproval.documentNumber}
                 </p>
               </div>
