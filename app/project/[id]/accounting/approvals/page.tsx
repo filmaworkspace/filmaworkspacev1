@@ -378,12 +378,17 @@ export default function ApprovalsPage() {
         updates.approvedByName = userName;
         console.log(`  → Documento completamente aprobado`);
 
-        // If PO, update budget commitment
+        // If PO, update budget commitment (using baseAmount, not total)
         if (approval.type === "po" && approval.items) {
-          console.log(`  → Actualizando presupuesto comprometido...`);
+          console.log(`  → Actualizando presupuesto comprometido (base imponible)...`);
+          let totalBaseAmount = 0;
+          
           for (const item of approval.items) {
+            const itemBaseAmount = item.baseAmount || (item.quantity * item.unitPrice) || 0;
+            totalBaseAmount += itemBaseAmount;
+            
             if (item.subAccountId) {
-              // Find the subaccount and update committed
+              // Find the subaccount and update committed with BASE amount
               const accountsRef = collection(db, `projects/${approval.projectId}/accounts`);
               const accountsSnap = await getDocs(accountsRef);
               
@@ -398,11 +403,10 @@ export default function ApprovalsPage() {
                   
                   if (subAccountSnap.exists()) {
                     const currentCommitted = subAccountSnap.data().committed || 0;
-                    const itemAmount = item.totalAmount || item.baseAmount || 0;
                     await updateDoc(subAccountRef, {
-                      committed: currentCommitted + itemAmount,
+                      committed: currentCommitted + itemBaseAmount,
                     });
-                    console.log(`    → Subcuenta ${item.subAccountId}: +${itemAmount} €`);
+                    console.log(`    → Subcuenta ${item.subAccountId}: +${itemBaseAmount} € (base)`);
                     break;
                   }
                 } catch (e) {
@@ -412,9 +416,9 @@ export default function ApprovalsPage() {
             }
           }
 
-          // Update PO with committed amount
-          updates.committedAmount = approval.amount;
-          updates.remainingAmount = approval.amount;
+          // Update PO with committed amount (base imponible)
+          updates.committedAmount = totalBaseAmount;
+          updates.remainingAmount = totalBaseAmount;
         }
       }
 
