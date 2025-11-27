@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { Shield, Zap } from "lucide-react";
 import Image from "next/image";
 
 const inter = Inter({
@@ -16,7 +15,7 @@ const inter = Inter({
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["500", "600"],
 });
 
 export default function LoginPage() {
@@ -40,117 +39,58 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient & Branding */}
+      {/* Left Side - Gradient */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
-        
-        {/* Animated Gradient Orbs */}
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-500" />
         
-        {/* Grid Pattern Overlay */}
-        <div 
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-            backgroundSize: '50px 50px'
-          }}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Logo */}
-          <div>
-            <div className="flex items-center gap-3">
-              <Image
-                src="/logo.png"
-                alt="Filma Workspace"
-                width={40}
-                height={40}
-                className="rounded-xl"
-              />
-              <span className={`text-xl font-semibold text-white tracking-tight ${spaceGrotesk.className}`}>
-                Filma Workspace
-              </span>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="space-y-8">
-            <div>
-              <h1 className={`text-4xl xl:text-5xl font-bold text-white leading-tight mb-4 ${spaceGrotesk.className}`}>
-                Gestiona tus
-                <span className="block bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  producciones
-                </span>
-                de forma inteligente
-              </h1>
-              <p className={`text-lg text-slate-400 max-w-md ${inter.className}`}>
-                La plataforma todo-en-uno para gestionar presupuestos, equipos y proyectos audiovisuales.
-              </p>
-            </div>
-
-            {/* Features */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 group">
-                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                  <Shield className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-medium">Control total</h3>
-                  <p className="text-sm text-slate-500">Permisos y roles personalizados</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 group">
-                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                  <Zap className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-medium">Tiempo real</h3>
-                  <p className="text-sm text-slate-500">Colaboración instantánea en equipo</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className={`text-sm text-slate-500 ${inter.className}`}>
-            © 2025 Filma Workspace. Todos los derechos reservados.
+        {/* Logo centered */}
+        <div className="relative z-10 flex items-center justify-center w-full">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="filma workspace"
+              width={48}
+              height={48}
+              className="rounded-xl"
+            />
+            <span className={`text-2xl font-medium text-white ${spaceGrotesk.className}`}>
+              filma workspace
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
-      <div className={`w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white ${inter.className}`}>
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div className="w-full max-w-sm">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-12">
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-12">
             <Image
               src="/logo.png"
-              alt="Filma Workspace"
+              alt="filma workspace"
               width={36}
               height={36}
               className="rounded-lg"
             />
-            <span className="text-lg font-semibold text-slate-900">
-              Filma Workspace
+            <span className={`text-xl font-medium text-slate-900 ${spaceGrotesk.className}`}>
+              filma workspace
             </span>
           </div>
 
-          {/* Form Header */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-slate-900 mb-1">
+          {/* Header */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Iniciar sesión
             </h2>
-            <p className="text-slate-500 text-sm">
+            <p className="text-sm text-slate-500">
               Accede a tu espacio de trabajo
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Email
@@ -166,32 +106,29 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Contraseña
-              </label>
-              <PasswordInput
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              required
+            />
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={loading}
-                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400/30 cursor-pointer"
                 />
-                <span className="text-sm text-slate-600">Recordarme</span>
+                <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors select-none">
+                  Recordar mi email
+                </span>
               </label>
               <Link
                 href="/forgot-password"
-                className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                className="text-sm text-slate-600 hover:text-slate-900 hover:underline transition-colors"
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -202,23 +139,22 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={loading}
-              loadingText="Entrando..."
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium transition-colors"
+              loadingText="Iniciando sesión..."
             >
-              Entrar
+              Iniciar sesión
             </Button>
           </form>
 
-          {/* Register Link */}
-          <p className="mt-8 text-center text-sm text-slate-600">
+          {/* Register link */}
+          <div className="mt-6 pt-6 border-t border-slate-200 text-center text-sm text-slate-600">
             ¿No tienes cuenta?{" "}
             <Link
               href="/register"
-              className="text-slate-900 font-medium hover:underline"
+              className="text-slate-800 hover:text-slate-900 font-medium hover:underline transition-colors"
             >
               Crear cuenta
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
