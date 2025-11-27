@@ -37,7 +37,6 @@ import {
   getDoc,
   updateDoc,
   Timestamp,
-  orderBy,
 } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -162,13 +161,19 @@ export default function ApprovalsPage() {
       const posRef = collection(db, `projects/${id}/pos`);
       const posQuery = query(
         posRef,
-        where("status", "==", "pending"),
-        orderBy("createdAt", "desc")
+        where("status", "==", "pending")
       );
       const posSnap = await getDocs(posQuery);
       console.log(`  → ${posSnap.size} POs pendientes encontradas`);
 
-      for (const poDoc of posSnap.docs) {
+      // Sort by createdAt in client
+      const sortedPosDocs = posSnap.docs.sort((a, b) => {
+        const aDate = a.data().createdAt?.toDate() || new Date(0);
+        const bDate = b.data().createdAt?.toDate() || new Date(0);
+        return bDate.getTime() - aDate.getTime();
+      });
+
+      for (const poDoc of sortedPosDocs) {
         const poData = poDoc.data();
         
         // Check if user can approve this PO
@@ -203,13 +208,19 @@ export default function ApprovalsPage() {
         const invoicesRef = collection(db, `projects/${id}/invoices`);
         const invoicesQuery = query(
           invoicesRef,
-          where("status", "==", "pending_approval"),
-          orderBy("createdAt", "desc")
+          where("status", "==", "pending_approval")
         );
         const invoicesSnap = await getDocs(invoicesQuery);
         console.log(`  → ${invoicesSnap.size} facturas pendientes de aprobación encontradas`);
 
-        for (const invDoc of invoicesSnap.docs) {
+        // Sort by createdAt in client
+        const sortedInvoicesDocs = invoicesSnap.docs.sort((a, b) => {
+          const aDate = a.data().createdAt?.toDate() || new Date(0);
+          const bDate = b.data().createdAt?.toDate() || new Date(0);
+          return bDate.getTime() - aDate.getTime();
+        });
+
+        for (const invDoc of sortedInvoicesDocs) {
           const invData = invDoc.data();
           
           // Check if user can approve this Invoice
@@ -493,7 +504,7 @@ export default function ApprovalsPage() {
 
   const formatCurrency = (amount: number, currency: string = "EUR") => {
     const symbols: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
-    return `${amount.toLocaleString()} ${symbols[currency] || currency}`;
+    return `${(amount || 0).toLocaleString()} ${symbols[currency] || currency}`;
   };
 
   const getApprovalProgress = (approval: PendingApproval) => {
@@ -858,7 +869,7 @@ export default function ApprovalsPage() {
                                   </p>
                                   <p className="text-xs text-slate-600">
                                     {item.subAccountCode && `${item.subAccountCode} • `}
-                                    {item.quantity} × {item.unitPrice?.toLocaleString() || 0} €
+                                    {item.quantity || 0} × {(item.unitPrice || 0).toLocaleString()} €
                                   </p>
                                 </div>
                                 <p className="font-semibold text-slate-900">
