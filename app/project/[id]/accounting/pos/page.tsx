@@ -983,8 +983,8 @@ export default function POsPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div>
-                            <p className="text-xs text-slate-500">Base: {formatCurrency(po.baseAmount || po.totalAmount)} €</p>
-                            <p className="text-sm font-bold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
+                            <p className="text-sm font-bold text-slate-900">{formatCurrency(po.baseAmount || po.totalAmount)} €</p>
+                            <p className="text-xs text-slate-400">Total: {formatCurrency(po.totalAmount)} €</p>
                             {po.status === "approved" && po.invoicedAmount > 0 && (
                               <p className="text-xs text-emerald-600">Realizado: {formatCurrency(po.invoicedAmount)} €</p>
                             )}
