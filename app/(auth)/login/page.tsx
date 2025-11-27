@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import Image from "next/image";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -45,20 +44,11 @@ export default function LoginPage() {
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
         
-        {/* Logo centered */}
+        {/* Text centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="filma workspace"
-              width={48}
-              height={48}
-              className="rounded-xl"
-            />
-            <span className={`text-2xl font-medium text-white ${spaceGrotesk.className}`}>
-              filma workspace
-            </span>
-          </div>
+          <span className={`text-3xl font-medium text-white ${spaceGrotesk.className}`}>
+            filma workspace
+          </span>
         </div>
       </div>
 
@@ -66,14 +56,7 @@ export default function LoginPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div className="w-full max-w-sm">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-12">
-            <Image
-              src="/logo.png"
-              alt="filma workspace"
-              width={36}
-              height={36}
-              className="rounded-lg"
-            />
+          <div className="lg:hidden flex items-center justify-center mb-12">
             <span className={`text-xl font-medium text-slate-900 ${spaceGrotesk.className}`}>
               filma workspace
             </span>
