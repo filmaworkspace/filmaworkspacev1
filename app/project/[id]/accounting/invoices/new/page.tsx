@@ -643,9 +643,14 @@ export default function NewInvoicePage() {
 
   const selectAccount = (subAccount: SubAccount) => {
     if (currentItemIndex !== null) {
-      updateItem(currentItemIndex, "subAccountId", subAccount.id);
-      updateItem(currentItemIndex, "subAccountCode", subAccount.code);
-      updateItem(currentItemIndex, "subAccountDescription", subAccount.description);
+      const newItems = [...items];
+      newItems[currentItemIndex] = {
+        ...newItems[currentItemIndex],
+        subAccountId: subAccount.id,
+        subAccountCode: subAccount.code,
+        subAccountDescription: subAccount.description,
+      };
+      setItems(newItems);
     }
     setShowAccountModal(false);
     setAccountSearch("");
@@ -1418,25 +1423,25 @@ export default function NewInvoicePage() {
                             <div>
                               <p className="text-slate-600">Base</p>
                               <p className="font-semibold text-slate-900">
-                                {item.baseAmount.toFixed(2)} €
+                                {(item.baseAmount || 0).toFixed(2)} €
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IVA</p>
                               <p className="font-semibold text-emerald-600">
-                                +{item.vatAmount.toFixed(2)} €
+                                +{(item.vatAmount || 0).toFixed(2)} €
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">IRPF</p>
                               <p className="font-semibold text-red-600">
-                                -{item.irpfAmount.toFixed(2)} €
+                                -{(item.irpfAmount || 0).toFixed(2)} €
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-600">Total</p>
                               <p className="font-bold text-emerald-600 text-sm">
-                                {item.totalAmount.toFixed(2)} €
+                                {(item.totalAmount || 0).toFixed(2)} €
                               </p>
                             </div>
                           </div>
@@ -1529,19 +1534,19 @@ export default function NewInvoicePage() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">Base imponible</span>
                       <span className="font-semibold">
-                        {totals.baseAmount.toFixed(2)} €
+                        {(totals.baseAmount || 0).toFixed(2)} €
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">IVA</span>
                       <span className="font-semibold text-emerald-200">
-                        +{totals.vatAmount.toFixed(2)} €
+                        +{(totals.vatAmount || 0).toFixed(2)} €
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-emerald-100">IRPF</span>
                       <span className="font-semibold text-red-300">
-                        -{totals.irpfAmount.toFixed(2)} €
+                        -{(totals.irpfAmount || 0).toFixed(2)} €
                       </span>
                     </div>
                   </div>
@@ -1550,7 +1555,7 @@ export default function NewInvoicePage() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total</span>
                       <span className="text-3xl font-bold">
-                        {totals.totalAmount.toFixed(2)} €
+                        {(totals.totalAmount || 0).toFixed(2)} €
                       </span>
                     </div>
                   </div>
