@@ -34,11 +34,13 @@ import {
   DollarSign,
   User,
   Building2,
+  Download,
 } from "lucide-react";
+import jsPDF from "jspdf";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
-type POStatus = 
+type POStatus =
   | "draft"
   | "pending"
   | "approved"
@@ -48,10 +50,17 @@ type POStatus =
 
 interface POItem {
   description: string;
-  budgetAccount: string;
-  subAccountId: string;
+  budgetAccount?: string;
+  subAccountId?: string;
+  subAccountCode?: string;
+  subAccountDescription?: string;
   quantity: number;
   unitPrice: number;
+  baseAmount?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  irpfRate?: number;
+  irpfAmount?: number;
   totalAmount: number;
 }
 
@@ -64,8 +73,17 @@ interface PO {
   nextVersionId?: string;
   supplier: string;
   supplierId: string;
+  department?: string;
+  poType?: string;
+  currency?: string;
   generalDescription: string;
+  description?: string;
+  paymentTerms?: string;
+  notes?: string;
   totalAmount: number;
+  baseAmount?: number;
+  vatAmount?: number;
+  irpfAmount?: number;
   items: POItem[];
   attachmentUrl?: string;
   status: POStatus;
@@ -164,7 +182,7 @@ export default function POsPage() {
         (po) =>
           po.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
           po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          po.generalDescription.toLowerCase().includes(searchTerm.toLowerCase())
+          (po.generalDescription || po.description || "").toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -177,11 +195,379 @@ export default function POsPage() {
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat("es-ES", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount || 0);
   };
 
+  const formatDate = (date: Date) => {
+    if (!date) return "-";
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  };
+
+  const formatDateTime = (date: Date) => {
+    if (!date) return "-";
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
+  // ==========================================
+  // PDF GENERATION
+  // ==========================================
+  const generatePDF = (po: PO) => {
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    let y = margin;
+
+    // Colors
+    const primaryColor: [number, number, number] = [79, 70, 229]; // Indigo-600
+    const secondaryColor: [number, number, number] = [100, 116, 139]; // Slate-500
+    const lightBg: [number, number, number] = [248, 250, 252]; // Slate-50
+    const successColor: [number, number, number] = [16, 185, 129]; // Emerald-500
+    const warningColor: [number, number, number] = [245, 158, 11]; // Amber-500
+
+    // Helper functions
+    const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, color: [number, number, number]) => {
+      pdf.setFillColor(...color);
+      pdf.roundedRect(x, y, w, h, r, r, "F");
+    };
+
+    // Header background
+    drawRoundedRect(0, 0, pageWidth, 45, 0, primaryColor);
+
+    // Header content
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(24);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("ORDEN DE COMPRA", margin, 20);
+
+    pdf.setFontSize(32);
+    pdf.text(`PO-${po.number}`, margin, 35);
+
+    if (po.version > 1) {
+      pdf.setFontSize(12);
+      pdf.text(`V${String(po.version).padStart(2, "0")}`, margin + pdf.getTextWidth(`PO-${po.number}`) + 5, 35);
+    }
+
+    // Status badge
+    const statusText = po.status === "draft" ? "BORRADOR" :
+                       po.status === "pending" ? "PENDIENTE" :
+                       po.status === "approved" ? "APROBADA" :
+                       po.status === "closed" ? "CERRADA" :
+                       po.status === "cancelled" ? "ANULADA" :
+                       po.status === "modified" ? "MODIFICADA" : po.status.toUpperCase();
+    
+    const statusColor: [number, number, number] = po.status === "approved" ? successColor :
+                        po.status === "pending" ? warningColor :
+                        po.status === "draft" ? secondaryColor :
+                        [239, 68, 68]; // Red
+
+    pdf.setFillColor(...statusColor);
+    const statusWidth = pdf.getTextWidth(statusText) + 16;
+    pdf.roundedRect(pageWidth - margin - statusWidth, 12, statusWidth, 10, 2, 2, "F");
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(statusText, pageWidth - margin - statusWidth + 8, 19);
+
+    // Project name
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(projectName, pageWidth - margin - pdf.getTextWidth(projectName), 35);
+
+    y = 55;
+
+    // Main info section
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+
+    // Info boxes
+    const boxWidth = (pageWidth - margin * 2 - 10) / 2;
+
+    // Left box - Supplier info
+    drawRoundedRect(margin, y, boxWidth, 35, 3, lightBg);
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("PROVEEDOR", margin + 5, y + 8);
+    pdf.setTextColor(30, 41, 59); // Slate-800
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(po.supplier, margin + 5, y + 18);
+    if (po.department) {
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...secondaryColor);
+      pdf.text(`Departamento: ${po.department}`, margin + 5, y + 26);
+    }
+    if (po.poType) {
+      pdf.text(`Tipo: ${po.poType}`, margin + 5, y + 32);
+    }
+
+    // Right box - Amount info
+    drawRoundedRect(margin + boxWidth + 10, y, boxWidth, 35, 3, lightBg);
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("IMPORTE TOTAL", margin + boxWidth + 15, y + 8);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`${formatCurrency(po.totalAmount)} €`, margin + boxWidth + 15, y + 20);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(...secondaryColor);
+    pdf.text(`Moneda: ${po.currency || "EUR"}`, margin + boxWidth + 15, y + 28);
+
+    y += 45;
+
+    // Dates row
+    const dateBoxWidth = (pageWidth - margin * 2 - 20) / 3;
+
+    // Created
+    drawRoundedRect(margin, y, dateBoxWidth, 22, 3, lightBg);
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFontSize(8);
+    pdf.text("FECHA CREACIÓN", margin + 5, y + 8);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(formatDate(po.createdAt), margin + 5, y + 17);
+
+    // Created by
+    drawRoundedRect(margin + dateBoxWidth + 10, y, dateBoxWidth, 22, 3, lightBg);
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("CREADO POR", margin + dateBoxWidth + 15, y + 8);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(po.createdByName || "-", margin + dateBoxWidth + 15, y + 17);
+
+    // Approved
+    drawRoundedRect(margin + (dateBoxWidth + 10) * 2, y, dateBoxWidth, 22, 3, lightBg);
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("APROBACIÓN", margin + (dateBoxWidth + 10) * 2 + 5, y + 8);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    if (po.approvedAt) {
+      pdf.text(formatDate(po.approvedAt), margin + (dateBoxWidth + 10) * 2 + 5, y + 17);
+    } else {
+      pdf.setTextColor(...secondaryColor);
+      pdf.text("Pendiente", margin + (dateBoxWidth + 10) * 2 + 5, y + 17);
+    }
+
+    y += 32;
+
+    // Description
+    if (po.generalDescription || po.description) {
+      pdf.setTextColor(...primaryColor);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("DESCRIPCIÓN", margin, y);
+      y += 6;
+
+      drawRoundedRect(margin, y, pageWidth - margin * 2, 20, 3, lightBg);
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const description = po.generalDescription || po.description || "";
+      const splitDescription = pdf.splitTextToSize(description, pageWidth - margin * 2 - 10);
+      pdf.text(splitDescription.slice(0, 3), margin + 5, y + 8);
+      y += 28;
+    }
+
+    // Items table
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`LÍNEAS DE PEDIDO (${po.items?.length || 0})`, margin, y);
+    y += 6;
+
+    // Table header
+    drawRoundedRect(margin, y, pageWidth - margin * 2, 10, 2, primaryColor);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("DESCRIPCIÓN", margin + 5, y + 7);
+    pdf.text("CUENTA", margin + 85, y + 7);
+    pdf.text("CANT.", margin + 115, y + 7);
+    pdf.text("PRECIO", margin + 130, y + 7);
+    pdf.text("TOTAL", pageWidth - margin - 25, y + 7);
+    y += 12;
+
+    // Table rows
+    const items = po.items || [];
+    items.forEach((item, index) => {
+      if (y > pageHeight - 50) {
+        pdf.addPage();
+        y = margin;
+      }
+
+      const rowBg: [number, number, number] = index % 2 === 0 ? [255, 255, 255] : lightBg;
+      drawRoundedRect(margin, y, pageWidth - margin * 2, 12, 0, rowBg);
+
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+
+      // Description (truncate if too long)
+      const descText = (item.description || "").substring(0, 40) + ((item.description || "").length > 40 ? "..." : "");
+      pdf.text(descText, margin + 5, y + 8);
+
+      // Account code
+      pdf.setFontSize(8);
+      pdf.setTextColor(...secondaryColor);
+      pdf.text(item.subAccountCode || item.budgetAccount || "-", margin + 85, y + 8);
+
+      // Quantity
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(String(item.quantity || 0), margin + 115, y + 8);
+
+      // Unit price
+      pdf.text(`${formatCurrency(item.unitPrice || 0)}`, margin + 130, y + 8);
+
+      // Total
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`${formatCurrency(item.totalAmount || 0)} €`, pageWidth - margin - 25, y + 8);
+
+      y += 12;
+    });
+
+    y += 5;
+
+    // Totals section
+    const totalsX = pageWidth - margin - 70;
+    drawRoundedRect(totalsX - 10, y, 80, 40, 3, lightBg);
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(...secondaryColor);
+
+    if (po.baseAmount !== undefined) {
+      pdf.text("Base imponible:", totalsX - 5, y + 10);
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(`${formatCurrency(po.baseAmount)} €`, totalsX + 45, y + 10);
+    }
+
+    if (po.vatAmount !== undefined && po.vatAmount > 0) {
+      pdf.setTextColor(...secondaryColor);
+      pdf.text("IVA:", totalsX - 5, y + 18);
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(`${formatCurrency(po.vatAmount)} €`, totalsX + 45, y + 18);
+    }
+
+    if (po.irpfAmount !== undefined && po.irpfAmount > 0) {
+      pdf.setTextColor(...secondaryColor);
+      pdf.text("IRPF:", totalsX - 5, y + 26);
+      pdf.setTextColor(30, 41, 59);
+      pdf.text(`-${formatCurrency(po.irpfAmount)} €`, totalsX + 45, y + 26);
+    }
+
+    // Total final
+    pdf.setDrawColor(...primaryColor);
+    pdf.setLineWidth(0.5);
+    pdf.line(totalsX - 5, y + 30, totalsX + 65, y + 30);
+
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("TOTAL:", totalsX - 5, y + 38);
+    pdf.text(`${formatCurrency(po.totalAmount)} €`, totalsX + 45, y + 38);
+
+    y += 50;
+
+    // Notes section
+    if (po.notes) {
+      if (y > pageHeight - 40) {
+        pdf.addPage();
+        y = margin;
+      }
+
+      pdf.setTextColor(...primaryColor);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("NOTAS", margin, y);
+      y += 6;
+
+      drawRoundedRect(margin, y, pageWidth - margin * 2, 20, 3, lightBg);
+      pdf.setTextColor(30, 41, 59);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      const splitNotes = pdf.splitTextToSize(po.notes, pageWidth - margin * 2 - 10);
+      pdf.text(splitNotes.slice(0, 3), margin + 5, y + 8);
+      y += 28;
+    }
+
+    // Payment terms
+    if (po.paymentTerms) {
+      if (y > pageHeight - 30) {
+        pdf.addPage();
+        y = margin;
+      }
+
+      pdf.setTextColor(...secondaryColor);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Condiciones de pago: ${po.paymentTerms}`, margin, y);
+      y += 10;
+    }
+
+    // Footer
+    const footerY = pageHeight - 15;
+
+    // Footer line
+    pdf.setDrawColor(226, 232, 240); // Slate-200
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+
+    // Footer text
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+
+    const now = new Date();
+    const dateTimeStr = formatDateTime(now);
+
+    pdf.text(`Generado el ${dateTimeStr}`, margin, footerY);
+
+    // Filma workspace branding
+    pdf.setTextColor(...primaryColor);
+    pdf.setFont("helvetica", "bold");
+    const brandText = "filma workspace";
+    pdf.text(`Creado con ${brandText}`, pageWidth - margin - pdf.getTextWidth(`Creado con ${brandText}`), footerY);
+
+    // Page number
+    pdf.setTextColor(...secondaryColor);
+    pdf.setFont("helvetica", "normal");
+    const pageCount = pdf.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      pdf.text(`Página ${i} de ${pageCount}`, pageWidth / 2 - 10, footerY);
+    }
+
+    // Download
+    pdf.save(`PO-${po.number}${po.version > 1 ? `-V${String(po.version).padStart(2, "0")}` : ""}.pdf`);
+  };
+
+  // ==========================================
+  // STATUS BADGE
+  // ==========================================
   const getStatusBadge = (status: POStatus) => {
     switch (status) {
       case "draft":
@@ -195,7 +581,7 @@ export default function POsPage() {
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
             <Clock size={12} />
-            Pendiente aprobación
+            Pendiente
           </span>
         );
       case "approved":
@@ -231,6 +617,9 @@ export default function POsPage() {
     }
   };
 
+  // ==========================================
+  // ACTIONS
+  // ==========================================
   const handleClosePO = async (poId: string) => {
     const po = pos.find((p) => p.id === poId);
     if (!po) return;
@@ -368,10 +757,18 @@ export default function POsPage() {
         previousVersionId: po.id,
         supplier: po.supplier,
         supplierId: po.supplierId,
-        generalDescription: po.generalDescription + ` (Modificación V${String(newVersion).padStart(2, "0")})`,
+        department: po.department || "",
+        poType: po.poType || "",
+        currency: po.currency || "EUR",
+        generalDescription: (po.generalDescription || po.description || "") + ` (Modificación V${String(newVersion).padStart(2, "0")})`,
+        paymentTerms: po.paymentTerms || "",
+        notes: po.notes || "",
         totalAmount: po.totalAmount,
+        baseAmount: po.baseAmount || po.totalAmount,
+        vatAmount: po.vatAmount || 0,
+        irpfAmount: po.irpfAmount || 0,
         items: po.items,
-        attachmentUrl: po.attachmentUrl,
+        attachmentUrl: po.attachmentUrl || "",
         status: "draft",
         committedAmount: 0,
         invoicedAmount: 0,
@@ -423,14 +820,9 @@ export default function POsPage() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date);
-  };
-
+  // ==========================================
+  // RENDER
+  // ==========================================
   if (loading) {
     return (
       <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
@@ -446,6 +838,7 @@ export default function POsPage() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      {/* Banner */}
       <div className="mt-[4.5rem] bg-gradient-to-r from-indigo-50 to-indigo-100 border-y border-indigo-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2 rounded-lg">
@@ -460,6 +853,7 @@ export default function POsPage() {
 
       <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
+          {/* Header */}
           <header className="mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -478,7 +872,8 @@ export default function POsPage() {
             </div>
           </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
               <p className="text-sm text-blue-700 font-medium mb-1">Total POs</p>
               <p className="text-3xl font-bold text-blue-900">{pos.length}</p>
@@ -501,6 +896,7 @@ export default function POsPage() {
             </div>
           </div>
 
+          {/* Filters */}
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
@@ -513,7 +909,11 @@ export default function POsPage() {
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              >
                 <option value="all">Todos los estados</option>
                 <option value="draft">Borradores</option>
                 <option value="pending">Pendientes aprobación</option>
@@ -525,6 +925,7 @@ export default function POsPage() {
             </div>
           </div>
 
+          {/* Table or Empty State */}
           {filteredPOs.length === 0 ? (
             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
               <FileText size={64} className="text-slate-300 mx-auto mb-4" />
@@ -571,49 +972,109 @@ export default function POsPage() {
                           <p className="text-sm font-medium text-slate-900">{po.supplier}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-slate-700 line-clamp-2">{po.generalDescription}</p>
+                          <p className="text-sm text-slate-700 line-clamp-2">{po.generalDescription || po.description}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div>
                             <p className="text-sm font-bold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
-                            {po.status === "approved" && (
+                            {po.status === "approved" && po.invoicedAmount > 0 && (
                               <p className="text-xs text-slate-500">Facturado: {formatCurrency(po.invoicedAmount)} €</p>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => { setSelectedPO(po); setShowDetailModal(true); }} className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Ver detalles">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* View */}
+                            <button
+                              onClick={() => { setSelectedPO(po); setShowDetailModal(true); }}
+                              className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Ver detalles"
+                            >
                               <Eye size={18} />
                             </button>
+
+                            {/* Download PDF */}
+                            <button
+                              onClick={() => generatePDF(po)}
+                              className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Descargar PDF"
+                            >
+                              <Download size={18} />
+                            </button>
+
+                            {/* Edit (draft only) */}
                             {po.status === "draft" && (
-                              <button onClick={() => router.push(`/project/${id}/accounting/pos/${po.id}/edit`)} className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar borrador">
+                              <button
+                                onClick={() => router.push(`/project/${id}/accounting/pos/${po.id}/edit`)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Editar borrador"
+                              >
                                 <Edit size={18} />
                               </button>
                             )}
+
+                            {/* Modify (approved only) */}
                             {po.status === "approved" && (
-                              <button onClick={() => handleModifyPO(po.id)} disabled={processing} className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50" title="Crear nueva versión">
+                              <button
+                                onClick={() => handleModifyPO(po.id)}
+                                disabled={processing}
+                                className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Crear nueva versión"
+                              >
                                 <FileEdit size={18} />
                               </button>
                             )}
+
+                            {/* Close (approved only) */}
                             {po.status === "approved" && (
-                              <button onClick={() => handleClosePO(po.id)} disabled={processing} className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50" title="Cerrar PO">
+                              <button
+                                onClick={() => handleClosePO(po.id)}
+                                disabled={processing}
+                                className="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Cerrar PO"
+                              >
                                 <CheckCircle size={18} />
                               </button>
                             )}
+
+                            {/* Cancel (approved + no invoices) */}
                             {po.status === "approved" && po.invoicedAmount === 0 && (
-                              <button onClick={() => handleCancelPO(po)} disabled={processing} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Anular PO">
+                              <button
+                                onClick={() => handleCancelPO(po)}
+                                disabled={processing}
+                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Anular PO"
+                              >
                                 <XCircle size={18} />
                               </button>
                             )}
+
+                            {/* Delete (draft only) */}
                             {po.status === "draft" && (
-                              <button onClick={() => handleDeleteDraft(po.id)} disabled={processing} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Eliminar borrador">
+                              <button
+                                onClick={() => handleDeleteDraft(po.id)}
+                                disabled={processing}
+                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Eliminar borrador"
+                              >
                                 <Trash2 size={18} />
                               </button>
                             )}
+
+                            {/* Go to new version (modified) */}
                             {po.status === "modified" && po.nextVersionId && (
-                              <button onClick={() => { const nextPO = pos.find((p) => p.id === po.nextVersionId); if (nextPO) { setSelectedPO(nextPO); setShowDetailModal(true); }}} className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Ver versión actual">
+                              <button
+                                onClick={() => {
+                                  const nextPO = pos.find((p) => p.id === po.nextVersionId);
+                                  if (nextPO) {
+                                    setSelectedPO(nextPO);
+                                    setShowDetailModal(true);
+                                  }
+                                }}
+                                className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Ver versión actual"
+                              >
                                 <ArrowRight size={18} />
                               </button>
                             )}
@@ -629,19 +1090,31 @@ export default function POsPage() {
         </div>
       </main>
 
+      {/* Detail Modal */}
       {showDetailModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 px-6 py-4 flex items-center justify-between sticky top-0">
+            <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
               <h2 className="text-xl font-bold text-white">
                 PO-{selectedPO.number}
                 {selectedPO.version > 1 && <span className="ml-2 text-sm">V{String(selectedPO.version).padStart(2, "0")}</span>}
               </h2>
-              <button onClick={() => setShowDetailModal(false)} className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => generatePDF(selectedPO)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Download size={16} />
+                  Descargar PDF
+                </button>
+                <button onClick={() => setShowDetailModal(false)} className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
             </div>
+
             <div className="p-6">
+              {/* Version info */}
               {(selectedPO.version > 1 || selectedPO.status === "modified" || selectedPO.previousVersionId) && (
                 <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-xs font-semibold text-purple-700 uppercase mb-2">Información de versión</p>
@@ -650,11 +1123,21 @@ export default function POsPage() {
                   {selectedPO.status === "modified" && selectedPO.nextVersionId && (
                     <div className="mt-2 p-2 bg-purple-100 rounded">
                       <p className="text-xs text-purple-800 mb-1">⚠️ Esta PO ha sido modificada. Existe una versión más nueva.</p>
-                      <button onClick={() => { const nextPO = pos.find((p) => p.id === selectedPO.nextVersionId); if (nextPO) { setSelectedPO(nextPO); }}} className="text-xs text-purple-700 font-medium underline">Ver versión actual →</button>
+                      <button
+                        onClick={() => {
+                          const nextPO = pos.find((p) => p.id === selectedPO.nextVersionId);
+                          if (nextPO) setSelectedPO(nextPO);
+                        }}
+                        className="text-xs text-purple-700 font-medium underline"
+                      >
+                        Ver versión actual →
+                      </button>
                     </div>
                   )}
                 </div>
               )}
+
+              {/* Main info */}
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
                   <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Building2 size={14} />Proveedor</p>
@@ -672,7 +1155,21 @@ export default function POsPage() {
                   <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><User size={14} />Creado por</p>
                   <p className="text-sm text-slate-900">{selectedPO.createdByName}</p>
                 </div>
+                {selectedPO.department && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Departamento</p>
+                    <p className="text-sm text-slate-900">{selectedPO.department}</p>
+                  </div>
+                )}
+                {selectedPO.poType && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Tipo</p>
+                    <p className="text-sm text-slate-900">{selectedPO.poType}</p>
+                  </div>
+                )}
               </div>
+
+              {/* Budget control */}
               {selectedPO.status === "approved" && (
                 <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Control presupuestario</p>
@@ -692,19 +1189,25 @@ export default function POsPage() {
                   </div>
                 </div>
               )}
+
+              {/* Description */}
               <div className="mb-6">
                 <p className="text-xs text-slate-500 mb-2">Descripción general</p>
-                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">{selectedPO.generalDescription}</p>
+                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">{selectedPO.generalDescription || selectedPO.description}</p>
               </div>
+
+              {/* Items */}
               <div className="mb-6">
-                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Items ({selectedPO.items.length})</p>
+                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Items ({selectedPO.items?.length || 0})</p>
                 <div className="space-y-2">
-                  {selectedPO.items.map((item, index) => (
+                  {(selectedPO.items || []).map((item, index) => (
                     <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-slate-900">{item.description}</p>
-                          <p className="text-xs text-slate-600 mt-1">Cuenta: {item.budgetAccount} • {item.quantity} × {formatCurrency(item.unitPrice)} €</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Cuenta: {item.subAccountCode || item.budgetAccount || "-"} • {item.quantity} × {formatCurrency(item.unitPrice)} €
+                          </p>
                         </div>
                         <p className="text-sm font-bold text-slate-900">{formatCurrency(item.totalAmount)} €</p>
                       </div>
@@ -712,13 +1215,19 @@ export default function POsPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Cancellation reason */}
               {selectedPO.status === "cancelled" && selectedPO.cancellationReason && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-xs font-semibold text-red-800 uppercase mb-2">Motivo de anulación</p>
                   <p className="text-sm text-red-700">{selectedPO.cancellationReason}</p>
-                  <p className="text-xs text-red-600 mt-2">Anulada por {selectedPO.cancelledByName} el {selectedPO.cancelledAt && formatDate(selectedPO.cancelledAt)}</p>
+                  <p className="text-xs text-red-600 mt-2">
+                    Anulada por {selectedPO.cancelledByName} el {selectedPO.cancelledAt && formatDate(selectedPO.cancelledAt)}
+                  </p>
                 </div>
               )}
+
+              {/* Status and dates */}
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                 <div>
                   <p className="text-xs text-slate-500 mb-2">Estado</p>
@@ -739,9 +1248,16 @@ export default function POsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Attachment */}
               {selectedPO.attachmentUrl && (
                 <div className="mt-6 pt-6 border-t border-slate-200">
-                  <a href={selectedPO.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                  <a
+                    href={selectedPO.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
                     <Eye size={16} />
                     Ver archivo adjunto
                   </a>
@@ -752,6 +1268,7 @@ export default function POsPage() {
         </div>
       )}
 
+      {/* Cancel Modal */}
       {showCancelModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -764,14 +1281,39 @@ export default function POsPage() {
                 <p className="text-sm text-slate-600">PO-{selectedPO.number}</p>
               </div>
             </div>
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de anulación *</label>
-              <textarea value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} placeholder="Explica por qué se anula esta PO..." rows={4} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none text-sm" />
-              <p className="text-xs text-slate-500 mt-2">⚠️ Al anular esta PO se liberará el presupuesto comprometido ({formatCurrency(selectedPO.committedAmount)} €)</p>
+              <textarea
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                placeholder="Explica por qué se anula esta PO..."
+                rows={4}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none text-sm"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                ⚠️ Al anular esta PO se liberará el presupuesto comprometido ({formatCurrency(selectedPO.committedAmount)} €)
+              </p>
             </div>
+
             <div className="flex gap-3">
-              <button onClick={() => { setShowCancelModal(false); setSelectedPO(null); setCancellationReason(""); }} className="flex-1 px-4 py-2 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors">Cancelar</button>
-              <button onClick={confirmCancelPO} disabled={processing || !cancellationReason.trim()} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{processing ? "Anulando..." : "Confirmar anulación"}</button>
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSelectedPO(null);
+                  setCancellationReason("");
+                }}
+                className="flex-1 px-4 py-2 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmCancelPO}
+                disabled={processing || !cancellationReason.trim()}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? "Anulando..." : "Confirmar anulación"}
+              </button>
             </div>
           </div>
         </div>
