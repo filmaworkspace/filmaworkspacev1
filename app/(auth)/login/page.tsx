@@ -14,7 +14,7 @@ const inter = Inter({
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["400", "500", "700"],
 });
 
 export default function LoginPage() {
@@ -46,7 +46,7 @@ export default function LoginPage() {
         
         {/* Text centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
-          <span className={`text-3xl font-medium text-white ${spaceGrotesk.className}`}>
+          <span className={`text-3xl font-normal text-white tracking-tighter ${spaceGrotesk.className}`}>
             filma workspace
           </span>
         </div>
@@ -57,7 +57,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
-            <span className={`text-xl font-medium text-slate-900 ${spaceGrotesk.className}`}>
+            <span className={`text-xl font-normal text-slate-500 tracking-tighter ${spaceGrotesk.className}`}>
               filma workspace
             </span>
           </div>
