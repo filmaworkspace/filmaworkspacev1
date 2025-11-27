@@ -1,17 +1,22 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useAuth } from "@/hooks/useAuth";
-import Input from "@/components/ui/Input";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { Sparkles, Shield, Zap, ArrowRight } from "lucide-react";
+import { Shield, Zap, ArrowRight } from "lucide-react";
+import Image from "next/image";
 
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export default function LoginPage() {
@@ -59,11 +64,15 @@ export default function LoginPage() {
           {/* Logo */}
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-semibold text-white tracking-tight">
-                Cinegest
+              <Image
+                src="/logo.png"
+                alt="Filma Workspace"
+                width={40}
+                height={40}
+                className="rounded-xl"
+              />
+              <span className={`text-xl font-semibold text-white tracking-tight ${spaceGrotesk.className}`}>
+                Filma Workspace
               </span>
             </div>
           </div>
@@ -71,14 +80,14 @@ export default function LoginPage() {
           {/* Main Content */}
           <div className="space-y-8">
             <div>
-              <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-4">
+              <h1 className={`text-4xl xl:text-5xl font-bold text-white leading-tight mb-4 ${spaceGrotesk.className}`}>
                 Gestiona tus
                 <span className="block bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   producciones
                 </span>
                 de forma inteligente
               </h1>
-              <p className="text-lg text-slate-400 max-w-md">
+              <p className={`text-lg text-slate-400 max-w-md ${inter.className}`}>
                 La plataforma todo-en-uno para gestionar presupuestos, equipos y proyectos audiovisuales.
               </p>
             </div>
@@ -107,22 +116,26 @@ export default function LoginPage() {
           </div>
 
           {/* Footer */}
-          <div className="text-sm text-slate-500">
-            © 2025 Cinegest. Todos los derechos reservados.
+          <div className={`text-sm text-slate-500 ${inter.className}`}>
+            © 2025 Filma Workspace. Todos los derechos reservados.
           </div>
         </div>
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
+      <div className={`w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white ${inter.className}`}>
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-semibold text-slate-900 tracking-tight">
-              Cinegest
+            <Image
+              src="/logo.png"
+              alt="Filma Workspace"
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
+            <span className={`text-xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
+              Filma Workspace
             </span>
           </div>
 
