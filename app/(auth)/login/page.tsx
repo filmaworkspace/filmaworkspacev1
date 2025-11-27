@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { Shield, Zap, ArrowRight } from "lucide-react";
+import { Shield, Zap } from "lucide-react";
 import Image from "next/image";
 
 const inter = Inter({
@@ -124,78 +124,74 @@ export default function LoginPage() {
 
       {/* Right Side - Login Form */}
       <div className={`w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white ${inter.className}`}>
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-sm">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-12">
             <Image
               src="/logo.png"
               alt="Filma Workspace"
-              width={40}
-              height={40}
-              className="rounded-xl"
+              width={36}
+              height={36}
+              className="rounded-lg"
             />
-            <span className={`text-xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
+            <span className="text-lg font-semibold text-slate-900">
               Filma Workspace
             </span>
           </div>
 
           {/* Form Header */}
           <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-              Bienvenido de nuevo
+            <h2 className="text-2xl font-semibold text-slate-900 mb-1">
+              Iniciar sesión
             </h2>
-            <p className="text-slate-600">
-              Introduce tus credenciales para acceder a tu cuenta
+            <p className="text-slate-500 text-sm">
+              Accede a tu espacio de trabajo
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
-                  disabled={loading}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Contraseña
-                </label>
-                <PasswordInput
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50"
+              />
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer group">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Contraseña
+              </label>
+              <PasswordInput
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={loading}
-                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20 cursor-pointer"
                 />
-                <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors select-none">
-                  Recordarme
-                </span>
+                <span className="text-sm text-slate-600">Recordarme</span>
               </label>
               <Link
                 href="/forgot-password"
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -206,32 +202,23 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={loading}
-              loadingText="Iniciando sesión..."
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group"
+              loadingText="Entrando..."
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium transition-colors"
             >
-              Iniciar sesión
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              Entrar
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-slate-500">
-                ¿Nuevo en Cinegest?
-              </span>
-            </div>
-          </div>
-
           {/* Register Link */}
-          <Link href="/register">
-            <button className="w-full py-3 border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-medium transition-all">
-              Crear una cuenta
-            </button>
-          </Link>
+          <p className="mt-8 text-center text-sm text-slate-600">
+            ¿No tienes cuenta?{" "}
+            <Link
+              href="/register"
+              className="text-slate-900 font-medium hover:underline"
+            >
+              Crear cuenta
+            </Link>
+          </p>
         </div>
       </div>
     </div>
