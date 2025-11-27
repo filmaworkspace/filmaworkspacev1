@@ -585,9 +585,14 @@ export default function EditPOPage() {
 
   const selectAccount = (subAccount: SubAccount) => {
     if (currentItemIndex !== null) {
-      updateItem(currentItemIndex, "subAccountId", subAccount.id);
-      updateItem(currentItemIndex, "subAccountCode", subAccount.code);
-      updateItem(currentItemIndex, "subAccountDescription", subAccount.description);
+      const newItems = [...items];
+      newItems[currentItemIndex] = {
+        ...newItems[currentItemIndex],
+        subAccountId: subAccount.id,
+        subAccountCode: subAccount.code,
+        subAccountDescription: subAccount.description,
+      };
+      setItems(newItems);
     }
     setShowAccountModal(false);
     setAccountSearch("");
