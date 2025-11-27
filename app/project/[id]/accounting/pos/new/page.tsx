@@ -669,44 +669,44 @@ export default function NewPOAdvancedPage() {
         console.log("✅ Archivo subido");
       }
 
-      // Prepare items data
+      // Prepare items data - protect against undefined
       const itemsData = items.map((item) => ({
-        description: item.description,
-        subAccountId: item.subAccountId,
-        subAccountCode: item.subAccountCode,
-        subAccountDescription: item.subAccountDescription,
-        date: item.date,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        baseAmount: item.baseAmount,
-        vatRate: item.vatRate,
-        vatAmount: item.vatAmount,
-        irpfRate: item.irpfRate,
-        irpfAmount: item.irpfAmount,
-        totalAmount: item.totalAmount,
+        description: (item.description || "").trim(),
+        subAccountId: item.subAccountId || "",
+        subAccountCode: item.subAccountCode || "",
+        subAccountDescription: item.subAccountDescription || "",
+        date: item.date || new Date().toISOString().split("T")[0],
+        quantity: item.quantity || 0,
+        unitPrice: item.unitPrice || 0,
+        baseAmount: item.baseAmount || 0,
+        vatRate: item.vatRate ?? 21,
+        vatAmount: item.vatAmount || 0,
+        irpfRate: item.irpfRate ?? 0,
+        irpfAmount: item.irpfAmount || 0,
+        totalAmount: item.totalAmount || 0,
       }));
 
-      // Base PO data
+      // Base PO data - protect against undefined
       const poData: any = {
-        number: nextPONumber,
-        supplier: formData.supplierName,
-        supplierId: formData.supplier,
-        department: formData.department,
-        poType: formData.poType,
-        currency: formData.currency,
-        generalDescription: formData.generalDescription.trim(),
-        paymentTerms: formData.paymentTerms,
-        notes: formData.notes.trim(),
+        number: nextPONumber || "",
+        supplier: formData.supplierName || "",
+        supplierId: formData.supplier || "",
+        department: formData.department || "",
+        poType: formData.poType || "Servicio",
+        currency: formData.currency || "EUR",
+        generalDescription: (formData.generalDescription || "").trim(),
+        paymentTerms: formData.paymentTerms || "",
+        notes: (formData.notes || "").trim(),
         items: itemsData,
-        baseAmount: totals.baseAmount,
-        vatAmount: totals.vatAmount,
-        irpfAmount: totals.irpfAmount,
-        totalAmount: totals.totalAmount,
-        attachmentUrl: fileUrl,
+        baseAmount: totals.baseAmount || 0,
+        vatAmount: totals.vatAmount || 0,
+        irpfAmount: totals.irpfAmount || 0,
+        totalAmount: totals.totalAmount || 0,
+        attachmentUrl: fileUrl || "",
         attachmentFileName: uploadedFile?.name || "",
         createdAt: Timestamp.now(),
-        createdBy: userId,
-        createdByName: userName,
+        createdBy: userId || "",
+        createdByName: userName || "",
       };
 
       // Handle approval workflow for pending status
