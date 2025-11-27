@@ -432,16 +432,16 @@ export default function NewInvoicePage() {
       const resolvedApprovers = resolveApprovers(step, documentDepartment);
 
       return {
-        id: step.id,
-        order: step.order,
-        approverType: step.approverType,
-        approvers: resolvedApprovers,
-        roles: step.roles,
-        department: step.department,
+        id: step.id || "",
+        order: step.order || 0,
+        approverType: step.approverType || "fixed",
+        approvers: resolvedApprovers || [],
+        roles: step.roles || [],
+        department: step.department || "",
         approvedBy: [],
         rejectedBy: [],
         status: "pending" as const,
-        requireAll: step.requireAll,
+        requireAll: step.requireAll ?? false,
       };
     });
 
