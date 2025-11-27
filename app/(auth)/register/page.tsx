@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import { Users, BarChart3, FolderKanban, ArrowRight } from "lucide-react";
+import { Users, BarChart3, FolderKanban } from "lucide-react";
 import Image from "next/image";
 
 const inter = Inter({
@@ -139,80 +139,78 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Register Form */}
-      <div className={`w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-slate-50 ${inter.className}`}>
-        <div className="w-full max-w-md">
+      <div className={`w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white ${inter.className}`}>
+        <div className="w-full max-w-sm">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
+          <div className="lg:hidden flex items-center gap-3 mb-12">
             <Image
               src="/logo.png"
               alt="Filma Workspace"
-              width={40}
-              height={40}
-              className="rounded-xl"
+              width={36}
+              height={36}
+              className="rounded-lg"
             />
-            <span className={`text-xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
+            <span className="text-lg font-semibold text-slate-900">
               Filma Workspace
             </span>
           </div>
 
           {/* Form Header */}
           <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
+            <h2 className="text-2xl font-semibold text-slate-900 mb-1">
               Crear cuenta
             </h2>
-            <p className="text-slate-600">
-              Únete a Filma Workspace
+            <p className="text-slate-500 text-sm">
+              Empieza a gestionar tus proyectos
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Nombre completo
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Tu nombre"
-                  disabled={loading}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Nombre completo
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Tu nombre"
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="tu@correo.com"
-                  disabled={loading}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="tu@correo.com"
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Contraseña
-                </label>
-                <PasswordInput
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  disabled={loading}
-                  required
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Contraseña
+              </label>
+              <PasswordInput
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                disabled={loading}
+                required
+              />
             </div>
 
             <ErrorAlert message={error} />
@@ -221,32 +219,23 @@ export default function RegisterPage() {
               type="submit"
               variant="secondary"
               loading={loading}
-              loadingText="Creando cuenta..."
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group"
+              loadingText="Creando..."
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium transition-colors"
             >
               Crear cuenta
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-slate-50 text-slate-500">
-                ¿Ya tienes cuenta?
-              </span>
-            </div>
-          </div>
-
           {/* Login Link */}
-          <Link href="/login">
-            <button className="w-full py-3 border-2 border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-medium transition-all">
+          <p className="mt-8 text-center text-sm text-slate-600">
+            ¿Ya tienes cuenta?{" "}
+            <Link
+              href="/login"
+              className="text-slate-900 font-medium hover:underline"
+            >
               Iniciar sesión
-            </button>
-          </Link>
+            </Link>
+          </p>
         </div>
       </div>
     </div>
