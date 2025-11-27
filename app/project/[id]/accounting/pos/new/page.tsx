@@ -670,21 +670,33 @@ export default function NewPOAdvancedPage() {
       }
 
       // Prepare items data - protect against undefined
-      const itemsData = items.map((item) => ({
-        description: (item.description || "").trim(),
-        subAccountId: item.subAccountId || "",
-        subAccountCode: item.subAccountCode || "",
-        subAccountDescription: item.subAccountDescription || "",
-        date: item.date || new Date().toISOString().split("T")[0],
-        quantity: item.quantity || 0,
-        unitPrice: item.unitPrice || 0,
-        baseAmount: item.baseAmount || 0,
-        vatRate: item.vatRate ?? 21,
-        vatAmount: item.vatAmount || 0,
-        irpfRate: item.irpfRate ?? 0,
-        irpfAmount: item.irpfAmount || 0,
-        totalAmount: item.totalAmount || 0,
-      }));
+      const itemsData = items.map((item) => {
+        console.log(`📦 Item: ${item.description}`);
+        console.log(`   quantity: ${item.quantity}, unitPrice: ${item.unitPrice}`);
+        console.log(`   baseAmount: ${item.baseAmount}, totalAmount: ${item.totalAmount}`);
+        
+        return {
+          description: (item.description || "").trim(),
+          subAccountId: item.subAccountId || "",
+          subAccountCode: item.subAccountCode || "",
+          subAccountDescription: item.subAccountDescription || "",
+          date: item.date || new Date().toISOString().split("T")[0],
+          quantity: item.quantity || 0,
+          unitPrice: item.unitPrice || 0,
+          baseAmount: item.baseAmount || 0,
+          vatRate: item.vatRate ?? 21,
+          vatAmount: item.vatAmount || 0,
+          irpfRate: item.irpfRate ?? 0,
+          irpfAmount: item.irpfAmount || 0,
+          totalAmount: item.totalAmount || 0,
+        };
+      });
+
+      console.log(`📊 Totales PO:`);
+      console.log(`   baseAmount: ${totals.baseAmount}`);
+      console.log(`   vatAmount: ${totals.vatAmount}`);
+      console.log(`   irpfAmount: ${totals.irpfAmount}`);
+      console.log(`   totalAmount: ${totals.totalAmount}`);
 
       // Base PO data - protect against undefined
       const poData: any = {
