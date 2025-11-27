@@ -384,7 +384,28 @@ export default function ApprovalsPage() {
           let totalBaseAmount = 0;
           
           for (const item of approval.items) {
-            const itemBaseAmount = item.baseAmount || (item.quantity * item.unitPrice) || 0;
+            // Calculate base amount: quantity * unitPrice (WITHOUT VAT/IRPF)
+            // If baseAmount exists and is different from totalAmount, use it
+            // Otherwise calculate from quantity * unitPrice
+            let itemBaseAmount = 0;
+            
+            if (item.baseAmount && item.baseAmount !== item.totalAmount) {
+              // baseAmount exists and is different from total (correct)
+              itemBaseAmount = item.baseAmount;
+            } else if (item.quantity && item.unitPrice) {
+              // Calculate from quantity * unitPrice
+              itemBaseAmount = item.quantity * item.unitPrice;
+            } else {
+              // Fallback: estimate base from total (remove ~21% VAT approx)
+              // This is a rough estimate for old POs without proper baseAmount
+              itemBaseAmount = item.totalAmount ? item.totalAmount / 1.21 : 0;
+            }
+            
+            console.log(`    Item: ${item.description || 'Sin descripción'}`);
+            console.log(`      - quantity: ${item.quantity}, unitPrice: ${item.unitPrice}`);
+            console.log(`      - baseAmount guardado: ${item.baseAmount}, totalAmount: ${item.totalAmount}`);
+            console.log(`      - baseAmount calculado: ${itemBaseAmount}`);
+            
             totalBaseAmount += itemBaseAmount;
             
             if (item.subAccountId) {
@@ -416,6 +437,8 @@ export default function ApprovalsPage() {
             }
           }
 
+          console.log(`  → Total base imponible a comprometer: ${totalBaseAmount} €`);
+          
           // Update PO with committed amount (base imponible)
           updates.committedAmount = totalBaseAmount;
           updates.remainingAmount = totalBaseAmount;
