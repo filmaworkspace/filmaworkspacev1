@@ -737,7 +737,7 @@ export default function BudgetPage() {
                 <DollarSign size={20} className="text-blue-600" />
               </div>
               <p className="text-2xl font-bold text-blue-900">
-                {summary.totalBudgeted.toLocaleString()} €
+                {(summary.totalBudgeted || 0).toLocaleString()} €
               </p>
             </div>
 
@@ -747,11 +747,11 @@ export default function BudgetPage() {
                 <AlertCircle size={20} className="text-amber-600" />
               </div>
               <p className="text-2xl font-bold text-amber-900">
-                {summary.totalCommitted.toLocaleString()} €
+                {(summary.totalCommitted || 0).toLocaleString()} €
               </p>
               <p className="text-xs text-amber-700 mt-1">
-                {summary.totalBudgeted > 0
-                  ? `${((summary.totalCommitted / summary.totalBudgeted) * 100).toFixed(1)}%`
+                {(summary.totalBudgeted || 0) > 0
+                  ? `${(((summary.totalCommitted || 0) / (summary.totalBudgeted || 1)) * 100).toFixed(1)}%`
                   : "0%"}
               </p>
             </div>
@@ -762,11 +762,11 @@ export default function BudgetPage() {
                 <CheckCircle size={20} className="text-emerald-600" />
               </div>
               <p className="text-2xl font-bold text-emerald-900">
-                {summary.totalActual.toLocaleString()} €
+                {(summary.totalActual || 0).toLocaleString()} €
               </p>
               <p className="text-xs text-emerald-700 mt-1">
-                {summary.totalBudgeted > 0
-                  ? `${((summary.totalActual / summary.totalBudgeted) * 100).toFixed(1)}%`
+                {(summary.totalBudgeted || 0) > 0
+                  ? `${(((summary.totalActual || 0) / (summary.totalBudgeted || 1)) * 100).toFixed(1)}%`
                   : "0%"}
               </p>
             </div>
@@ -777,11 +777,11 @@ export default function BudgetPage() {
                 <TrendingUp size={20} className="text-purple-600" />
               </div>
               <p className="text-2xl font-bold text-purple-900">
-                {summary.totalAvailable.toLocaleString()} €
+                {(summary.totalAvailable || 0).toLocaleString()} €
               </p>
               <p className="text-xs text-purple-700 mt-1">
-                {summary.totalBudgeted > 0
-                  ? `${((summary.totalAvailable / summary.totalBudgeted) * 100).toFixed(1)}%`
+                {(summary.totalBudgeted || 0) > 0
+                  ? `${(((summary.totalAvailable || 0) / (summary.totalBudgeted || 1)) * 100).toFixed(1)}%`
                   : "0%"}
               </p>
             </div>
@@ -922,21 +922,21 @@ export default function BudgetPage() {
                               {account.description}
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-blue-900">
-                              {totals.budgeted.toLocaleString()} €
+                              {(totals.budgeted || 0).toLocaleString()} €
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-amber-700">
-                              {totals.committed.toLocaleString()} €
+                              {(totals.committed || 0).toLocaleString()} €
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-emerald-700">
-                              {totals.actual.toLocaleString()} €
+                              {(totals.actual || 0).toLocaleString()} €
                             </td>
                             <td
                               className={`px-4 py-3 text-right font-bold ${getAvailableColor(
-                                totals.available,
-                                totals.budgeted
+                                totals.available || 0,
+                                totals.budgeted || 0
                               )}`}
                             >
-                              {totals.available.toLocaleString()} €
+                              {(totals.available || 0).toLocaleString()} €
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-2">
@@ -979,21 +979,21 @@ export default function BudgetPage() {
                                     {subAccount.description}
                                   </td>
                                   <td className="px-4 py-2.5 text-right text-slate-900">
-                                    {subAccount.budgeted.toLocaleString()} €
+                                    {(subAccount.budgeted || 0).toLocaleString()} €
                                   </td>
                                   <td className="px-4 py-2.5 text-right text-amber-700">
-                                    {subAccount.committed.toLocaleString()} €
+                                    {(subAccount.committed || 0).toLocaleString()} €
                                   </td>
                                   <td className="px-4 py-2.5 text-right text-emerald-700">
-                                    {subAccount.actual.toLocaleString()} €
+                                    {(subAccount.actual || 0).toLocaleString()} €
                                   </td>
                                   <td
                                     className={`px-4 py-2.5 text-right ${getAvailableColor(
-                                      available,
-                                      subAccount.budgeted
+                                      available || 0,
+                                      subAccount.budgeted || 0
                                     )}`}
                                   >
-                                    {available.toLocaleString()} €
+                                    {(available || 0).toLocaleString()} €
                                   </td>
                                   <td className="px-4 py-2.5">
                                     <div className="flex items-center justify-end gap-2">
