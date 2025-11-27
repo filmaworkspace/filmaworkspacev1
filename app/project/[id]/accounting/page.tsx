@@ -26,19 +26,19 @@ interface PO {
   id: string;
   number: string;
   supplier: string;
-  amount: number;
-  status: "pending" | "approved" | "rejected";
-  createdAt: Date;
+  totalAmount: number;
+  status: "draft" | "pending" | "approved" | "rejected";
+  createdAt: Date | null;
 }
 
 interface Invoice {
   id: string;
   number: string;
   supplier: string;
-  amount: number;
-  status: "pending" | "paid" | "overdue";
-  dueDate: Date;
-  createdAt: Date;
+  totalAmount: number;
+  status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled";
+  dueDate: Date | null;
+  createdAt: Date | null;
 }
 
 interface POStats {
@@ -125,9 +125,9 @@ export default function AccountingPage() {
           }
         }
 
-        // Check Invoices
+        // Check Invoices - ahora busca pending_approval
         const invoicesRef = collection(db, `projects/${id}/invoices`);
-        const invoicesQuery = query(invoicesRef, where("status", "==", "pending"));
+        const invoicesQuery = query(invoicesRef, where("status", "==", "pending_approval"));
         const invoicesSnapshot = await getDocs(invoicesQuery);
 
         for (const invDoc of invoicesSnapshot.docs) {
@@ -150,11 +150,17 @@ export default function AccountingPage() {
           limit(posLimit)
         );
         const posRecentSnapshot = await getDocs(posRecentQuery);
-        const posData = posRecentSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-        })) as PO[];
+        const posData = posRecentSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            number: data.number || "",
+            supplier: data.supplier || "",
+            totalAmount: data.totalAmount || 0,
+            status: data.status || "draft",
+            createdAt: data.createdAt?.toDate() || null,
+          };
+        }) as PO[];
         setRecentPOs(posData);
 
         // Calcular estadísticas de POs
@@ -173,12 +179,18 @@ export default function AccountingPage() {
           limit(invoicesLimit)
         );
         const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
-        const invoicesData = invoicesRecentSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-          dueDate: doc.data().dueDate?.toDate(),
-        })) as Invoice[];
+        const invoicesData = invoicesRecentSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            number: data.number || "",
+            supplier: data.supplier || "",
+            totalAmount: data.totalAmount || 0,
+            status: data.status || "pending",
+            createdAt: data.createdAt?.toDate() || null,
+            dueDate: data.dueDate?.toDate() || null,
+          };
+        }) as Invoice[];
         setRecentInvoices(invoicesData);
 
         // Calcular estadísticas de facturas
@@ -186,7 +198,7 @@ export default function AccountingPage() {
         const allInvoices = allInvoicesSnapshot.docs.map(doc => doc.data());
         setInvoiceStats({
           total: allInvoices.length,
-          pending: allInvoices.filter(inv => inv.status === "pending").length,
+          pending: allInvoices.filter(inv => inv.status === "pending" || inv.status === "pending_approval").length,
           paid: allInvoices.filter(inv => inv.status === "paid").length,
         });
 
@@ -203,32 +215,43 @@ export default function AccountingPage() {
   const getStatusBadge = (status: string, type: "po" | "invoice") => {
     const styles = {
       po: {
+        draft: "bg-slate-100 text-slate-700 border-slate-200",
         pending: "bg-amber-100 text-amber-700 border-amber-200",
         approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
         rejected: "bg-red-100 text-red-700 border-red-200",
       },
       invoice: {
+        pending_approval: "bg-purple-100 text-purple-700 border-purple-200",
         pending: "bg-amber-100 text-amber-700 border-amber-200",
         paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
         overdue: "bg-red-100 text-red-700 border-red-200",
+        rejected: "bg-red-100 text-red-700 border-red-200",
+        cancelled: "bg-slate-100 text-slate-700 border-slate-200",
       },
     };
 
     const labels = {
       po: {
+        draft: "Borrador",
         pending: "Pendiente",
         approved: "Aprobada",
         rejected: "Rechazada",
       },
       invoice: {
-        pending: "Pendiente",
+        pending_approval: "Pend. aprob.",
+        pending: "Pend. pago",
         paid: "Pagada",
         overdue: "Vencida",
+        rejected: "Rechazada",
+        cancelled: "Cancelada",
       },
     };
 
-    const style = type === "po" ? styles.po[status as keyof typeof styles.po] : styles.invoice[status as keyof typeof styles.invoice];
-    const label = type === "po" ? labels.po[status as keyof typeof labels.po] : labels.invoice[status as keyof typeof labels.invoice];
+    const styleMap = type === "po" ? styles.po : styles.invoice;
+    const labelMap = type === "po" ? labels.po : labels.invoice;
+    
+    const style = styleMap[status as keyof typeof styleMap] || styleMap[type === "po" ? "draft" : "pending"];
+    const label = labelMap[status as keyof typeof labelMap] || status;
 
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${style}`}>
@@ -237,7 +260,8 @@ export default function AccountingPage() {
     );
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | null) => {
+    if (!date) return "Sin fecha";
     return new Intl.DateTimeFormat('es-ES', {
       day: '2-digit',
       month: 'short',
@@ -420,7 +444,7 @@ export default function AccountingPage() {
                                 </h4>
                                 <p className="text-xs text-slate-600 flex items-center gap-1">
                                   <User size={12} />
-                                  {po.supplier}
+                                  {po.supplier || "Sin proveedor"}
                                 </p>
                               </div>
                             </div>
@@ -432,7 +456,7 @@ export default function AccountingPage() {
                               {formatDate(po.createdAt)}
                             </span>
                             <span className="font-semibold text-slate-900">
-                              {po.amount.toLocaleString()} €
+                              {(po.totalAmount || 0).toLocaleString()} €
                             </span>
                           </div>
                         </div>
@@ -533,7 +557,7 @@ export default function AccountingPage() {
                                 </h4>
                                 <p className="text-xs text-slate-600 flex items-center gap-1">
                                   <User size={12} />
-                                  {invoice.supplier}
+                                  {invoice.supplier || "Sin proveedor"}
                                 </p>
                               </div>
                             </div>
@@ -545,7 +569,7 @@ export default function AccountingPage() {
                               Vence: {formatDate(invoice.dueDate)}
                             </span>
                             <span className="font-semibold text-slate-900">
-                              {invoice.amount.toLocaleString()} €
+                              {(invoice.totalAmount || 0).toLocaleString()} €
                             </span>
                           </div>
                         </div>
