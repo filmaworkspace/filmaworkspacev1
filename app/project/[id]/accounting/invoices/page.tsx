@@ -369,10 +369,12 @@ export default function InvoicesPage() {
 
       console.log(`✅ Factura ${invoice.number} marcada como pagada`);
 
-      // Update actual amount in budget for each item
+      // Update actual amount in budget for each item (using baseAmount, not total)
       if (invoice.items && invoice.items.length > 0) {
         for (const item of invoice.items) {
           if (item.subAccountId) {
+            const itemBaseAmount = item.baseAmount || (item.quantity * item.unitPrice) || 0;
+            
             // Find account ID
             const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
             for (const accountDoc of accountsSnapshot.docs) {
@@ -385,9 +387,9 @@ export default function InvoicesPage() {
               if (subAccountSnap.exists()) {
                 const currentActual = subAccountSnap.data().actual || 0;
                 await updateDoc(subAccountRef, {
-                  actual: currentActual + item.totalAmount,
+                  actual: currentActual + itemBaseAmount,
                 });
-                console.log(`✅ Actualizado presupuesto: +${item.totalAmount}€ en ${item.subAccountCode}`);
+                console.log(`✅ Actualizado presupuesto: +${itemBaseAmount}€ (base) en ${item.subAccountCode}`);
                 break;
               }
             }
