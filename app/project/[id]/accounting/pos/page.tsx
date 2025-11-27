@@ -463,34 +463,39 @@ export default function POsPage() {
       pdf.text("Base imponible:", totalsX - 5, y + 10);
       pdf.setTextColor(30, 41, 59);
       pdf.text(`${formatCurrency(po.baseAmount)} €`, totalsX + 45, y + 10);
+      // Small note
+      pdf.setFontSize(7);
+      pdf.setTextColor(...secondaryColor);
+      pdf.text("(importe presupuesto)", totalsX + 45, y + 14);
+      pdf.setFontSize(9);
     }
 
     if (po.vatAmount !== undefined && po.vatAmount > 0) {
       pdf.setTextColor(...secondaryColor);
-      pdf.text("IVA:", totalsX - 5, y + 18);
+      pdf.text("IVA:", totalsX - 5, y + 22);
       pdf.setTextColor(30, 41, 59);
-      pdf.text(`${formatCurrency(po.vatAmount)} €`, totalsX + 45, y + 18);
+      pdf.text(`${formatCurrency(po.vatAmount)} €`, totalsX + 45, y + 22);
     }
 
     if (po.irpfAmount !== undefined && po.irpfAmount > 0) {
       pdf.setTextColor(...secondaryColor);
-      pdf.text("IRPF:", totalsX - 5, y + 26);
+      pdf.text("IRPF:", totalsX - 5, y + 30);
       pdf.setTextColor(30, 41, 59);
-      pdf.text(`-${formatCurrency(po.irpfAmount)} €`, totalsX + 45, y + 26);
+      pdf.text(`-${formatCurrency(po.irpfAmount)} €`, totalsX + 45, y + 30);
     }
 
     // Total final
     pdf.setDrawColor(...primaryColor);
     pdf.setLineWidth(0.5);
-    pdf.line(totalsX - 5, y + 30, totalsX + 65, y + 30);
+    pdf.line(totalsX - 5, y + 36, totalsX + 65, y + 36);
 
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(11);
     pdf.setFont("helvetica", "bold");
-    pdf.text("TOTAL:", totalsX - 5, y + 38);
-    pdf.text(`${formatCurrency(po.totalAmount)} €`, totalsX + 45, y + 38);
+    pdf.text("TOTAL A PAGAR:", totalsX - 5, y + 44);
+    pdf.text(`${formatCurrency(po.totalAmount)} €`, totalsX + 45, y + 44);
 
-    y += 50;
+    y += 55;
 
     // Notes section
     if (po.notes) {
@@ -682,8 +687,10 @@ export default function POsPage() {
     try {
       const userName = auth.currentUser?.displayName || auth.currentUser?.email || "Usuario";
 
+      // Release committed budget (using baseAmount)
       for (const item of selectedPO.items) {
         if (item.subAccountId) {
+          const itemBaseAmount = item.baseAmount || (item.quantity * item.unitPrice) || 0;
           const accountsRef = collection(db, `projects/${id}/accounts`);
           const accountsSnap = await getDocs(accountsRef);
 
@@ -699,7 +706,7 @@ export default function POsPage() {
               if (subAccountSnap.exists()) {
                 const currentCommitted = subAccountSnap.data().committed || 0;
                 await updateDoc(subAccountRef, {
-                  committed: Math.max(0, currentCommitted - item.totalAmount),
+                  committed: Math.max(0, currentCommitted - itemBaseAmount),
                 });
                 break;
               }
@@ -976,9 +983,10 @@ export default function POsPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div>
+                            <p className="text-xs text-slate-500">Base: {formatCurrency(po.baseAmount || po.totalAmount)} €</p>
                             <p className="text-sm font-bold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
                             {po.status === "approved" && po.invoicedAmount > 0 && (
-                              <p className="text-xs text-slate-500">Facturado: {formatCurrency(po.invoicedAmount)} €</p>
+                              <p className="text-xs text-emerald-600">Realizado: {formatCurrency(po.invoicedAmount)} €</p>
                             )}
                           </div>
                         </td>
@@ -1144,8 +1152,9 @@ export default function POsPage() {
                   <p className="text-sm font-semibold text-slate-900">{selectedPO.supplier}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><DollarSign size={14} />Importe total</p>
-                  <p className="text-sm font-bold text-slate-900">{formatCurrency(selectedPO.totalAmount)} €</p>
+                  <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><DollarSign size={14} />Importes</p>
+                  <p className="text-xs text-slate-600">Base: <span className="font-semibold text-slate-900">{formatCurrency(selectedPO.baseAmount || selectedPO.totalAmount)} €</span></p>
+                  <p className="text-sm font-bold text-indigo-700">Total a pagar: {formatCurrency(selectedPO.totalAmount)} €</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Calendar size={14} />Fecha de creación</p>
@@ -1172,18 +1181,18 @@ export default function POsPage() {
               {/* Budget control */}
               {selectedPO.status === "approved" && (
                 <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Control presupuestario</p>
+                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Control presupuestario (base imponible)</p>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Comprometido</p>
                       <p className="text-sm font-bold text-amber-700">{formatCurrency(selectedPO.committedAmount)} €</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Facturado</p>
+                      <p className="text-xs text-slate-500 mb-1">Realizado</p>
                       <p className="text-sm font-bold text-emerald-700">{formatCurrency(selectedPO.invoicedAmount)} €</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Pendiente</p>
+                      <p className="text-xs text-slate-500 mb-1">Pendiente facturar</p>
                       <p className="text-sm font-bold text-blue-700">{formatCurrency(selectedPO.remainingAmount)} €</p>
                     </div>
                   </div>
