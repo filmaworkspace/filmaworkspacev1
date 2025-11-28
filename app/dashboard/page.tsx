@@ -386,7 +386,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4"></div>
@@ -398,13 +398,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       {/* Hero Header */}
       <div className="mt-[4.5rem] bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-500 mb-1">{getGreeting()}</p>
+              <p className="text-sm text-slate-500 mb-1">{getGreeting()},</p>
               <h1 className={`text-3xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
                 {userName.split(' ')[0]}
               </h1>
