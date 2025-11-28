@@ -174,7 +174,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center gap-2`}>
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm font-bold">W</span>
+            <span className="text-white text-sm font-bold">f</span>
           </div>
           <div className="hidden sm:flex items-center">
             <span className="text-slate-900 font-medium tracking-tight">workspace</span>
