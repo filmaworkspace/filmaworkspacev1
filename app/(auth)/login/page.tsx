@@ -46,8 +46,8 @@ export default function LoginPage() {
         
         {/* Text centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
-          <span className={`text-3xl font-normal text-white tracking-tighter ${spaceGrotesk.className}`}>
-            filma workspace
+          <span className={`text-3xl tracking-tighter text-white ${spaceGrotesk.className}`}>
+            <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
           </span>
         </div>
       </div>
@@ -57,8 +57,8 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
-            <span className={`text-xl font-normal text-slate-500 tracking-tighter ${spaceGrotesk.className}`}>
-              filma workspace
+            <span className={`text-xl tracking-tighter text-slate-500 ${spaceGrotesk.className}`}>
+              <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
             </span>
           </div>
 
