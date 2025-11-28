@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
@@ -9,18 +9,17 @@ import {
   Folder,
   FileText,
   Receipt,
-  DollarSign,
   ArrowRight,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  User,
   Settings,
   Bell,
+  TrendingUp,
+  ChevronRight,
+  BarChart3,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 interface PO {
   id: string;
@@ -60,8 +59,6 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true);
   const [recentPOs, setRecentPOs] = useState<PO[]>([]);
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
-  const [posLimit, setPosLimit] = useState(5);
-  const [invoicesLimit, setInvoicesLimit] = useState(5);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState("");
   const [hasApprovals, setHasApprovals] = useState(false);
@@ -79,7 +76,6 @@ export default function AccountingPage() {
     paid: 0,
   });
 
-  // Auth listener
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
@@ -89,7 +85,6 @@ export default function AccountingPage() {
     return () => unsubscribe();
   }, []);
 
-  // Cargar datos del proyecto y estadísticas
   useEffect(() => {
     const loadProjectData = async () => {
       if (!userId || !id) return;
@@ -100,17 +95,14 @@ export default function AccountingPage() {
           setProjectName(projectDoc.data().name || "Proyecto");
         }
 
-        // Get user role
         const memberDoc = await getDoc(doc(db, `projects/${id}/members`, userId));
         if (memberDoc.exists()) {
           const role = memberDoc.data().role || "";
           setUserRole(role);
         }
 
-        // Check if user has pending approvals
         let approvalCount = 0;
 
-        // Check POs
         const posRef = collection(db, `projects/${id}/pos`);
         const posQuery = query(posRef, where("status", "==", "pending"));
         const posSnapshot = await getDocs(posQuery);
@@ -125,7 +117,6 @@ export default function AccountingPage() {
           }
         }
 
-        // Check Invoices - ahora busca pending_approval
         const invoicesRef = collection(db, `projects/${id}/invoices`);
         const invoicesQuery = query(invoicesRef, where("status", "==", "pending_approval"));
         const invoicesSnapshot = await getDocs(invoicesQuery);
@@ -143,11 +134,10 @@ export default function AccountingPage() {
         setHasApprovals(approvalCount > 0);
         setPendingApprovalsCount(approvalCount);
 
-        // Cargar POs recientes
         const posRecentQuery = query(
           collection(db, `projects/${id}/pos`),
           orderBy("createdAt", "desc"),
-          limit(posLimit)
+          limit(5)
         );
         const posRecentSnapshot = await getDocs(posRecentQuery);
         const posData = posRecentSnapshot.docs.map(doc => {
@@ -163,7 +153,6 @@ export default function AccountingPage() {
         }) as PO[];
         setRecentPOs(posData);
 
-        // Calcular estadísticas de POs
         const allPosSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
         const allPOs = allPosSnapshot.docs.map(doc => doc.data());
         setPoStats({
@@ -172,11 +161,10 @@ export default function AccountingPage() {
           approved: allPOs.filter(po => po.status === "approved").length,
         });
 
-        // Cargar facturas recientes
         const invoicesRecentQuery = query(
           collection(db, `projects/${id}/invoices`),
           orderBy("createdAt", "desc"),
-          limit(invoicesLimit)
+          limit(5)
         );
         const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
         const invoicesData = invoicesRecentSnapshot.docs.map(doc => {
@@ -193,7 +181,6 @@ export default function AccountingPage() {
         }) as Invoice[];
         setRecentInvoices(invoicesData);
 
-        // Calcular estadísticas de facturas
         const allInvoicesSnapshot = await getDocs(collection(db, `projects/${id}/invoices`));
         const allInvoices = allInvoicesSnapshot.docs.map(doc => doc.data());
         setInvoiceStats({
@@ -210,23 +197,23 @@ export default function AccountingPage() {
     };
 
     loadProjectData();
-  }, [id, posLimit, invoicesLimit, userId]);
+  }, [id, userId]);
 
   const getStatusBadge = (status: string, type: "po" | "invoice") => {
     const styles = {
       po: {
-        draft: "bg-slate-100 text-slate-700 border-slate-200",
-        pending: "bg-amber-100 text-amber-700 border-amber-200",
-        approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
-        rejected: "bg-red-100 text-red-700 border-red-200",
+        draft: "bg-slate-100 text-slate-600",
+        pending: "bg-amber-100 text-amber-700",
+        approved: "bg-emerald-100 text-emerald-700",
+        rejected: "bg-red-100 text-red-700",
       },
       invoice: {
-        pending_approval: "bg-purple-100 text-purple-700 border-purple-200",
-        pending: "bg-amber-100 text-amber-700 border-amber-200",
-        paid: "bg-emerald-100 text-emerald-700 border-emerald-200",
-        overdue: "bg-red-100 text-red-700 border-red-200",
-        rejected: "bg-red-100 text-red-700 border-red-200",
-        cancelled: "bg-slate-100 text-slate-700 border-slate-200",
+        pending_approval: "bg-purple-100 text-purple-700",
+        pending: "bg-amber-100 text-amber-700",
+        paid: "bg-emerald-100 text-emerald-700",
+        overdue: "bg-red-100 text-red-700",
+        rejected: "bg-red-100 text-red-700",
+        cancelled: "bg-slate-100 text-slate-600",
       },
     };
 
@@ -254,19 +241,17 @@ export default function AccountingPage() {
     const label = labelMap[status as keyof typeof labelMap] || status;
 
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${style}`}>
+      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${style}`}>
         {label}
       </span>
     );
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return "Sin fecha";
-    return new Intl.DateTimeFormat('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    }).format(date);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   if (loading) {
@@ -274,7 +259,7 @@ export default function AccountingPage() {
       <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 text-sm font-medium">Cargando...</p>
           </div>
         </main>
@@ -284,306 +269,255 @@ export default function AccountingPage() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-indigo-50 to-indigo-100 border-y border-indigo-200 px-6 md:px-12 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+      {/* Hero Header */}
+      <div className="mt-[4.5rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          <div className="flex items-center justify-between mb-2">
+            <Link
+              href="/dashboard"
+              className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1"
+            >
+              <Folder size={14} />
+              {projectName}
+            </Link>
+            <div className="flex items-center gap-2">
+              {hasApprovals && (
+                <Link href={`/project/${id}/accounting/approvals`}>
+                  <button className="relative flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-sm font-medium transition-colors border border-amber-500/30">
+                    <Bell size={14} />
+                    <span>Aprobaciones</span>
+                    {pendingApprovalsCount > 0 && (
+                      <span className="w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                        {pendingApprovalsCount}
+                      </span>
+                    )}
+                  </button>
+                </Link>
+              )}
+              {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
+                <Link href={`/project/${id}/accounting/approvalsconfig`}>
+                  <button className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10">
+                    <Settings size={14} />
+                  </button>
+                </Link>
+              )}
+            </div>
           </div>
-          <h1 className="text-sm font-medium text-indigo-900 tracking-tight">
-            {projectName}
-          </h1>
+
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
+              <BarChart3 size={24} className="text-white" />
+            </div>
+            <div>
+              <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
+                Contabilidad
+              </h1>
+              <p className="text-slate-400 text-sm">Gestión financiera del proyecto</p>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <FileText size={18} className="text-indigo-400" />
+                <span className="text-2xl font-bold">{poStats.total}</span>
+              </div>
+              <p className="text-sm text-slate-400">Total POs</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Clock size={18} className="text-amber-400" />
+                <span className="text-2xl font-bold">{poStats.pending}</span>
+              </div>
+              <p className="text-sm text-slate-400">POs pendientes</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Receipt size={18} className="text-emerald-400" />
+                <span className="text-2xl font-bold">{invoiceStats.total}</span>
+              </div>
+              <p className="text-sm text-slate-400">Total facturas</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp size={18} className="text-emerald-400" />
+                <span className="text-2xl font-bold">{invoiceStats.paid}</span>
+              </div>
+              <p className="text-sm text-slate-400">Facturas pagadas</p>
+            </div>
+          </div>
         </div>
-        <Link
-          href="/dashboard"
-          className="text-indigo-600 hover:text-indigo-900 transition-colors text-sm font-medium"
-        >
-          Volver a proyectos
-        </Link>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
+      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                  <DollarSign size={28} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                    Panel de contabilidad
-                  </h1>
-                  <p className="text-slate-600 text-sm mt-1">
-                    Resumen financiero y gestión de documentos
-                  </p>
-                </div>
-              </div>
-
-              {/* Botones discretos a la derecha */}
-              <div className="flex items-center gap-2">
-                {/* Botón de Aprobaciones */}
-                {hasApprovals && (
-                  <Link href={`/project/${id}/accounting/approvals`}>
-                    <button
-                      className="relative flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-medium transition-colors border border-amber-300"
-                      title="Aprobaciones pendientes"
-                    >
-                      <Bell size={16} />
-                      <span>Aprobaciones</span>
-                      {pendingApprovalsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                          {pendingApprovalsCount}
-                        </span>
-                      )}
-                    </button>
-                  </Link>
-                )}
-
-                {/* Botón de Configuración */}
-                {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
-                  <Link href={`/project/${id}/accounting/approvalsconfig`}>
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-300"
-                      title="Configurar aprobaciones"
-                    >
-                      <Settings size={16} />
-                      <span>Configuración</span>
-                    </button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          </header>
-
-          {/* Paneles de POs y Facturas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Panel de POs */}
-            <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-indigo-300 hover:shadow-xl transition-all">
-              <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-6">
+          {/* Action Cards - Acceso rápido */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {/* POs Card */}
+            <Link href={`/project/${id}/accounting/pos`}>
+              <div className="group bg-white border-2 border-slate-200 hover:border-indigo-400 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                       <FileText size={28} className="text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-white">
+                      <h2 className="text-xl font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                         Órdenes de compra
                       </h2>
-                      <p className="text-indigo-100 text-sm">
-                        Purchase orders del proyecto
+                      <p className="text-sm text-slate-500">
+                        {poStats.total} órdenes · {poStats.pending} pendientes
                       </p>
                     </div>
                   </div>
-                  <select
-                    value={posLimit}
-                    onChange={(e) => setPosLimit(Number(e.target.value))}
-                    className="bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50"
-                  >
-                    <option value={5} className="text-slate-900">Últimas 5</option>
-                    <option value={10} className="text-slate-900">Últimas 10</option>
-                    <option value={20} className="text-slate-900">Últimas 20</option>
-                  </select>
+                  <div className="w-10 h-10 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center transition-colors">
+                    <ArrowRight size={20} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                  </div>
                 </div>
               </div>
+            </Link>
 
-              <div className="p-6">
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="text-2xl font-bold text-slate-900 mb-1">
-                      {poStats.total}
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">Total</p>
-                  </div>
-                  <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="text-2xl font-bold text-amber-600 mb-1">
-                      {poStats.pending}
-                    </div>
-                    <p className="text-xs text-amber-700 font-medium">Pendientes</p>
-                  </div>
-                  <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-600 mb-1">
-                      {poStats.approved}
-                    </div>
-                    <p className="text-xs text-emerald-700 font-medium">Aprobadas</p>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <Clock size={16} className="text-slate-600" />
-                    Actividad reciente
-                  </h3>
-                  
-                  {recentPOs.length === 0 ? (
-                    <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 text-center">
-                      <FileText size={48} className="text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm text-slate-500 font-medium">
-                        No hay órdenes de compra creadas todavía
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Crea tu primera PO para empezar
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentPOs.map((po) => (
-                        <div
-                          key={po.id}
-                          className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg p-4 transition-all group cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg">
-                                <FileText size={16} />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-semibold text-slate-900">
-                                  PO-{po.number}
-                                </h4>
-                                <p className="text-xs text-slate-600 flex items-center gap-1">
-                                  <User size={12} />
-                                  {po.supplier || "Sin proveedor"}
-                                </p>
-                              </div>
-                            </div>
-                            {getStatusBadge(po.status, "po")}
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              {formatDate(po.createdAt)}
-                            </span>
-                            <span className="font-semibold text-slate-900">
-                              {(po.totalAmount || 0).toLocaleString()} €
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <Link href={`/project/${id}/accounting/pos`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
-                    Gestionar órdenes de compra
-                    <ArrowRight size={16} />
-                  </button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Panel de Facturas */}
-            <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden hover:border-emerald-300 hover:shadow-xl transition-all">
-              <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-6">
+            {/* Invoices Card */}
+            <Link href={`/project/${id}/accounting/invoices`}>
+              <div className="group bg-white border-2 border-slate-200 hover:border-emerald-400 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                       <Receipt size={28} className="text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-white">Facturas</h2>
-                      <p className="text-emerald-100 text-sm">
-                        Gestión de facturas del proyecto
+                      <h2 className="text-xl font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                        Facturas
+                      </h2>
+                      <p className="text-sm text-slate-500">
+                        {invoiceStats.total} facturas · {invoiceStats.paid} pagadas
                       </p>
                     </div>
                   </div>
-                  <select
-                    value={invoicesLimit}
-                    onChange={(e) => setInvoicesLimit(Number(e.target.value))}
-                    className="bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50"
-                  >
-                    <option value={5} className="text-slate-900">Últimas 5</option>
-                    <option value={10} className="text-slate-900">Últimas 10</option>
-                    <option value={20} className="text-slate-900">Últimas 20</option>
-                  </select>
+                  <div className="w-10 h-10 bg-slate-100 group-hover:bg-emerald-100 rounded-full flex items-center justify-center transition-colors">
+                    <ArrowRight size={20} className="text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                  </div>
                 </div>
               </div>
+            </Link>
+          </div>
 
+          {/* Recent Activity */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+              {/* Recent POs */}
               <div className="p-6">
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="text-2xl font-bold text-slate-900 mb-1">
-                      {invoiceStats.total}
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">Total</p>
-                  </div>
-                  <div className="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="text-2xl font-bold text-amber-600 mb-1">
-                      {invoiceStats.pending}
-                    </div>
-                    <p className="text-xs text-amber-700 font-medium">Pendientes</p>
-                  </div>
-                  <div className="text-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-600 mb-1">
-                      {invoiceStats.paid}
-                    </div>
-                    <p className="text-xs text-emerald-700 font-medium">Pagadas</p>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                    POs recientes
+                  </h3>
+                  <Link
+                    href={`/project/${id}/accounting/pos`}
+                    className="text-sm text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    Ver todas
+                    <ChevronRight size={14} />
+                  </Link>
                 </div>
 
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <Clock size={16} className="text-slate-600" />
-                    Facturas recientes
-                  </h3>
-                  
-                  {recentInvoices.length === 0 ? (
-                    <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 text-center">
-                      <Receipt size={48} className="text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm text-slate-500 font-medium">
-                        No hay facturas registradas todavía
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Sube tu primera factura para empezar
-                      </p>
+                {recentPOs.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <FileText size={24} className="text-slate-400" />
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentInvoices.map((invoice) => (
-                        <div
-                          key={invoice.id}
-                          className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg p-4 transition-all group cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="bg-emerald-100 text-emerald-700 p-2 rounded-lg">
-                                <Receipt size={16} />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-semibold text-slate-900">
-                                  INV-{invoice.number}
-                                </h4>
-                                <p className="text-xs text-slate-600 flex items-center gap-1">
-                                  <User size={12} />
-                                  {invoice.supplier || "Sin proveedor"}
-                                </p>
-                              </div>
+                    <p className="text-sm text-slate-500">Sin órdenes de compra</p>
+                    <Link
+                      href={`/project/${id}/accounting/pos/new`}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium mt-2 inline-block"
+                    >
+                      Crear primera PO
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentPOs.map((po) => (
+                      <Link key={po.id} href={`/project/${id}/accounting/pos`}>
+                        <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
+                              <FileText size={16} className="text-indigo-600" />
                             </div>
-                            {getStatusBadge(invoice.status, "invoice")}
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">PO-{po.number}</p>
+                              <p className="text-xs text-slate-500">{po.supplier || "Sin proveedor"}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              Vence: {formatDate(invoice.dueDate)}
-                            </span>
-                            <span className="font-semibold text-slate-900">
-                              {(invoice.totalAmount || 0).toLocaleString()} €
-                            </span>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
+                              {getStatusBadge(po.status, "po")}
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Invoices */}
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    Facturas recientes
+                  </h3>
+                  <Link
+                    href={`/project/${id}/accounting/invoices`}
+                    className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    Ver todas
+                    <ChevronRight size={14} />
+                  </Link>
                 </div>
 
-                <Link href={`/project/${id}/accounting/invoices`}>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg">
-                    Gestionar facturas
-                    <ArrowRight size={16} />
-                  </button>
-                </Link>
+                {recentInvoices.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Receipt size={24} className="text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">Sin facturas</p>
+                    <Link
+                      href={`/project/${id}/accounting/invoices/new`}
+                      className="text-sm text-emerald-600 hover:text-emerald-700 font-medium mt-2 inline-block"
+                    >
+                      Registrar primera factura
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentInvoices.map((invoice) => (
+                      <Link key={invoice.id} href={`/project/${id}/accounting/invoices`}>
+                        <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+                              <Receipt size={16} className="text-emerald-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">FAC-{invoice.number}</p>
+                              <p className="text-xs text-slate-500">{invoice.supplier || "Sin proveedor"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
+                              {getStatusBadge(invoice.status, "invoice")}
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
