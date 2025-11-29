@@ -173,7 +173,7 @@ export default function Header() {
       <div className="px-6 py-3 flex items-center justify-between">
         {/* Logo - Solo texto */}
         <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center`}>
-          <span className="text-slate-900 font-medium tracking-tight">workspace</span>
+          <span className="text-slate-500 font-normal tracking-tighter">workspace</span>
           {currentSection && (
             <>
               <span className="text-slate-300 mx-2">/</span>
