@@ -171,20 +171,15 @@ export default function Header() {
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-3 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center gap-2`}>
-          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm font-bold">W</span>
-          </div>
-          <div className="hidden sm:flex items-center">
-            <span className="text-slate-500 font-normal tracking-tight">workspace</span>
-            {currentSection && (
-              <>
-                <span className="text-slate-300 mx-2">/</span>
-                <span className="text-slate-500 font-normal">{currentSection}</span>
-              </>
-            )}
-          </div>
+        {/* Logo - Solo texto */}
+        <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center`}>
+          <span className="text-slate-900 font-medium tracking-tight">workspace</span>
+          {currentSection && (
+            <>
+              <span className="text-slate-300 mx-2">/</span>
+              <span className="text-slate-500 font-normal">{currentSection}</span>
+            </>
+          )}
         </Link>
 
         {/* Navigation - Desktop */}
