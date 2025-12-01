@@ -20,6 +20,8 @@ import {
   Clock,
   AlertTriangle,
   UserCircle,
+  UserCog,
+  Folder,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -489,6 +491,24 @@ export default function ConfigUsers() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      {/* Banner superior */}
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-600 p-2 rounded-lg">
+            <Folder size={16} className="text-white" />
+          </div>
+          <h1 className="text-sm font-medium text-slate-900 tracking-tight">
+            {projectName}
+          </h1>
+        </div>
+        <Link
+          href="/dashboard"
+          className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
+        >
+          Volver a proyectos
+        </Link>
+      </div>
+
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -693,7 +713,7 @@ export default function ConfigUsers() {
         </div>
       )}
 
-      <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
+      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
           {/* Success/Error Messages */}
           {successMessage && (

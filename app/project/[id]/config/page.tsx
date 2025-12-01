@@ -16,6 +16,7 @@ import {
   Users,
   Briefcase,
   Calendar,
+  Folder,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -70,6 +71,7 @@ export default function ConfigGeneral() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
+  const [projectName, setProjectName] = useState("");
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
@@ -130,6 +132,7 @@ export default function ConfigGeneral() {
 
         if (projectSnap.exists()) {
           const projectData = projectSnap.data();
+          setProjectName(projectData.name); // ✅ LÍNEA AGREGADA
           const project: ProjectData = {
             name: projectData.name,
             phase: projectData.phase,
@@ -197,6 +200,8 @@ export default function ConfigGeneral() {
         phase: projectForm.phase,
         description: projectForm.description,
       });
+
+      setProjectName(projectForm.name); // ✅ También actualiza el banner al guardar
 
       setEditingProject(false);
       setSuccessMessage("Proyecto actualizado correctamente");
@@ -288,7 +293,25 @@ export default function ConfigGeneral() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
+      {/* Banner superior */}
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-700 p-2 rounded-lg">
+            <Folder size={16} className="text-white" />
+          </div>
+          <h1 className="text-sm font-medium text-slate-900 tracking-tight">
+            {projectName}
+          </h1>
+        </div>
+        <Link
+          href="/dashboard"
+          className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
+        >
+          Volver a proyectos
+        </Link>
+      </div>
+
+      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
           {/* Success/Error Messages */}
           {successMessage && (
@@ -304,49 +327,6 @@ export default function ConfigGeneral() {
               <span>{errorMessage}</span>
             </div>
           )}
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Users size={24} className="text-blue-600" />
-                <span className="text-3xl font-bold text-blue-700">{memberCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-blue-900">Miembros</h3>
-              <p className="text-xs text-blue-700">En el equipo</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Briefcase size={24} className="text-amber-600" />
-                <span className="text-3xl font-bold text-amber-700">{departmentCount}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-amber-900">Departamentos</h3>
-              <p className="text-xs text-amber-700">Configurados</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Building2 size={24} className="text-purple-600" />
-                <span className="text-3xl font-bold text-purple-700">
-                  {project?.producers?.length || 0}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-purple-900">Productoras</h3>
-              <p className="text-xs text-purple-700">Asignadas</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Calendar size={24} className="text-emerald-600" />
-                <span className="text-emerald-700 text-sm font-semibold">
-                  {project?.createdAt ? formatDate(project.createdAt) : "-"}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-emerald-900">Creado</h3>
-              <p className="text-xs text-emerald-700">Fecha de inicio</p>
-            </div>
-          </div>
 
           {/* Project Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -481,51 +461,46 @@ export default function ConfigGeneral() {
                   <Building2 size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Productoras</h2>
-                  <p className="text-sm text-slate-500">Gestiona las productoras del proyecto</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Productoras asignadas</h2>
+                  <p className="text-sm text-slate-500">
+                    {project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? 's' : ''} vinculada{project?.producers?.length !== 1 ? 's' : ''} al proyecto
+                  </p>
                 </div>
               </div>
 
-              {allProducers.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-sm">
-                  No hay productoras disponibles. Contacta con el administrador.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {allProducers.map((producer) => {
-                    const isAssigned = project?.producers?.includes(producer.id);
+              {project?.producers && project.producers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project.producers.map((producerId) => {
+                    const producer = allProducers.find(p => p.id === producerId);
+                    if (!producer) return null;
+                    
                     return (
-                      <button
+                      <div
                         key={producer.id}
-                        onClick={() => handleToggleProducer(producer.id)}
-                        disabled={saving}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${
-                          isAssigned
-                            ? "border-amber-500 bg-amber-50 hover:bg-amber-100"
-                            : "border-slate-200 bg-white hover:bg-slate-50"
-                        }`}
+                        className="p-4 rounded-lg border border-slate-200 bg-slate-50"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Building2
-                              size={18}
-                              className={isAssigned ? "text-amber-600" : "text-slate-400"}
-                            />
-                            <span
-                              className={`text-sm font-medium ${
-                                isAssigned ? "text-amber-900" : "text-slate-700"
-                              }`}
-                            >
-                              {producer.name}
-                            </span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                            <Building2 size={20} className="text-amber-600" />
                           </div>
-                          {isAssigned && (
-                            <CheckCircle2 size={18} className="text-amber-600" />
-                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-slate-900 truncate">
+                              {producer.name}
+                            </h3>
+                            <p className="text-xs text-slate-500">Productora activa</p>
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
+                  <Building2 size={48} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium mb-1">No hay productoras asignadas</p>
+                  <p className="text-sm text-slate-500">
+                    Este proyecto aún no tiene productoras vinculadas
+                  </p>
                 </div>
               )}
             </div>

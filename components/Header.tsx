@@ -20,10 +20,12 @@ import {
   Info,
   UserCog,
   Building2,
+  ChevronDown,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 const grotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -39,7 +41,15 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [userName, setUserName] = useState("Usuario");
+  const [userId, setUserId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [accountingAccess, setAccountingAccess] = useState({
+    panel: false,
+    suppliers: false,
+    budget: false,
+    users: false,
+    reports: false,
+  });
   const router = useRouter();
   const pathname = usePathname();
 
@@ -48,54 +58,79 @@ export default function Header() {
       if (user) {
         await user.reload();
         setUserName(user.displayName || user.email?.split("@")[0] || "Usuario");
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Extraer el projectId de la URL
   useEffect(() => {
     const pathParts = pathname.split("/");
     const projectIndex = pathParts.indexOf("project");
     if (projectIndex !== -1 && pathParts[projectIndex + 1]) {
       setProjectId(pathParts[projectIndex + 1]);
+    } else {
+      setProjectId(null);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const loadAccountingPermissions = async () => {
+      if (!userId || !projectId) {
+        setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
+        return;
+      }
+
+      try {
+        const memberRef = doc(db, `projects/${projectId}/members`, userId);
+        const memberSnap = await getDoc(memberRef);
+
+        if (memberSnap.exists()) {
+          const memberData = memberSnap.data();
+          const hasAccountingPermission = memberData.permissions?.accounting || false;
+
+          if (!hasAccountingPermission) {
+            setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
+            return;
+          }
+
+          const accessLevel = memberData.accountingAccessLevel || "user";
+          const accessLevels = {
+            user: { panel: true, suppliers: true, budget: false, users: false, reports: false },
+            accounting: { panel: true, suppliers: true, budget: false, users: false, reports: true },
+            accounting_extended: { panel: true, suppliers: true, budget: true, users: true, reports: true },
+          };
+
+          setAccountingAccess(accessLevels[accessLevel as keyof typeof accessLevels] || accessLevels.user);
+        } else {
+          setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
+        }
+      } catch (error) {
+        console.error("Error cargando permisos:", error);
+        setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
+      }
+    };
+
+    loadAccountingPermissions();
+  }, [userId, projectId]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      console.log("Cerrando sesión");
       router.push("/");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
     }
   };
 
-  // Determinar la sección actual
   const isAccountingSection = pathname.includes("/accounting");
   const isTeamSection = pathname.includes("/team") && !pathname.includes("/config");
   const isConfigSection = pathname.includes("/config");
 
-  const currentSection = isAccountingSection
-    ? "accounting"
-    : isTeamSection
-    ? "team"
-    : isConfigSection
-    ? "config"
-    : null;
+  const currentSection = isAccountingSection ? "accounting" : isTeamSection ? "team" : isConfigSection ? "config" : null;
 
-  const sectionColor =
-    currentSection === "accounting"
-      ? "text-indigo-600"
-      : currentSection === "team"
-      ? "text-amber-600"
-      : currentSection === "config"
-      ? "text-slate-600"
-      : "text-slate-600";
-
-  // Determinar qué página de accounting estamos viendo
   const accountingPage = isAccountingSection
     ? pathname.includes("/suppliers")
       ? "suppliers"
@@ -108,7 +143,6 @@ export default function Header() {
       : "panel"
     : null;
 
-  // Determinar qué página de team estamos viendo
   const teamPage = isTeamSection
     ? pathname.includes("/members")
       ? "members"
@@ -121,289 +155,176 @@ export default function Header() {
       : "panel"
     : null;
 
-  // Determinar qué tab de config estamos viendo
-  const configTab = isConfigSection
-    ? pathname.includes("/users")
-      ? "users"
-      : pathname.includes("/departments")
-      ? "departments"
-      : "general"
-    : null;
+  const configTab = isConfigSection ? (pathname.includes("/users") ? "users" : pathname.includes("/departments") ? "departments" : "general") : null;
+
+  const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
+    <Link
+      href={href}
+      className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${
+        isActive ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </Link>
+  );
 
   return (
-    <header
-      className={`fixed top-0 left-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between ${inter.className}`}
-    >
-      <Link
-        href="/dashboard"
-        className={`select-none ${grotesk.className} flex items-center`}
-      >
-        <h1 className="text-xl font-normal text-slate-500 tracking-tighter">
-          workspace
+    <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
+      <div className="px-6 py-3 flex items-center justify-between">
+        {/* Logo - Solo texto */}
+        <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center`}>
+          <span className="text-slate-500 font-normal tracking-tighter">workspace</span>
           {currentSection && (
-            <span>
-              <span className="text-slate-400 font-normal">/</span>
-              <span className={`font-semibold ${sectionColor}`}>
-                {currentSection}
-              </span>
-            </span>
+            <>
+              <span className="text-slate-300 mx-2">/</span>
+              <span className="text-slate-500 font-semibold tracking-tighter">{currentSection}</span>
+            </>
           )}
-        </h1>
-      </Link>
+        </Link>
 
-      {/* Menú principal - se muestra cuando NO estamos en secciones específicas */}
-      {!isAccountingSection && !isTeamSection && !isConfigSection && (
-        <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 text-sm text-slate-700">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 hover:text-slate-900 transition-colors duration-200"
-          >
-            <Folder size={16} className="text-slate-600" />
-            <span>Proyectos</span>
-          </Link>
+        {/* Navigation - Desktop */}
+        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+          {/* Default Menu */}
+          {!isAccountingSection && !isTeamSection && !isConfigSection && (
+            <NavLink href="/dashboard" isActive={pathname === "/dashboard"}>
+              <Folder size={15} />
+              <span>Proyectos</span>
+            </NavLink>
+          )}
+
+          {/* Config Menu */}
+          {isConfigSection && projectId && (
+            <>
+              <NavLink href={`/project/${projectId}/config`} isActive={configTab === "general"}>
+                <Info size={15} />
+                <span>General</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/config/users`} isActive={configTab === "users"}>
+                <UserCog size={15} />
+                <span>Usuarios</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/config/departments`} isActive={configTab === "departments"}>
+                <Briefcase size={15} />
+                <span>Departamentos</span>
+              </NavLink>
+            </>
+          )}
+
+          {/* Accounting Menu */}
+          {isAccountingSection && projectId && (
+            <>
+              {accountingAccess.panel && (
+                <NavLink href={`/project/${projectId}/accounting`} isActive={accountingPage === "panel"}>
+                  <LayoutDashboard size={15} />
+                  <span>Panel</span>
+                </NavLink>
+              )}
+              {accountingAccess.suppliers && (
+                <NavLink href={`/project/${projectId}/accounting/suppliers`} isActive={accountingPage === "suppliers"}>
+                  <Building2 size={15} />
+                  <span>Proveedores</span>
+                </NavLink>
+              )}
+              {accountingAccess.budget && (
+                <NavLink href={`/project/${projectId}/accounting/budget`} isActive={accountingPage === "budget"}>
+                  <DollarSign size={15} />
+                  <span>Presupuesto</span>
+                </NavLink>
+              )}
+              {accountingAccess.users && (
+                <NavLink href={`/project/${projectId}/accounting/users`} isActive={accountingPage === "users"}>
+                  <User size={15} />
+                  <span>Usuarios</span>
+                </NavLink>
+              )}
+              {accountingAccess.reports && (
+                <NavLink href={`/project/${projectId}/accounting/reports`} isActive={accountingPage === "reports"}>
+                  <BarChart3 size={15} />
+                  <span>Informes</span>
+                </NavLink>
+              )}
+            </>
+          )}
+
+          {/* Team Menu */}
+          {isTeamSection && projectId && (
+            <>
+              <NavLink href={`/project/${projectId}/team`} isActive={teamPage === "panel"}>
+                <LayoutDashboard size={15} />
+                <span>Panel</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/team/members`} isActive={teamPage === "members"}>
+                <Users size={15} />
+                <span>Equipo</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/team/time-tracking`} isActive={teamPage === "time-tracking"}>
+                <Clock size={15} />
+                <span>Horarios</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/team/planning`} isActive={teamPage === "planning"}>
+                <List size={15} />
+                <span>Planificación</span>
+              </NavLink>
+              <NavLink href={`/project/${projectId}/team/documentation`} isActive={teamPage === "documentation"}>
+                <FileText size={15} />
+                <span>Documentos</span>
+              </NavLink>
+            </>
+          )}
         </nav>
-      )}
 
-      {/* Menú de Config */}
-      {isConfigSection && projectId && (
-        <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2 text-sm">
-          <Link
-            href={`/project/${projectId}/config`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              configTab === "general"
-                ? "text-slate-900 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+        {/* Profile - Desktop */}
+        <div className="relative flex items-center gap-3">
+          <button
+            onClick={() => setProfileOpen(!profileOpen)}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
-            <Info size={16} />
-            <span>General</span>
-          </Link>
+            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
+              <User size={14} />
+            </div>
+            <span className="hidden sm:inline text-sm font-medium text-slate-700">{userName}</span>
+            <ChevronDown size={14} className={`hidden sm:block text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+          </button>
 
-          <Link
-            href={`/project/${projectId}/config/users`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              configTab === "users"
-                ? "text-slate-900 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <UserCog size={16} />
-            <span>Usuarios</span>
-          </Link>
+          {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
 
-          <Link
-            href={`/project/${projectId}/config/departments`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              configTab === "departments"
-                ? "text-slate-900 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Briefcase size={16} />
-            <span>Departamentos</span>
-          </Link>
-        </nav>
-      )}
+          {profileOpen && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 text-sm z-50 animate-fadeIn">
+              <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                <p className="text-xs text-slate-400">Sesión iniciada como</p>
+                <p className="text-sm font-medium text-slate-900 truncate">{userName}</p>
+              </div>
+              <Link href="/profile" className="flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
+                <Settings size={14} />
+                Configuración
+              </Link>
+              <button onClick={handleLogout} className="flex w-full items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
+                <LogOut size={14} />
+                Cerrar sesión
+              </button>
+            </div>
+          )}
 
-      {/* Menú de Accounting */}
-      {isAccountingSection && projectId && (
-        <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2 text-sm">
-          <Link
-            href={`/project/${projectId}/accounting`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "panel"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <LayoutDashboard size={16} />
-            <span>Panel principal</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/accounting/suppliers`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "suppliers"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Building2 size={16} />
-            <span>Proveedores</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/accounting/budget`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "budget"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <DollarSign size={16} />
-            <span>Presupuesto</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/accounting/users`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "users"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <User size={16} />
-            <span>Usuarios</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/accounting/reports`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              accountingPage === "reports"
-                ? "text-indigo-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <BarChart3 size={16} />
-            <span>Informes</span>
-          </Link>
-        </nav>
-      )}
-
-      {/* Menú de Team */}
-      {isTeamSection && projectId && (
-        <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2 text-sm">
-          <Link
-            href={`/project/${projectId}/team`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "panel"
-                ? "text-amber-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <LayoutDashboard size={16} />
-            <span>Panel principal</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/team/members`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "members"
-                ? "text-amber-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Users size={16} />
-            <span>Equipo</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/team/time-tracking`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "time-tracking"
-                ? "text-amber-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Clock size={16} />
-            <span>Control horario</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/team/planning`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "planning"
-                ? "text-amber-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <List size={16} />
-            <span>Planificación</span>
-          </Link>
-
-          <Link
-            href={`/project/${projectId}/team/documentation`}
-            className={`flex items-center gap-2 transition-colors duration-200 ${
-              teamPage === "documentation"
-                ? "text-amber-700 font-medium"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <FileText size={16} />
-            <span>Documentación</span>
-          </Link>
-        </nav>
-      )}
-
-      <div className="relative flex items-center">
-        <button
-          onClick={() => setProfileOpen(!profileOpen)}
-          className="flex items-center gap-3 text-slate-600 hover:text-slate-900 transition"
-        >
-          <span className="hidden sm:inline text-sm font-medium">
-            {userName}
-          </span>
-          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-            <User size={16} />
-          </div>
-        </button>
-
-        {profileOpen && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setProfileOpen(false)}
-          ></div>
-        )}
-
-        {profileOpen && (
-          <div
-            className="absolute right-0 top-full mt-3 w-44 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-lg py-2 text-sm z-50 animate-fadeIn"
-            style={{ animationDuration: "0.2s" }}
-          >
-            <Link
-              href="/profile"
-              className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 transition"
-              onClick={() => setProfileOpen(false)}
-            >
-              <Settings size={14} /> Configuración
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2 px-4 py-2 hover:bg-slate-50 text-left text-rose-600 transition"
-            >
-              <LogOut size={14} /> Cerrar sesión
-            </button>
-          </div>
-        )}
+          {/* Mobile Menu Button */}
+          <button className="md:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition" onClick={() => setMenuOpen(!menuOpen)}>
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
       </div>
 
-      <button
-        className="md:hidden text-slate-700 hover:text-slate-900 transition-colors"
-        onClick={() => setMenuOpen(!menuOpen)}
-      >
-        {menuOpen ? <X size={22} /> : <Menu size={22} />}
-      </button>
-
-      {/* Menú móvil */}
+      {/* Mobile Menu */}
       {menuOpen && (
-        <div className="absolute top-full left-0 w-full bg-white/90 backdrop-blur-lg border-b border-slate-200 md:hidden z-40">
-          <nav className="flex flex-col py-4 text-sm text-slate-700">
+        <div className="md:hidden border-t border-slate-100 bg-white">
+          <nav className="flex flex-col p-3 gap-1">
             {!isAccountingSection && !isTeamSection && !isConfigSection ? (
-              // Menú móvil normal
               <>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMenuOpen(false)}
-                  className="py-2 hover:text-slate-900 flex items-center justify-center gap-2"
-                >
-                  <Folder size={16} className="text-slate-600" />
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <Folder size={16} />
                   Proyectos
                 </Link>
-                <Link
-                  href="/profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="py-2 hover:text-slate-900 text-center"
-                >
+                <div className="border-t border-slate-100 my-2"></div>
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <Settings size={16} />
                   Configuración
                 </Link>
                 <button
@@ -411,22 +332,18 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="py-2 text-rose-600 hover:text-rose-700"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
+                  <LogOut size={16} />
                   Cerrar sesión
                 </button>
               </>
             ) : isConfigSection ? (
-              // Menú móvil de Config
               <>
                 <Link
                   href={`/project/${projectId}/config`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    configTab === "general"
-                      ? "text-slate-900 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "general" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <Info size={16} />
                   General
@@ -434,11 +351,7 @@ export default function Header() {
                 <Link
                   href={`/project/${projectId}/config/users`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    configTab === "users"
-                      ? "text-slate-900 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <UserCog size={16} />
                   Usuarios
@@ -446,139 +359,101 @@ export default function Header() {
                 <Link
                   href={`/project/${projectId}/config/departments`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    configTab === "departments"
-                      ? "text-slate-900 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "departments" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <Briefcase size={16} />
                   Departamentos
                 </Link>
-                <div className="border-t border-slate-200 mt-2 pt-2">
-                  <Link
-                    href="/profile"
-                    onClick={() => setMenuOpen(false)}
-                    className="py-2 hover:text-slate-900 text-center block"
-                  >
-                    Configuración
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="py-2 text-rose-600 hover:text-rose-700 w-full"
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
+                <div className="border-t border-slate-100 my-2"></div>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </button>
               </>
             ) : isAccountingSection ? (
-              // Menú móvil de Accounting
               <>
-                <Link
-                  href={`/project/${projectId}/accounting`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "panel"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <LayoutDashboard size={16} />
-                  Panel principal
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/suppliers`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "suppliers"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <Users size={16} />
-                  Proveedores
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/budget`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "budget"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <DollarSign size={16} />
-                  Presupuesto
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/users`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "users"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <User size={16} />
-                  Usuarios
-                </Link>
-                <Link
-                  href={`/project/${projectId}/accounting/reports`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    accountingPage === "reports"
-                      ? "text-indigo-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  <BarChart3 size={16} />
-                  Informes
-                </Link>
-                <div className="border-t border-slate-200 mt-2 pt-2">
+                {accountingAccess.panel && (
                   <Link
-                    href="/profile"
+                    href={`/project/${projectId}/accounting`}
                     onClick={() => setMenuOpen(false)}
-                    className="py-2 hover:text-slate-900 text-center block"
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                   >
-                    Configuración
+                    <LayoutDashboard size={16} />
+                    Panel
                   </Link>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="py-2 text-rose-600 hover:text-rose-700 w-full"
+                )}
+                {accountingAccess.suppliers && (
+                  <Link
+                    href={`/project/${projectId}/accounting/suppliers`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "suppliers" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                   >
-                    Cerrar sesión
-                  </button>
-                </div>
+                    <Building2 size={16} />
+                    Proveedores
+                  </Link>
+                )}
+                {accountingAccess.budget && (
+                  <Link
+                    href={`/project/${projectId}/accounting/budget`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
+                  >
+                    <DollarSign size={16} />
+                    Presupuesto
+                  </Link>
+                )}
+                {accountingAccess.users && (
+                  <Link
+                    href={`/project/${projectId}/accounting/users`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
+                  >
+                    <User size={16} />
+                    Usuarios
+                  </Link>
+                )}
+                {accountingAccess.reports && (
+                  <Link
+                    href={`/project/${projectId}/accounting/reports`}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "reports" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
+                  >
+                    <BarChart3 size={16} />
+                    Informes
+                  </Link>
+                )}
+                <div className="border-t border-slate-100 my-2"></div>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </button>
               </>
             ) : (
-              // Menú móvil de Team
               <>
                 <Link
                   href={`/project/${projectId}/team`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "panel"
-                      ? "text-amber-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <LayoutDashboard size={16} />
-                  Panel principal
+                  Panel
                 </Link>
                 <Link
                   href={`/project/${projectId}/team/members`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "members"
-                      ? "text-amber-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "members" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <Users size={16} />
                   Equipo
@@ -586,23 +461,15 @@ export default function Header() {
                 <Link
                   href={`/project/${projectId}/team/time-tracking`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "time-tracking"
-                      ? "text-amber-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "time-tracking" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <Clock size={16} />
-                  Control horario
+                  Horarios
                 </Link>
                 <Link
                   href={`/project/${projectId}/team/planning`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "planning"
-                      ? "text-amber-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "planning" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <List size={16} />
                   Planificación
@@ -610,33 +477,22 @@ export default function Header() {
                 <Link
                   href={`/project/${projectId}/team/documentation`}
                   onClick={() => setMenuOpen(false)}
-                  className={`py-2 flex items-center justify-center gap-2 ${
-                    teamPage === "documentation"
-                      ? "text-amber-700 font-medium"
-                      : "hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "documentation" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                 >
                   <FileText size={16} />
-                  Documentación
+                  Documentos
                 </Link>
-                <div className="border-t border-slate-200 mt-2 pt-2">
-                  <Link
-                    href="/profile"
-                    onClick={() => setMenuOpen(false)}
-                    className="py-2 hover:text-slate-900 text-center block"
-                  >
-                    Configuración
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="py-2 text-rose-600 hover:text-rose-700 w-full"
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
+                <div className="border-t border-slate-100 my-2"></div>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </button>
               </>
             )}
           </nav>
@@ -647,7 +503,7 @@ export default function Header() {
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(-4px);
+            transform: translateY(-8px);
           }
           to {
             opacity: 1;
@@ -655,7 +511,7 @@ export default function Header() {
           }
         }
         .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
+          animation: fadeIn 0.15s ease-out;
         }
       `}</style>
     </header>

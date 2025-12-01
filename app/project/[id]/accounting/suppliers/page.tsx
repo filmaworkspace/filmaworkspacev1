@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -13,17 +13,14 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   Timestamp,
+  orderBy,
 } from "firebase/firestore";
 import {
   Folder,
-  Users,
   Plus,
   Search,
-  Filter,
   Download,
-  Upload,
   Edit,
   Trash2,
   X,
@@ -34,15 +31,16 @@ import {
   Building2,
   MapPin,
   CreditCard,
-  Calendar,
   Globe,
-  Hash,
   FileText,
   Clock,
   Eye,
+  RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 interface Address {
   street: string;
@@ -103,6 +101,7 @@ export default function SuppliersPage() {
   const id = params?.id as string;
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,8 +109,10 @@ export default function SuppliersPage() {
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired">("all");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Form states
   const [formData, setFormData] = useState({
     fiscalName: "",
     commercialName: "",
@@ -134,8 +135,19 @@ export default function SuppliersPage() {
   });
 
   useEffect(() => {
-    loadData();
-  }, [id]);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId && id) {
+      loadData();
+    }
+  }, [userId, id]);
 
   useEffect(() => {
     filterSuppliers();
@@ -144,33 +156,51 @@ export default function SuppliersPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) {
-        setProjectName(projectDoc.data().name || "Proyecto");
-      }
+      setErrorMessage("");
 
-      const suppliersSnapshot = await getDocs(
-        collection(db, `projects/${id}/suppliers`)
-      );
-      const suppliersData = suppliersSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        certificates: {
-          bankOwnership: {
-            ...doc.data().certificates?.bankOwnership,
-            expiryDate: doc.data().certificates?.bankOwnership?.expiryDate?.toDate(),
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      if (!projectDoc.exists()) {
+        throw new Error("El proyecto no existe");
+      }
+      setProjectName(projectDoc.data().name || "Proyecto");
+
+      const suppliersRef = collection(db, `projects/${id}/suppliers`);
+      const suppliersQuery = query(suppliersRef, orderBy("fiscalName", "asc"));
+      const suppliersSnapshot = await getDocs(suppliersQuery);
+
+      const suppliersData = suppliersSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          fiscalName: data.fiscalName || "",
+          commercialName: data.commercialName || "",
+          country: data.country || "ES",
+          taxId: data.taxId || "",
+          address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
+          paymentMethod: data.paymentMethod || "transferencia",
+          bankAccount: data.bankAccount || "",
+          certificates: {
+            bankOwnership: {
+              ...data.certificates?.bankOwnership,
+              expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(),
+              uploaded: data.certificates?.bankOwnership?.uploaded || false,
+            },
+            contractorsCertificate: {
+              ...data.certificates?.contractorsCertificate,
+              expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(),
+              uploaded: data.certificates?.contractorsCertificate?.uploaded || false,
+            },
           },
-          contractorsCertificate: {
-            ...doc.data().certificates?.contractorsCertificate,
-            expiryDate: doc.data().certificates?.contractorsCertificate?.expiryDate?.toDate(),
-          },
-        },
-      })) as Supplier[];
+          createdAt: data.createdAt?.toDate() || new Date(),
+          createdBy: data.createdBy || "",
+          hasAssignedPOs: data.hasAssignedPOs || false,
+          hasAssignedInvoices: data.hasAssignedInvoices || false,
+        };
+      }) as Supplier[];
 
       setSuppliers(suppliersData);
-    } catch (error) {
-      console.error("Error cargando datos:", error);
+    } catch (error: any) {
+      setErrorMessage(`Error cargando datos: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -179,7 +209,6 @@ export default function SuppliersPage() {
   const filterSuppliers = () => {
     let filtered = [...suppliers];
 
-    // Filtro de búsqueda
     if (searchTerm) {
       filtered = filtered.filter(
         (s) =>
@@ -189,12 +218,8 @@ export default function SuppliersPage() {
       );
     }
 
-    // Filtro de estado de certificados
     if (filterStatus !== "all") {
-      filtered = filtered.filter((s) => {
-        const status = getCertificateStatus(s);
-        return status === filterStatus;
-      });
+      filtered = filtered.filter((s) => getCertificateStatus(s) === filterStatus);
     }
 
     setFilteredSuppliers(filtered);
@@ -207,126 +232,149 @@ export default function SuppliersPage() {
     const bankCert = supplier.certificates.bankOwnership;
     const contractorCert = supplier.certificates.contractorsCertificate;
 
-    // Si algún certificado no está subido
-    if (!bankCert.uploaded || !contractorCert.uploaded) {
-      return "expired";
-    }
-
-    // Si alguno está caducado
-    if (
-      (bankCert.expiryDate && bankCert.expiryDate < now) ||
-      (contractorCert.expiryDate && contractorCert.expiryDate < now)
-    ) {
-      return "expired";
-    }
-
-    // Si alguno está próximo a caducar
-    if (
-      (bankCert.expiryDate && bankCert.expiryDate < thirtyDaysFromNow) ||
-      (contractorCert.expiryDate && contractorCert.expiryDate < thirtyDaysFromNow)
-    ) {
-      return "expiring";
-    }
+    if (!bankCert.uploaded || !contractorCert.uploaded) return "expired";
+    if ((bankCert.expiryDate && bankCert.expiryDate < now) || (contractorCert.expiryDate && contractorCert.expiryDate < now)) return "expired";
+    if ((bankCert.expiryDate && bankCert.expiryDate < thirtyDaysFromNow) || (contractorCert.expiryDate && contractorCert.expiryDate < thirtyDaysFromNow)) return "expiring";
 
     return "valid";
   };
 
+  const validateForm = () => {
+    if (!formData.fiscalName.trim()) {
+      setErrorMessage("El nombre fiscal es obligatorio");
+      return false;
+    }
+    if (!formData.taxId.trim()) {
+      setErrorMessage("El NIF/CIF es obligatorio");
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateSupplier = async () => {
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setErrorMessage("");
+
     try {
       const newSupplier = {
-        ...formData,
+        fiscalName: formData.fiscalName.trim(),
+        commercialName: formData.commercialName.trim(),
+        country: formData.country,
+        taxId: formData.taxId.trim().toUpperCase(),
+        address: {
+          street: formData.address.street.trim(),
+          number: formData.address.number.trim(),
+          city: formData.address.city.trim(),
+          province: formData.address.province.trim(),
+          postalCode: formData.address.postalCode.trim(),
+        },
+        paymentMethod: formData.paymentMethod,
+        bankAccount: formData.bankAccount.trim(),
         certificates: {
           bankOwnership: {
             uploaded: !!certificates.bankOwnership.file,
-            expiryDate: certificates.bankOwnership.expiryDate
-              ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate))
-              : null,
+            expiryDate: certificates.bankOwnership.expiryDate ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) : null,
             fileName: certificates.bankOwnership.file?.name || "",
           },
           contractorsCertificate: {
             uploaded: !!certificates.contractorsCertificate.file,
-            expiryDate: certificates.contractorsCertificate.expiryDate
-              ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate))
-              : null,
+            expiryDate: certificates.contractorsCertificate.expiryDate ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) : null,
             fileName: certificates.contractorsCertificate.file?.name || "",
             aeatVerified: false,
           },
         },
         createdAt: Timestamp.now(),
-        createdBy: auth.currentUser?.uid || "",
+        createdBy: userId || "",
         hasAssignedPOs: false,
         hasAssignedInvoices: false,
       };
 
       await addDoc(collection(db, `projects/${id}/suppliers`), newSupplier);
-      
-      // Reset form
+
+      setSuccessMessage("Proveedor creado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error creando proveedor:", error);
+      await loadData();
+    } catch (error: any) {
+      setErrorMessage(`Error creando proveedor: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdateSupplier = async () => {
     if (!selectedSupplier) return;
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setErrorMessage("");
 
     try {
       const updatedData = {
-        ...formData,
+        fiscalName: formData.fiscalName.trim(),
+        commercialName: formData.commercialName.trim(),
+        country: formData.country,
+        taxId: formData.taxId.trim().toUpperCase(),
+        address: {
+          street: formData.address.street.trim(),
+          number: formData.address.number.trim(),
+          city: formData.address.city.trim(),
+          province: formData.address.province.trim(),
+          postalCode: formData.address.postalCode.trim(),
+        },
+        paymentMethod: formData.paymentMethod,
+        bankAccount: formData.bankAccount.trim(),
         certificates: {
           bankOwnership: {
             ...selectedSupplier.certificates.bankOwnership,
-            ...(certificates.bankOwnership.file && {
-              uploaded: true,
-              fileName: certificates.bankOwnership.file.name,
-            }),
-            ...(certificates.bankOwnership.expiryDate && {
-              expiryDate: Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)),
-            }),
+            ...(certificates.bankOwnership.file && { uploaded: true, fileName: certificates.bankOwnership.file.name }),
+            ...(certificates.bankOwnership.expiryDate && { expiryDate: Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) }),
           },
           contractorsCertificate: {
             ...selectedSupplier.certificates.contractorsCertificate,
-            ...(certificates.contractorsCertificate.file && {
-              uploaded: true,
-              fileName: certificates.contractorsCertificate.file.name,
-            }),
-            ...(certificates.contractorsCertificate.expiryDate && {
-              expiryDate: Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)),
-            }),
+            ...(certificates.contractorsCertificate.file && { uploaded: true, fileName: certificates.contractorsCertificate.file.name }),
+            ...(certificates.contractorsCertificate.expiryDate && { expiryDate: Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) }),
           },
         },
       };
 
-      await updateDoc(
-        doc(db, `projects/${id}/suppliers`, selectedSupplier.id),
-        updatedData
-      );
+      await updateDoc(doc(db, `projects/${id}/suppliers`, selectedSupplier.id), updatedData);
+
+      setSuccessMessage("Proveedor actualizado correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
 
       resetForm();
       setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error("Error actualizando proveedor:", error);
+      await loadData();
+    } catch (error: any) {
+      setErrorMessage(`Error actualizando proveedor: ${error.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeleteSupplier = async (supplierId: string) => {
     const supplier = suppliers.find((s) => s.id === supplierId);
-    
+
     if (supplier?.hasAssignedPOs || supplier?.hasAssignedInvoices) {
-      alert("No se puede eliminar un proveedor con POs o facturas asignadas");
+      setErrorMessage("No se puede eliminar un proveedor con POs o facturas asignadas");
+      setTimeout(() => setErrorMessage(""), 5000);
       return;
     }
 
-    if (confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {
-      try {
-        await deleteDoc(doc(db, `projects/${id}/suppliers`, supplierId));
-        loadData();
-      } catch (error) {
-        console.error("Error eliminando proveedor:", error);
-      }
+    if (!confirm(`¿Eliminar a ${supplier?.fiscalName}?`)) return;
+
+    try {
+      await deleteDoc(doc(db, `projects/${id}/suppliers`, supplierId));
+      setSuccessMessage("Proveedor eliminado");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      await loadData();
+    } catch (error: any) {
+      setErrorMessage(`Error eliminando proveedor: ${error.message}`);
     }
   };
 
@@ -336,13 +384,7 @@ export default function SuppliersPage() {
       commercialName: "",
       country: "ES",
       taxId: "",
-      address: {
-        street: "",
-        number: "",
-        city: "",
-        province: "",
-        postalCode: "",
-      },
+      address: { street: "", number: "", city: "", province: "", postalCode: "" },
       paymentMethod: "transferencia",
       bankAccount: "",
     });
@@ -351,6 +393,7 @@ export default function SuppliersPage() {
       contractorsCertificate: { file: null, expiryDate: "" },
     });
     setSelectedSupplier(null);
+    setErrorMessage("");
   };
 
   const openCreateModal = () => {
@@ -383,7 +426,7 @@ export default function SuppliersPage() {
   const getCertificateBadge = (cert: Certificate) => {
     if (!cert.uploaded) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
           <FileX size={12} />
           No subido
         </span>
@@ -392,7 +435,7 @@ export default function SuppliersPage() {
 
     if (!cert.expiryDate) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
           <FileCheck size={12} />
           Subido
         </span>
@@ -404,7 +447,7 @@ export default function SuppliersPage() {
 
     if (cert.expiryDate < now) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
           <AlertCircle size={12} />
           Caducado
         </span>
@@ -413,32 +456,52 @@ export default function SuppliersPage() {
 
     if (cert.expiryDate < thirtyDaysFromNow) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-700">
           <Clock size={12} />
-          Próximo a caducar
+          Por caducar
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700">
         <CheckCircle size={12} />
         Válido
       </span>
     );
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "valid":
-        return "bg-emerald-100 text-emerald-700 border-emerald-200";
-      case "expiring":
-        return "bg-amber-100 text-amber-700 border-amber-200";
-      case "expired":
-        return "bg-red-100 text-red-700 border-red-200";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      valid: "bg-emerald-100 text-emerald-700",
+      expiring: "bg-amber-100 text-amber-700",
+      expired: "bg-red-100 text-red-700",
+    };
+    const labels = {
+      valid: "Válido",
+      expiring: "Por caducar",
+      expired: "Acción requerida",
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${styles[status as keyof typeof styles] || ""}`}>
+        {labels[status as keyof typeof labels] || status}
+      </span>
+    );
+  };
+
+  const exportSuppliers = () => {
+    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "MÉTODO PAGO", "CUENTA BANCARIA"]];
+    suppliers.forEach((supplier) => {
+      rows.push([supplier.fiscalName, supplier.commercialName, supplier.country, supplier.taxId, supplier.paymentMethod, supplier.bankAccount]);
+    });
+    const csvContent = rows.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", `proveedores_${projectName}_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -446,7 +509,7 @@ export default function SuppliersPage() {
       <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-slate-600 text-sm font-medium">Cargando...</p>
           </div>
         </main>
@@ -454,135 +517,112 @@ export default function SuppliersPage() {
     );
   }
 
+  const validCount = suppliers.filter((s) => getCertificateStatus(s) === "valid").length;
+  const expiringCount = suppliers.filter((s) => getCertificateStatus(s) === "expiring").length;
+  const expiredCount = suppliers.filter((s) => getCertificateStatus(s) === "expired").length;
+
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-indigo-50 to-indigo-100 border-y border-indigo-200 px-6 md:px-12 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+      {/* Hero Header */}
+      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          <div className="flex items-center justify-between mb-2">
+            <Link href={`/project/${id}/accounting`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
+              <Folder size={14} />
+              {projectName}
+              <ChevronRight size={14} />
+              <span>Contabilidad</span>
+            </Link>
+            <button
+              onClick={loadData}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
+            >
+              <RefreshCw size={14} />
+            </button>
           </div>
-          <h1 className="text-sm font-medium text-indigo-900 tracking-tight">
-            {projectName}
-          </h1>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
+                <Building2 size={24} className="text-white" />
+              </div>
+              <div>
+                <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Proveedores</h1>
+                <p className="text-slate-400 text-sm">Gestión de proveedores del proyecto</p>
+              </div>
+            </div>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 rounded-xl font-medium transition-all hover:bg-slate-100 shadow-lg"
+            >
+              <Plus size={18} />
+              Añadir proveedor
+            </button>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Building2 size={18} className="text-blue-400" />
+                <span className="text-2xl font-bold">{suppliers.length}</span>
+              </div>
+              <p className="text-sm text-slate-400">Total proveedores</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle size={18} className="text-emerald-400" />
+                <span className="text-2xl font-bold">{validCount}</span>
+              </div>
+              <p className="text-sm text-slate-400">Certificados válidos</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Clock size={18} className="text-amber-400" />
+                <span className="text-2xl font-bold">{expiringCount}</span>
+              </div>
+              <p className="text-sm text-slate-400">Próximos a caducar</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <AlertCircle size={18} className="text-red-400" />
+                <span className="text-2xl font-bold">{expiredCount}</span>
+              </div>
+              <p className="text-sm text-slate-400">Acción requerida</p>
+            </div>
+          </div>
         </div>
-        <Link
-          href="/dashboard"
-          className="text-indigo-600 hover:text-indigo-900 transition-colors text-sm font-medium"
-        >
-          Volver a proyectos
-        </Link>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
+      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-3 rounded-xl shadow-lg">
-                  <Building2 size={28} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                    Proveedores
-                  </h1>
-                  <p className="text-slate-600 text-sm mt-1">
-                    Gestión de proveedores del proyecto
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <Plus size={20} />
-                Añadir proveedor
-              </button>
+          {/* Messages */}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+              <AlertCircle size={20} />
+              <span className="flex-1">{errorMessage}</span>
+              <button onClick={() => setErrorMessage("")}><X size={16} /></button>
             </div>
-          </header>
+          )}
 
-          {/* Estadísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-blue-700 font-medium mb-1">
-                    Total proveedores
-                  </p>
-                  <p className="text-3xl font-bold text-blue-900">
-                    {suppliers.length}
-                  </p>
-                </div>
-                <div className="bg-blue-600 p-3 rounded-lg">
-                  <Building2 size={24} className="text-white" />
-                </div>
-              </div>
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+              <CheckCircle size={20} />
+              <span>{successMessage}</span>
             </div>
+          )}
 
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-emerald-700 font-medium mb-1">
-                    Certificados válidos
-                  </p>
-                  <p className="text-3xl font-bold text-emerald-900">
-                    {suppliers.filter((s) => getCertificateStatus(s) === "valid").length}
-                  </p>
-                </div>
-                <div className="bg-emerald-600 p-3 rounded-lg">
-                  <CheckCircle size={24} className="text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-amber-700 font-medium mb-1">
-                    Próximos a caducar
-                  </p>
-                  <p className="text-3xl font-bold text-amber-900">
-                    {suppliers.filter((s) => getCertificateStatus(s) === "expiring").length}
-                  </p>
-                </div>
-                <div className="bg-amber-600 p-3 rounded-lg">
-                  <Clock size={24} className="text-white" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-red-700 font-medium mb-1">
-                    Certificados caducados
-                  </p>
-                  <p className="text-3xl font-bold text-red-900">
-                    {suppliers.filter((s) => getCertificateStatus(s) === "expired").length}
-                  </p>
-                </div>
-                <div className="bg-red-600 p-3 rounded-lg">
-                  <AlertCircle size={24} className="text-white" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Barra de búsqueda y filtros */}
-          <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+          {/* Filters */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-sm">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search
-                  size={20}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
-                />
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por nombre fiscal, comercial o NIF..."
+                  placeholder="Buscar por nombre o NIF..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
                 />
               </div>
 
@@ -590,166 +630,116 @@ export default function SuppliersPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
                 >
                   <option value="all">Todos los estados</option>
                   <option value="valid">Certificados válidos</option>
                   <option value="expiring">Próximos a caducar</option>
-                  <option value="expired">Caducados/Sin certificados</option>
+                  <option value="expired">Acción requerida</option>
                 </select>
 
-                <button className="px-4 py-2.5 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2 font-medium">
-                  <Download size={18} />
+                <button
+                  onClick={exportSuppliers}
+                  className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium"
+                >
+                  <Download size={16} />
                   Exportar
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Tabla de proveedores */}
+          {/* Suppliers List */}
           {filteredSuppliers.length === 0 ? (
-            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
-              <Building2 size={64} className="text-slate-300 mx-auto mb-4" />
+            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Building2 size={32} className="text-slate-400" />
+              </div>
               <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                {searchTerm || filterStatus !== "all"
-                  ? "No se encontraron proveedores"
-                  : "No hay proveedores registrados"}
+                {searchTerm || filterStatus !== "all" ? "No se encontraron proveedores" : "No hay proveedores registrados"}
               </h3>
-              <p className="text-slate-600 mb-6">
-                {searchTerm || filterStatus !== "all"
-                  ? "Intenta ajustar los filtros de búsqueda"
-                  : "Comienza añadiendo tu primer proveedor al proyecto"}
+              <p className="text-slate-500 mb-6">
+                {searchTerm || filterStatus !== "all" ? "Intenta ajustar los filtros" : "Añade tu primer proveedor al proyecto"}
               </p>
               {!searchTerm && filterStatus === "all" && (
                 <button
                   onClick={openCreateModal}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors"
                 >
-                  <Plus size={20} />
-                  Añadir primer proveedor
+                  <Plus size={18} />
+                  Añadir proveedor
                 </button>
               )}
             </div>
           ) : (
-            <div className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50 border-b-2 border-slate-200">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Proveedor
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        País / NIF
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Método de pago
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Cert. Bancario
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Cert. Contratista
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Acciones
-                      </th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Proveedor</th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">País / NIF</th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Método pago</th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Cert. Bancario</th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Cert. Contratista</th>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredSuppliers.map((supplier) => {
                       const status = getCertificateStatus(supplier);
                       return (
-                        <tr
-                          key={supplier.id}
-                          className="hover:bg-slate-50 transition-colors"
-                        >
+                        <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4">
                             <div>
-                              <p className="font-semibold text-slate-900">
-                                {supplier.fiscalName}
-                              </p>
-                              <p className="text-sm text-slate-600">
-                                {supplier.commercialName}
-                              </p>
+                              <p className="font-medium text-slate-900">{supplier.fiscalName}</p>
+                              {supplier.commercialName && (
+                                <p className="text-sm text-slate-500">{supplier.commercialName}</p>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <Globe size={16} className="text-slate-400" />
+                              <Globe size={14} className="text-slate-400" />
                               <div>
-                                <p className="text-sm font-medium text-slate-900">
-                                  {supplier.country}
-                                </p>
-                                <p className="text-sm text-slate-600">
-                                  {supplier.taxId}
-                                </p>
+                                <p className="text-sm font-medium text-slate-900">{supplier.country}</p>
+                                <p className="text-xs text-slate-500">{supplier.taxId}</p>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700">
                               <CreditCard size={12} />
-                              {
-                                PAYMENT_METHODS.find(
-                                  (pm) => pm.value === supplier.paymentMethod
-                                )?.label
-                              }
+                              {PAYMENT_METHODS.find((pm) => pm.value === supplier.paymentMethod)?.label || supplier.paymentMethod}
                             </span>
                           </td>
+                          <td className="px-6 py-4">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
+                          <td className="px-6 py-4">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
+                          <td className="px-6 py-4">{getStatusBadge(status)}</td>
                           <td className="px-6 py-4">
-                            {getCertificateBadge(supplier.certificates.bankOwnership)}
-                          </td>
-                          <td className="px-6 py-4">
-                            {getCertificateBadge(
-                              supplier.certificates.contractorsCertificate
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                status
-                              )}`}
-                            >
-                              {status === "valid" && "Válido"}
-                              {status === "expiring" && "Por caducar"}
-                              {status === "expired" && "Acción requerida"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => openViewModal(supplier)}
-                                className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                                 title="Ver detalles"
                               >
-                                <Eye size={18} />
+                                <Eye size={16} />
                               </button>
                               <button
                                 onClick={() => openEditModal(supplier)}
-                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Editar"
                               >
-                                <Edit size={18} />
+                                <Edit size={16} />
                               </button>
                               <button
                                 onClick={() => handleDeleteSupplier(supplier.id)}
-                                disabled={
-                                  supplier.hasAssignedPOs ||
-                                  supplier.hasAssignedInvoices
-                                }
-                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={
-                                  supplier.hasAssignedPOs ||
-                                  supplier.hasAssignedInvoices
-                                    ? "No se puede eliminar con POs/Facturas asignadas"
-                                    : "Eliminar"
-                                }
+                                disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={supplier.hasAssignedPOs || supplier.hasAssignedInvoices ? "Tiene documentos asignados" : "Eliminar"}
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={16} />
                               </button>
                             </div>
                           </td>
@@ -764,100 +754,80 @@ export default function SuppliersPage() {
         </div>
       </main>
 
-      {/* Modal de crear/editar/ver proveedor */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">
+            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">
                 {modalMode === "create" && "Nuevo proveedor"}
                 {modalMode === "edit" && "Editar proveedor"}
                 {modalMode === "view" && "Detalles del proveedor"}
               </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
-              >
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
                 <X size={20} />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              {errorMessage && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  {errorMessage}
+                </div>
+              )}
+
               <div className="space-y-6">
                 {/* Información básica */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Building2 size={20} className="text-indigo-600" />
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <Building2 size={16} className="text-slate-500" />
                     Información básica
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Nombre fiscal
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Nombre fiscal *</label>
                       <input
                         type="text"
-                        value={formData.fiscalName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fiscalName: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.fiscalName : formData.fiscalName}
+                        onChange={(e) => setFormData({ ...formData, fiscalName: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                         placeholder="Nombre Fiscal S.L."
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Nombre comercial
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Nombre comercial</label>
                       <input
                         type="text"
-                        value={formData.commercialName}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            commercialName: e.target.value,
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.commercialName : formData.commercialName}
+                        onChange={(e) => setFormData({ ...formData, commercialName: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                         placeholder="Nombre Comercial"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        País
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">País</label>
                       <select
-                        value={formData.country}
-                        onChange={(e) =>
-                          setFormData({ ...formData, country: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.country : formData.country}
+                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       >
                         {COUNTRIES.map((country) => (
-                          <option key={country.code} value={country.code}>
-                            {country.name}
-                          </option>
+                          <option key={country.code} value={country.code}>{country.name}</option>
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        NIF/CIF
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">NIF/CIF *</label>
                       <input
                         type="text"
-                        value={formData.taxId}
-                        onChange={(e) =>
-                          setFormData({ ...formData, taxId: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.taxId : formData.taxId}
+                        onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                         placeholder="B12345678"
                       />
                     </div>
@@ -866,153 +836,92 @@ export default function SuppliersPage() {
 
                 {/* Dirección */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <MapPin size={20} className="text-indigo-600" />
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <MapPin size={16} className="text-slate-500" />
                     Dirección
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Calle
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Calle</label>
                       <input
                         type="text"
-                        value={formData.address.street}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: { ...formData.address, street: e.target.value },
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.address?.street : formData.address.street}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, street: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-                        placeholder="Calle Principal"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Número
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Número</label>
                       <input
                         type="text"
-                        value={formData.address.number}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: { ...formData.address, number: e.target.value },
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.address?.number : formData.address.number}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, number: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-                        placeholder="123"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Población
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Población</label>
                       <input
                         type="text"
-                        value={formData.address.city}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: { ...formData.address, city: e.target.value },
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.address?.city : formData.address.city}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, city: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-                        placeholder="Madrid"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Provincia
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Provincia</label>
                       <input
                         type="text"
-                        value={formData.address.province}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: { ...formData.address, province: e.target.value },
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.address?.province : formData.address.province}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, province: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-                        placeholder="Madrid"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Código postal
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Código postal</label>
                       <input
                         type="text"
-                        value={formData.address.postalCode}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: {
-                              ...formData.address,
-                              postalCode: e.target.value,
-                            },
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.address?.postalCode : formData.address.postalCode}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, postalCode: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-                        placeholder="28001"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Información bancaria */}
+                {/* Información de pago */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <CreditCard size={20} className="text-indigo-600" />
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <CreditCard size={16} className="text-slate-500" />
                     Información de pago
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Método de pago
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Método de pago</label>
                       <select
-                        value={formData.paymentMethod}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            paymentMethod: e.target.value as PaymentMethod,
-                          })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.paymentMethod : formData.paymentMethod}
+                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as PaymentMethod })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                       >
                         {PAYMENT_METHODS.map((method) => (
-                          <option key={method.value} value={method.value}>
-                            {method.label}
-                          </option>
+                          <option key={method.value} value={method.value}>{method.label}</option>
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Número de cuenta (IBAN/SWIFT)
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Cuenta bancaria (IBAN)</label>
                       <input
                         type="text"
-                        value={formData.bankAccount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, bankAccount: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedSupplier?.bankAccount : formData.bankAccount}
+                        onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
                         placeholder="ES91 2100 0418 4502 0005 1332"
                       />
                     </div>
@@ -1022,67 +931,35 @@ export default function SuppliersPage() {
                 {/* Certificados */}
                 {modalMode !== "view" && (
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                      <FileText size={20} className="text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                      <FileText size={16} className="text-slate-500" />
                       Certificados
                     </h3>
                     <div className="space-y-4">
-                      {/* Certificado de titularidad bancaria */}
-                      <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 hover:border-indigo-400 transition-colors">
+                      <div className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors">
                         <div className="flex items-start gap-4">
-                          <div className="bg-indigo-100 p-3 rounded-lg">
-                            <FileCheck size={24} className="text-indigo-600" />
+                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileCheck size={20} className="text-indigo-600" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900 mb-1">
-                              Certificado de titularidad bancaria
-                            </h4>
-                            <p className="text-sm text-slate-600 mb-3">
-                              Documento que acredita la titularidad de la cuenta
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <h4 className="font-medium text-slate-900 mb-1">Certificado de titularidad bancaria</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                  Subir archivo
-                                </label>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Archivo</label>
                                 <input
                                   type="file"
-                                  onChange={(e) =>
-                                    setCertificates({
-                                      ...certificates,
-                                      bankOwnership: {
-                                        ...certificates.bankOwnership,
-                                        file: e.target.files?.[0] || null,
-                                      },
-                                    })
-                                  }
+                                  onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, file: e.target.files?.[0] || null } })}
                                   className="w-full text-sm"
                                   accept=".pdf,.jpg,.jpeg,.png"
                                 />
-                                {certificates.bankOwnership.file && (
-                                  <p className="text-xs text-emerald-600 mt-1">
-                                    Archivo seleccionado:{" "}
-                                    {certificates.bankOwnership.file.name}
-                                  </p>
-                                )}
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                  Fecha de caducidad
-                                </label>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Fecha caducidad</label>
                                 <input
                                   type="date"
                                   value={certificates.bankOwnership.expiryDate}
-                                  onChange={(e) =>
-                                    setCertificates({
-                                      ...certificates,
-                                      bankOwnership: {
-                                        ...certificates.bankOwnership,
-                                        expiryDate: e.target.value,
-                                      },
-                                    })
-                                  }
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, expiryDate: e.target.value } })}
+                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
                                 />
                               </div>
                             </div>
@@ -1090,62 +967,30 @@ export default function SuppliersPage() {
                         </div>
                       </div>
 
-                      {/* Certificado de contratistas */}
-                      <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 hover:border-indigo-400 transition-colors">
+                      <div className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors">
                         <div className="flex items-start gap-4">
-                          <div className="bg-emerald-100 p-3 rounded-lg">
-                            <FileCheck size={24} className="text-emerald-600" />
+                          <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileCheck size={20} className="text-emerald-600" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900 mb-1">
-                              Certificado de contratistas y subcontratistas
-                            </h4>
-                            <p className="text-sm text-slate-600 mb-3">
-                              Verificación AEAT de alta en actividad
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <h4 className="font-medium text-slate-900 mb-1">Certificado de contratistas</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                  Subir archivo
-                                </label>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Archivo</label>
                                 <input
                                   type="file"
-                                  onChange={(e) =>
-                                    setCertificates({
-                                      ...certificates,
-                                      contractorsCertificate: {
-                                        ...certificates.contractorsCertificate,
-                                        file: e.target.files?.[0] || null,
-                                      },
-                                    })
-                                  }
+                                  onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, file: e.target.files?.[0] || null } })}
                                   className="w-full text-sm"
                                   accept=".pdf,.jpg,.jpeg,.png"
                                 />
-                                {certificates.contractorsCertificate.file && (
-                                  <p className="text-xs text-emerald-600 mt-1">
-                                    Archivo seleccionado:{" "}
-                                    {certificates.contractorsCertificate.file.name}
-                                  </p>
-                                )}
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">
-                                  Fecha de caducidad
-                                </label>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Fecha caducidad</label>
                                 <input
                                   type="date"
                                   value={certificates.contractorsCertificate.expiryDate}
-                                  onChange={(e) =>
-                                    setCertificates({
-                                      ...certificates,
-                                      contractorsCertificate: {
-                                        ...certificates.contractorsCertificate,
-                                        expiryDate: e.target.value,
-                                      },
-                                    })
-                                  }
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, expiryDate: e.target.value } })}
+                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
                                 />
                               </div>
                             </div>
@@ -1159,71 +1004,53 @@ export default function SuppliersPage() {
                 {/* Ver certificados en modo view */}
                 {modalMode === "view" && selectedSupplier && (
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                      <FileText size={20} className="text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                      <FileText size={16} className="text-slate-500" />
                       Estado de certificados
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                         <div>
-                          <p className="font-medium text-slate-900">
-                            Certificado de titularidad bancaria
-                          </p>
+                          <p className="font-medium text-slate-900">Certificado de titularidad bancaria</p>
                           {selectedSupplier.certificates.bankOwnership.expiryDate && (
-                            <p className="text-sm text-slate-600">
-                              Caduca:{" "}
-                              {new Intl.DateTimeFormat("es-ES").format(
-                                selectedSupplier.certificates.bankOwnership.expiryDate
-                              )}
+                            <p className="text-sm text-slate-500">
+                              Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.bankOwnership.expiryDate)}
                             </p>
                           )}
                         </div>
-                        {getCertificateBadge(
-                          selectedSupplier.certificates.bankOwnership
-                        )}
+                        {getCertificateBadge(selectedSupplier.certificates.bankOwnership)}
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                         <div>
-                          <p className="font-medium text-slate-900">
-                            Certificado de contratistas
-                          </p>
-                          {selectedSupplier.certificates.contractorsCertificate
-                            .expiryDate && (
-                            <p className="text-sm text-slate-600">
-                              Caduca:{" "}
-                              {new Intl.DateTimeFormat("es-ES").format(
-                                selectedSupplier.certificates.contractorsCertificate
-                                  .expiryDate
-                              )}
+                          <p className="font-medium text-slate-900">Certificado de contratistas</p>
+                          {selectedSupplier.certificates.contractorsCertificate.expiryDate && (
+                            <p className="text-sm text-slate-500">
+                              Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.contractorsCertificate.expiryDate)}
                             </p>
                           )}
                         </div>
-                        {getCertificateBadge(
-                          selectedSupplier.certificates.contractorsCertificate
-                        )}
+                        {getCertificateBadge(selectedSupplier.certificates.contractorsCertificate)}
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Botones de acción */}
+              {/* Actions */}
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
                 <button
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  className="px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors"
                 >
                   {modalMode === "view" ? "Cerrar" : "Cancelar"}
                 </button>
                 {modalMode !== "view" && (
                   <button
-                    onClick={
-                      modalMode === "create"
-                        ? handleCreateSupplier
-                        : handleUpdateSupplier
-                    }
-                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors shadow-lg"
+                    onClick={modalMode === "create" ? handleCreateSupplier : handleUpdateSupplier}
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
+                    {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                     {modalMode === "create" ? "Crear proveedor" : "Guardar cambios"}
                   </button>
                 )}
@@ -1235,4 +1062,5 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
 

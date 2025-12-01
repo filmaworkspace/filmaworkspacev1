@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Users,
   AlertTriangle,
+  Folder,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -56,6 +57,7 @@ export default function ConfigDepartments() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
+  const [projectName, setProjectName] = useState("");
   const [departments, setDepartments] = useState<string[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [departmentsWithCount, setDepartmentsWithCount] = useState<DepartmentWithCount[]>([]);
@@ -111,12 +113,13 @@ export default function ConfigDepartments() {
           return;
         }
 
-        // Load project departments
+        // Load project
         const projectRef = doc(db, "projects", id as string);
         const projectSnap = await getDoc(projectRef);
 
         if (projectSnap.exists()) {
           const projectData = projectSnap.data();
+          setProjectName(projectData.name);
           setDepartments(projectData.departments || []);
         }
 
@@ -271,6 +274,24 @@ export default function ConfigDepartments() {
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+{/* Banner superior */}
+      <div className="mt-[4.5rem] bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200 px-6 md:px-12 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-600 p-2 rounded-lg">
+            <Folder size={16} className="text-white" />
+          </div>
+          <h1 className="text-sm font-medium text-slate-900 tracking-tight">
+            {projectName}
+          </h1>
+        </div>
+        <Link
+          href="/dashboard"
+          className="text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
+        >
+          Volver a proyectos
+        </Link>
+      </div>
+
       {/* Confirm Modal */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -314,7 +335,7 @@ export default function ConfigDepartments() {
         </div>
       )}
 
-      <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
+      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
         <div className="max-w-7xl mx-auto">
           {/* Success/Error Messages */}
           {successMessage && (

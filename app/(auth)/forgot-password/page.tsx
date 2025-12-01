@@ -1,20 +1,21 @@
 "use client";
-
 import { useState } from "react";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import ErrorAlert from "@/components/ui/ErrorAlert";
-import Card from "@/components/ui/Card";
-import AnimatedBackground from "@/components/auth/AnimatedBackground";
 import { ArrowLeft } from "lucide-react";
 
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export default function ForgotPasswordPage() {
@@ -33,7 +34,6 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
     } catch (error: any) {
       let errorMessage = "Error al enviar el email";
-
       if (error.code === "auth/user-not-found") {
         errorMessage = "No existe una cuenta con este email";
       } else if (error.code === "auth/invalid-email") {
@@ -41,7 +41,6 @@ export default function ForgotPasswordPage() {
       } else if (error.code === "auth/too-many-requests") {
         errorMessage = "Demasiados intentos. Intenta más tarde";
       }
-
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -49,11 +48,32 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
-      <AnimatedBackground />
+    <div className={`min-h-screen flex ${inter.className}`}>
+      {/* Left Side - Gradient */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        
+        {/* Text centered */}
+        <div className="relative z-10 flex items-center justify-center w-full">
+          <span className={`text-3xl tracking-tighter text-white ${spaceGrotesk.className}`}>
+            <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
+          </span>
+        </div>
+      </div>
 
-      <div className={`relative z-10 w-full max-w-md ${inter.className}`}>
-        <Card>
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
+        <div className="w-full max-w-sm">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center mb-12">
+            <span className={`text-xl tracking-tighter text-slate-500 ${spaceGrotesk.className}`}>
+              <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
+            </span>
+          </div>
+
+          {/* Back link */}
           <Link
             href="/login"
             className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6 transition-colors"
@@ -62,6 +82,7 @@ export default function ForgotPasswordPage() {
             Volver al inicio de sesión
           </Link>
 
+          {/* Header */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Recuperar contraseña
@@ -85,19 +106,21 @@ export default function ForgotPasswordPage() {
               </Link>
             </div>
           ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-4 text-slate-900"
-            >
-              <Input
-                type="email"
-                label="Email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
-                disabled={loading}
-              />
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@correo.com"
+                  disabled={loading}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50"
+                />
+              </div>
 
               <ErrorAlert message={error} />
 
@@ -110,7 +133,7 @@ export default function ForgotPasswordPage() {
               </Button>
             </form>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );
