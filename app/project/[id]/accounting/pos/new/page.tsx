@@ -516,7 +516,7 @@ export default function NewPOPage() {
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       {/* Hero Header */}
-      <div className="mt-[4.5rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <div className="flex items-center justify-between mb-2">
             <Link href={`/project/${id}/accounting/pos`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
