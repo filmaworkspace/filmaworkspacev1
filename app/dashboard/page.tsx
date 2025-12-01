@@ -21,6 +21,7 @@ import {
   ArrowRight,
   LayoutGrid,
   List,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -691,7 +692,7 @@ export default function Dashboard() {
                                 {hasAccounting && (
                                   <Link href={`/project/${project.id}/accounting`} className="flex-1">
                                     <div className="flex items-center justify-center gap-2 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:shadow-sm transition-all text-indigo-700">
-                                      <FileText size={14} />
+                                      <BarChart3 size={14} />
                                       <span className="text-xs font-medium">Accounting</span>
                                     </div>
                                   </Link>
