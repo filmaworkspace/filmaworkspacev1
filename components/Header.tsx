@@ -177,7 +177,7 @@ export default function Header() {
           {currentSection && (
             <>
               <span className="text-slate-300 mx-2">/</span>
-              <span className="text-slate-500 font-normal">{currentSection}</span>
+              <span className="text-slate-500 font-semibold tracking-tighter">{currentSection}</span>
             </>
           )}
         </Link>
