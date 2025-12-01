@@ -877,7 +877,7 @@ export default function EditPOPage() {
   return (
     <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
       {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-emerald-50 to-emerald-100 border-y border-emerald-200 px-6 md:px-12 py-3 flex items-center justify-between">
+      <div className="mt-[4rem] bg-gradient-to-r from-emerald-50 to-emerald-100 border-y border-emerald-200 px-6 md:px-12 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-emerald-600 p-2 rounded-lg">
             <Folder size={16} className="text-white" />
