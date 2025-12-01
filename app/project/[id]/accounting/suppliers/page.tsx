@@ -510,7 +510,7 @@ export default function SuppliersPage() {
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando proveedores...</p>
+            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
           </div>
         </main>
       </div>
@@ -1062,4 +1062,5 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
 
