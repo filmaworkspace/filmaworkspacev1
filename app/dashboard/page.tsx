@@ -771,7 +771,7 @@ export default function Dashboard() {
                                     className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
                                     title="Contabilidad"
                                   >
-                                    <FileText size={16} />
+                                    <BarChart3 size={16} />
                                   </Link>
                                 )}
                                 {hasTeam && (
