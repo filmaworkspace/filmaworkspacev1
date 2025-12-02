@@ -422,21 +422,21 @@ export default function Dashboard() {
               <div className="hidden md:flex items-center gap-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-slate-900">{projects.length}</p>
-                  <p className="text-xs text-slate-500">Proyectos</p>
+                  <p className="text-xs text-slate-500">proyectos</p>
                 </div>
                 <div className="w-px h-10 bg-slate-200"></div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-slate-900">
                     {projects.filter(p => p.phase !== "Finalizado").length}
                   </p>
-                  <p className="text-xs text-slate-500">Activos</p>
+                  <p className="text-xs text-slate-500">activos</p>
                 </div>
                 <div className="w-px h-10 bg-slate-200"></div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-slate-900">
                     {projects.reduce((acc, p) => acc + (p.memberCount || 0), 0)}
                   </p>
-                  <p className="text-xs text-slate-500">Colaboradores</p>
+                  <p className="text-xs text-slate-500">colaboradores</p>
                 </div>
               </div>
             )}
