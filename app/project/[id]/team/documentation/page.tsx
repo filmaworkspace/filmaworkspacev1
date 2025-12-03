@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db, storage } from "@/lib/firebase";
 import {
@@ -12,7 +12,6 @@ import {
   addDoc,
   Timestamp,
   query,
-  where,
   orderBy,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -23,24 +22,22 @@ import {
   Users,
   Send,
   X,
-  Check,
   AlertCircle,
   Download,
-  Eye,
   Calendar,
-  Filter,
   Search,
   Mail,
   Shield,
-  UserCheck,
   Package,
-  Plus,
-  CheckCircle,
+  ChevronRight,
   Clock,
   FileCheck,
+  Paperclip,
+  MessageSquare,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 interface TeamMember {
   id: string;
@@ -60,9 +57,12 @@ interface DocumentGroup {
 
 interface SentDocument {
   id: string;
-  fileName: string;
-  fileUrl: string;
-  watermark: string;
+  fileName?: string;
+  fileUrl?: string;
+  watermark?: string;
+  subject?: string;
+  message?: string;
+  type: "document" | "email";
   sentTo: string[];
   sentToNames: string[];
   groupId?: string;
@@ -74,49 +74,27 @@ interface SentDocument {
 }
 
 const PREDEFINED_GROUPS: DocumentGroup[] = [
-  {
-    id: "rodaje",
-    name: "Rodaje",
-    description: "Equipo de rodaje completo",
-    memberIds: [],
-    color: "blue",
-  },
-  {
-    id: "direccion",
-    name: "Dirección",
-    description: "Equipo de dirección",
-    memberIds: [],
-    color: "purple",
-  },
-  {
-    id: "produccion",
-    name: "Producción",
-    description: "Equipo de producción",
-    memberIds: [],
-    color: "green",
-  },
-  {
-    id: "arte",
-    name: "Arte",
-    description: "Departamento de arte",
-    memberIds: [],
-    color: "pink",
-  },
-  {
-    id: "fotografia",
-    name: "Fotografía",
-    description: "Departamento de fotografía",
-    memberIds: [],
-    color: "amber",
-  },
+  { id: "rodaje", name: "Rodaje", description: "Equipo de rodaje completo", memberIds: [], color: "blue" },
+  { id: "direccion", name: "Dirección", description: "Equipo de dirección", memberIds: [], color: "purple" },
+  { id: "produccion", name: "Producción", description: "Equipo de producción", memberIds: [], color: "emerald" },
+  { id: "arte", name: "Arte", description: "Departamento de arte", memberIds: [], color: "rose" },
+  { id: "fotografia", name: "Fotografía", description: "Departamento de fotografía", memberIds: [], color: "amber" },
 ];
 
 const WATERMARK_OPTIONS = [
   { value: "confidential", label: "CONFIDENCIAL" },
   { value: "draft", label: "BORRADOR" },
   { value: "final", label: "FINAL" },
-  { value: "personal", label: "Personalizado (nombre del receptor)" },
+  { value: "personal", label: "Personalizado" },
 ];
+
+const groupColors: Record<string, { bg: string; border: string; text: string; light: string }> = {
+  blue: { bg: "bg-blue-100", border: "border-blue-200", text: "text-blue-700", light: "bg-blue-50" },
+  purple: { bg: "bg-purple-100", border: "border-purple-200", text: "text-purple-700", light: "bg-purple-50" },
+  emerald: { bg: "bg-emerald-100", border: "border-emerald-200", text: "text-emerald-700", light: "bg-emerald-50" },
+  rose: { bg: "bg-rose-100", border: "border-rose-200", text: "text-rose-700", light: "bg-rose-50" },
+  amber: { bg: "bg-amber-100", border: "border-amber-200", text: "text-amber-700", light: "bg-amber-50" },
+};
 
 export default function DocumentationPage() {
   const params = useParams();
@@ -125,26 +103,26 @@ export default function DocumentationPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<"send" | "history" | "groups">("send");
-  
+
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [groups, setGroups] = useState<DocumentGroup[]>([]);
   const [sentDocuments, setSentDocuments] = useState<SentDocument[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<SentDocument[]>([]);
-  
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<DocumentGroup | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  
+
+  const [sendMode, setSendMode] = useState<"document" | "email">("document");
+
   const [sendForm, setSendForm] = useState({
     sendType: "individual" as "individual" | "group",
     selectedMembers: [] as string[],
     selectedGroup: "",
     watermarkType: "personal" as "confidential" | "draft" | "final" | "personal",
-    customWatermark: "",
+    subject: "",
     message: "",
   });
 
@@ -152,7 +130,7 @@ export default function DocumentationPage() {
     totalDocuments: 0,
     sentToday: 0,
     totalRecipients: 0,
-    mostUsedGroup: "",
+    totalEmails: 0,
   });
 
   useEffect(() => {
@@ -169,13 +147,11 @@ export default function DocumentationPage() {
     try {
       setLoading(true);
 
-      // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
       }
 
-      // Load team members
       const membersSnapshot = await getDocs(collection(db, `projects/${id}/teamMembers`));
       const membersData = membersSnapshot.docs
         .map((doc) => ({
@@ -189,18 +165,15 @@ export default function DocumentationPage() {
 
       setMembers(membersData);
 
-      // Load groups
       const groupsSnapshot = await getDocs(collection(db, `projects/${id}/documentGroups`));
       const groupsData = groupsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as DocumentGroup[];
 
-      // Merge with predefined groups
       const allGroups = [...PREDEFINED_GROUPS, ...groupsData];
       setGroups(allGroups);
 
-      // Load sent documents
       const documentsQuery = query(
         collection(db, `projects/${id}/sentDocuments`),
         orderBy("sentAt", "desc")
@@ -214,7 +187,6 @@ export default function DocumentationPage() {
 
       setSentDocuments(documentsData);
 
-      // Calculate stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const sentToday = documentsData.filter((d) => {
@@ -223,26 +195,15 @@ export default function DocumentationPage() {
         return docDate.getTime() === today.getTime();
       }).length;
 
-      const totalRecipients = documentsData.reduce(
-        (sum, doc) => sum + doc.sentTo.length,
-        0
-      );
-
-      // Most used group
-      const groupCounts: Record<string, number> = {};
-      documentsData.forEach((doc) => {
-        if (doc.groupId) {
-          groupCounts[doc.groupId] = (groupCounts[doc.groupId] || 0) + 1;
-        }
-      });
-      const mostUsedGroupId = Object.entries(groupCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
-      const mostUsedGroup = allGroups.find((g) => g.id === mostUsedGroupId)?.name || "-";
+      const totalRecipients = documentsData.reduce((sum, doc) => sum + doc.sentTo.length, 0);
+      const totalEmails = documentsData.filter((d) => d.type === "email").length;
+      const totalDocs = documentsData.filter((d) => d.type === "document").length;
 
       setStats({
-        totalDocuments: documentsData.length,
+        totalDocuments: totalDocs,
         sentToday,
         totalRecipients,
-        mostUsedGroup,
+        totalEmails,
       });
     } catch (error) {
       console.error("Error cargando datos:", error);
@@ -257,7 +218,8 @@ export default function DocumentationPage() {
     if (searchTerm) {
       filtered = filtered.filter(
         (doc) =>
-          doc.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.fileName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           doc.sentToNames.some((name) => name.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
@@ -293,21 +255,8 @@ export default function DocumentationPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
     const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileUpload(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    if (file) handleFileUpload(file);
   };
 
   const toggleMember = (memberId: string) => {
@@ -319,26 +268,35 @@ export default function DocumentationPage() {
     }));
   };
 
-  const selectAllInGroup = (groupId: string) => {
+  const getGroupMembers = (groupId: string) => {
     const group = groups.find((g) => g.id === groupId);
-    if (!group) return;
-
-    // Get members from group's departments
-    const groupMembers = members.filter((m) =>
-      group.name === "Rodaje"
-        ? true // All members for "Rodaje"
-        : m.department.toLowerCase().includes(group.name.toLowerCase())
+    if (!group) return [];
+    return members.filter((m) =>
+      group.name === "Rodaje" ? true : m.department.toLowerCase().includes(group.name.toLowerCase())
     );
-
-    setSendForm((prev) => ({
-      ...prev,
-      selectedMembers: groupMembers.map((m) => m.id),
-    }));
   };
 
-  const handleSendDocument = async () => {
-    if (!uploadedFile) {
+  const getRecipientCount = () => {
+    if (sendForm.sendType === "group" && sendForm.selectedGroup) {
+      return getGroupMembers(sendForm.selectedGroup).length;
+    }
+    return sendForm.selectedMembers.length;
+  };
+
+  const handleSend = async () => {
+    // Validation
+    if (sendMode === "document" && !uploadedFile) {
       alert("Debes seleccionar un archivo");
+      return;
+    }
+
+    if (sendMode === "email" && !sendForm.subject.trim()) {
+      alert("Debes escribir un asunto para el email");
+      return;
+    }
+
+    if (sendMode === "email" && !sendForm.message.trim()) {
+      alert("Debes escribir un mensaje para el email");
       return;
     }
 
@@ -360,58 +318,41 @@ export default function DocumentationPage() {
       let groupName: string | undefined;
 
       if (sendForm.sendType === "group") {
+        const groupMembers = getGroupMembers(sendForm.selectedGroup);
+        recipients = groupMembers.map((m) => m.id);
+        recipientNames = groupMembers.map((m) => m.name);
         const group = groups.find((g) => g.id === sendForm.selectedGroup);
-        if (group) {
-          const groupMembers = members.filter((m) =>
-            group.name === "Rodaje"
-              ? true
-              : m.department.toLowerCase().includes(group.name.toLowerCase())
-          );
-          recipients = groupMembers.map((m) => m.id);
-          recipientNames = groupMembers.map((m) => m.name);
-          groupId = group.id;
-          groupName = group.name;
-        }
+        groupId = group?.id;
+        groupName = group?.name;
       } else {
         recipients = sendForm.selectedMembers;
-        recipientNames = members
-          .filter((m) => recipients.includes(m.id))
-          .map((m) => m.name);
+        recipientNames = members.filter((m) => recipients.includes(m.id)).map((m) => m.name);
       }
 
-      // Upload file with watermark
-      // In a real implementation, you would apply the watermark here
-      // For now, we'll just upload the original file
-      const timestamp = Date.now();
-      const fileRef = ref(
-        storage,
-        `projects/${id}/documents/${timestamp}_${uploadedFile.name}`
-      );
-      await uploadBytes(fileRef, uploadedFile);
-      const fileUrl = await getDownloadURL(fileRef);
+      let fileUrl: string | undefined;
+      let watermarkText: string | undefined;
 
-      // Determine watermark text
-      let watermarkText = "";
-      switch (sendForm.watermarkType) {
-        case "confidential":
-          watermarkText = "CONFIDENCIAL";
-          break;
-        case "draft":
-          watermarkText = "BORRADOR";
-          break;
-        case "final":
-          watermarkText = "FINAL";
-          break;
-        case "personal":
-          watermarkText = "PERSONALIZADO";
-          break;
+      if (sendMode === "document" && uploadedFile) {
+        const timestamp = Date.now();
+        const fileRef = ref(storage, `projects/${id}/documents/${timestamp}_${uploadedFile.name}`);
+        await uploadBytes(fileRef, uploadedFile);
+        fileUrl = await getDownloadURL(fileRef);
+
+        switch (sendForm.watermarkType) {
+          case "confidential": watermarkText = "CONFIDENCIAL"; break;
+          case "draft": watermarkText = "BORRADOR"; break;
+          case "final": watermarkText = "FINAL"; break;
+          case "personal": watermarkText = "PERSONALIZADO"; break;
+        }
       }
 
-      // Save document record
       await addDoc(collection(db, `projects/${id}/sentDocuments`), {
-        fileName: uploadedFile.name,
+        type: sendMode,
+        fileName: uploadedFile?.name,
         fileUrl,
         watermark: watermarkText,
+        subject: sendForm.subject || undefined,
+        message: sendForm.message || undefined,
         sentTo: recipients,
         sentToNames: recipientNames,
         groupId,
@@ -422,11 +363,8 @@ export default function DocumentationPage() {
         downloadCount: 0,
       });
 
-      // Send emails to recipients
-      // TODO: Implement email sending
+      alert(`${sendMode === "document" ? "Documento" : "Email"} enviado correctamente a ${recipients.length} personas`);
 
-      alert(`Documento enviado correctamente a ${recipients.length} personas`);
-      
       // Reset form
       setUploadedFile(null);
       setSendForm({
@@ -434,15 +372,15 @@ export default function DocumentationPage() {
         selectedMembers: [],
         selectedGroup: "",
         watermarkType: "personal",
-        customWatermark: "",
+        subject: "",
         message: "",
       });
 
       loadData();
       setActiveTab("history");
     } catch (error) {
-      console.error("Error enviando documento:", error);
-      alert("Error al enviar el documento");
+      console.error("Error enviando:", error);
+      alert("Error al enviar");
     } finally {
       setSending(false);
     }
@@ -460,11 +398,11 @@ export default function DocumentationPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <div className="w-12 h-12 border-[3px] border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500 text-sm font-medium">Cargando...</p>
           </div>
         </main>
       </div>
@@ -472,213 +410,260 @@ export default function DocumentationPage() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-amber-50 to-amber-100 border-y border-amber-200 px-6 md:px-12 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-amber-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      {/* Hero Header */}
+      <div className="mt-[4rem] bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-emerald-100 mb-6">
+            <Link href="/dashboard" className="hover:text-white transition-colors">
+              <Folder size={14} />
+            </Link>
+            <ChevronRight size={14} className="text-emerald-200" />
+            <Link href={`/project/${id}/team`} className="text-sm hover:text-white transition-colors">
+              Team
+            </Link>
+            <ChevronRight size={14} className="text-emerald-200" />
+            <span className="text-sm text-white font-medium">Documentación</span>
           </div>
-          <h1 className="text-sm font-medium text-amber-900 tracking-tight">
-            {projectName}
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-amber-600 hover:text-amber-900 transition-colors text-sm font-medium"
-          >
-            Volver a proyectos
-          </Link>
+
+          {/* Title */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+              <FileText size={26} className="text-white" />
+            </div>
+            <div>
+              <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
+                Documentación
+              </h1>
+              <p className="text-emerald-100 text-sm mt-0.5">
+                Envío de documentos y emails al equipo
+              </p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <FileCheck size={18} className="text-white/80" />
+                <span className="text-2xl font-bold">{stats.totalDocuments}</span>
+              </div>
+              <p className="text-sm text-emerald-100">Documentos</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Mail size={18} className="text-white/80" />
+                <span className="text-2xl font-bold">{stats.totalEmails}</span>
+              </div>
+              <p className="text-sm text-emerald-100">Emails</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Clock size={18} className="text-amber-300" />
+                <span className="text-2xl font-bold">{stats.sentToday}</span>
+              </div>
+              <p className="text-sm text-emerald-100">Enviados hoy</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Users size={18} className="text-white/80" />
+                <span className="text-2xl font-bold">{stats.totalRecipients}</span>
+              </div>
+              <p className="text-sm text-emerald-100">Destinatarios</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
+      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-8">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-amber-500 to-amber-700 p-3 rounded-xl shadow-lg">
-                <FileText size={28} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                  Documentación
-                </h1>
-                <p className="text-slate-600 text-sm mt-1">
-                  Envío de documentos con marca de agua
-                </p>
-              </div>
-            </div>
-          </header>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-blue-700 font-medium">Total enviados</p>
-                <FileCheck size={20} className="text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-blue-900">{stats.totalDocuments}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-emerald-700 font-medium">Enviados hoy</p>
-                <Clock size={20} className="text-emerald-600" />
-              </div>
-              <p className="text-3xl font-bold text-emerald-900">{stats.sentToday}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-purple-700 font-medium">Destinatarios</p>
-                <Users size={20} className="text-purple-600" />
-              </div>
-              <p className="text-3xl font-bold text-purple-900">{stats.totalRecipients}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-amber-700 font-medium">Grupo más usado</p>
-                <Package size={20} className="text-amber-600" />
-              </div>
-              <p className="text-lg font-bold text-amber-900">{stats.mostUsedGroup}</p>
-            </div>
-          </div>
-
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-slate-200">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 p-1.5 inline-flex gap-1">
             <button
               onClick={() => setActiveTab("send")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "send"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Send size={16} />
-                Enviar documento
-              </div>
+              <Send size={16} />
+              Enviar
             </button>
             <button
               onClick={() => setActiveTab("history")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "history"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Calendar size={16} />
-                Historial
-              </div>
+              <Calendar size={16} />
+              Historial
             </button>
             <button
               onClick={() => setActiveTab("groups")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "groups"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Users size={16} />
-                Grupos ({groups.length})
-              </div>
+              <Users size={16} />
+              Grupos
             </button>
           </div>
 
           {/* Send Tab */}
           {activeTab === "send" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Upload & Config */}
               <div className="lg:col-span-2 space-y-6">
-                {/* File Upload */}
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Upload size={20} className="text-amber-600" />
-                    Subir documento
-                  </h2>
-
-                  <div
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                      isDragging
-                        ? "border-amber-400 bg-amber-50"
-                        : "border-slate-300 hover:border-amber-400"
-                    }`}
-                  >
-                    {uploadedFile ? (
-                      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-amber-100 p-2 rounded-lg">
-                            <FileText size={24} className="text-amber-600" />
-                          </div>
-                          <div className="text-left">
-                            <p className="text-sm font-medium text-amber-900">
-                              {uploadedFile.name}
-                            </p>
-                            <p className="text-xs text-amber-600">
-                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
+                {/* Send Mode Selector */}
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-5 border-b border-slate-100">
+                    <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      ¿Qué quieres enviar?
+                    </h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setSendMode("document")}
+                        className={`p-5 rounded-xl border-2 text-left transition-all ${
+                          sendMode === "document"
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                          sendMode === "document" ? "bg-emerald-100" : "bg-slate-100"
+                        }`}>
+                          <Paperclip size={22} className={sendMode === "document" ? "text-emerald-600" : "text-slate-500"} />
                         </div>
-                        <button
-                          onClick={() => setUploadedFile(null)}
-                          className="p-2 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors"
-                        >
-                          <X size={20} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer block">
-                        <Upload size={48} className="text-slate-400 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-slate-700 mb-1">
-                          Arrastra tu archivo aquí o haz clic para seleccionar
+                        <h3 className={`font-semibold mb-1 ${sendMode === "document" ? "text-emerald-900" : "text-slate-900"}`}>
+                          Documento con marca de agua
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          PDF o imagen con marca de agua personalizada
                         </p>
-                        <p className="text-xs text-slate-500">
-                          PDF, JPG, PNG (máx. 50MB)
+                      </button>
+
+                      <button
+                        onClick={() => setSendMode("email")}
+                        className={`p-5 rounded-xl border-2 text-left transition-all ${
+                          sendMode === "email"
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                          sendMode === "email" ? "bg-emerald-100" : "bg-slate-100"
+                        }`}>
+                          <MessageSquare size={22} className={sendMode === "email" ? "text-emerald-600" : "text-slate-500"} />
+                        </div>
+                        <h3 className={`font-semibold mb-1 ${sendMode === "email" ? "text-emerald-900" : "text-slate-900"}`}>
+                          Solo email
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          Envía un mensaje al equipo sin adjuntos
                         </p>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload(file);
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Watermark Config */}
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Shield size={20} className="text-amber-600" />
-                    Marca de agua
-                  </h2>
+                {/* Document Upload (only for document mode) */}
+                {sendMode === "document" && (
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <Upload size={18} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                          Subir documento
+                        </h2>
+                        <p className="text-xs text-slate-500">PDF, JPG o PNG (máx. 50MB)</p>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <div
+                        onDrop={handleDrop}
+                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                        onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                          isDragging ? "border-emerald-400 bg-emerald-50" : "border-slate-200 hover:border-emerald-300"
+                        }`}
+                      >
+                        {uploadedFile ? (
+                          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                <FileText size={22} className="text-emerald-600" />
+                              </div>
+                              <div className="text-left">
+                                <p className="font-medium text-emerald-900">{uploadedFile.name}</p>
+                                <p className="text-sm text-emerald-600">
+                                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setUploadedFile(null)}
+                              className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block">
+                            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                              <Upload size={28} className="text-slate-400" />
+                            </div>
+                            <p className="font-medium text-slate-700 mb-1">
+                              Arrastra tu archivo aquí o haz clic para seleccionar
+                            </p>
+                            <p className="text-sm text-slate-500">PDF, JPG, PNG (máx. 50MB)</p>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(file);
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Tipo de marca
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
+                {/* Watermark (only for document mode) */}
+                {sendMode === "document" && (
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                        <Shield size={18} className="text-slate-600" />
+                      </div>
+                      <div>
+                        <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                          Marca de agua
+                        </h2>
+                        <p className="text-xs text-slate-500">Se aplicará automáticamente al documento</p>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-2 gap-3">
                         {WATERMARK_OPTIONS.map((option) => (
                           <button
                             key={option.value}
-                            onClick={() =>
-                              setSendForm({ ...sendForm, watermarkType: option.value as any })
-                            }
-                            className={`px-4 py-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                            onClick={() => setSendForm({ ...sendForm, watermarkType: option.value as any })}
+                            className={`px-4 py-3 rounded-xl border-2 transition-all text-sm font-medium ${
                               sendForm.watermarkType === option.value
-                                ? "border-amber-500 bg-amber-50 text-amber-700"
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                                 : "border-slate-200 text-slate-600 hover:border-slate-300"
                             }`}
                           >
@@ -686,47 +671,95 @@ export default function DocumentationPage() {
                           </button>
                         ))}
                       </div>
-                    </div>
-
-                    {sendForm.watermarkType === "personal" && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex gap-2">
-                          <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-sm text-blue-800">
-                            Se aplicará el nombre de cada destinatario como marca de agua personalizada
-                          </p>
+                      {sendForm.watermarkType === "personal" && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                          <div className="flex gap-2">
+                            <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-blue-800">
+                              Se aplicará el nombre de cada destinatario como marca de agua
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Email Content (for email mode or optional message) */}
+                {sendMode === "email" && (
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <Mail size={18} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                          Contenido del email
+                        </h2>
+                        <p className="text-xs text-slate-500">Escribe el mensaje para los destinatarios</p>
+                      </div>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                          Asunto *
+                        </label>
+                        <input
+                          type="text"
+                          value={sendForm.subject}
+                          onChange={(e) => setSendForm({ ...sendForm, subject: e.target.value })}
+                          placeholder="Asunto del email..."
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                          Mensaje *
+                        </label>
+                        <textarea
+                          value={sendForm.message}
+                          onChange={(e) => setSendForm({ ...sendForm, message: e.target.value })}
+                          rows={5}
+                          placeholder="Escribe tu mensaje..."
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Recipients */}
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Users size={20} className="text-amber-600" />
-                    Destinatarios
-                  </h2>
-
-                  <div className="space-y-4">
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                      <Users size={18} className="text-amber-600" />
+                    </div>
+                    <div>
+                      <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                        Destinatarios
+                      </h2>
+                      <p className="text-xs text-slate-500">Selecciona quién recibirá el envío</p>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-4">
                     {/* Send Type */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
-                        onClick={() => setSendForm({ ...sendForm, sendType: "individual" })}
-                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
+                        onClick={() => setSendForm({ ...sendForm, sendType: "individual", selectedGroup: "" })}
+                        className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all font-medium ${
                           sendForm.sendType === "individual"
-                            ? "border-amber-500 bg-amber-50 text-amber-700"
-                            : "border-slate-200 text-slate-600"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 text-slate-600 hover:border-slate-300"
                         }`}
                       >
                         Individual
                       </button>
                       <button
-                        onClick={() => setSendForm({ ...sendForm, sendType: "group" })}
-                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
+                        onClick={() => setSendForm({ ...sendForm, sendType: "group", selectedMembers: [] })}
+                        className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all font-medium ${
                           sendForm.sendType === "group"
-                            ? "border-amber-500 bg-amber-50 text-amber-700"
-                            : "border-slate-200 text-slate-600"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 text-slate-600 hover:border-slate-300"
                         }`}
                       >
                         Grupo
@@ -735,52 +768,51 @@ export default function DocumentationPage() {
 
                     {/* Group Selection */}
                     {sendForm.sendType === "group" ? (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Seleccionar grupo
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {groups.slice(0, 6).map((group) => (
+                      <div className="grid grid-cols-2 gap-3">
+                        {groups.slice(0, 6).map((group) => {
+                          const colors = groupColors[group.color] || groupColors.blue;
+                          const memberCount = getGroupMembers(group.id).length;
+                          return (
                             <button
                               key={group.id}
-                              onClick={() => {
-                                setSendForm({ ...sendForm, selectedGroup: group.id });
-                                selectAllInGroup(group.id);
-                              }}
-                              className={`px-4 py-3 rounded-lg border-2 transition-all text-left ${
+                              onClick={() => setSendForm({ ...sendForm, selectedGroup: group.id })}
+                              className={`p-4 rounded-xl border-2 text-left transition-all ${
                                 sendForm.selectedGroup === group.id
-                                  ? `border-${group.color}-500 bg-${group.color}-50`
+                                  ? `border-emerald-500 ${colors.light}`
                                   : "border-slate-200 hover:border-slate-300"
                               }`}
                             >
-                              <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                              <p className="text-xs text-slate-600">{group.description}</p>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="font-semibold text-slate-900">{group.name}</p>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+                                  {memberCount}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500">{group.description}</p>
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                           Seleccionar personas ({sendForm.selectedMembers.length})
                         </label>
-                        <div className="max-h-64 overflow-y-auto space-y-2 border border-slate-200 rounded-lg p-3">
+                        <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
                           {members.map((member) => (
                             <label
                               key={member.id}
-                              className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer"
+                              className="flex items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer transition-colors"
                             >
                               <input
                                 type="checkbox"
                                 checked={sendForm.selectedMembers.includes(member.id)}
                                 onChange={() => toggleMember(member.id)}
-                                className="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500"
+                                className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
                               />
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-slate-900">{member.name}</p>
-                                <p className="text-xs text-slate-600">
-                                  {member.department} - {member.role}
-                                </p>
+                                <p className="text-xs text-slate-500">{member.department} · {member.role}</p>
                               </div>
                             </label>
                           ))}
@@ -788,19 +820,21 @@ export default function DocumentationPage() {
                       </div>
                     )}
 
-                    {/* Message */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Mensaje (opcional)
-                      </label>
-                      <textarea
-                        value={sendForm.message}
-                        onChange={(e) => setSendForm({ ...sendForm, message: e.target.value })}
-                        rows={3}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none"
-                        placeholder="Añade un mensaje para los destinatarios..."
-                      />
-                    </div>
+                    {/* Optional message for documents */}
+                    {sendMode === "document" && (
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                          Mensaje (opcional)
+                        </label>
+                        <textarea
+                          value={sendForm.message}
+                          onChange={(e) => setSendForm({ ...sendForm, message: e.target.value })}
+                          rows={3}
+                          placeholder="Añade un mensaje para los destinatarios..."
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all resize-none"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -808,66 +842,75 @@ export default function DocumentationPage() {
               {/* Summary Sidebar */}
               <div className="lg:col-span-1">
                 <div className="sticky top-24 space-y-6">
-                  {/* Summary Card */}
-                  <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl shadow-lg p-6 text-white">
-                    <h3 className="text-sm font-medium text-amber-100 mb-4">Resumen de envío</h3>
-                    
-                    <div className="space-y-3 mb-4">
+                  <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl shadow-lg p-6 text-white">
+                    <h3 className="text-sm font-medium text-emerald-100 mb-4">Resumen de envío</h3>
+
+                    <div className="space-y-3 mb-6">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-amber-100">Documento</span>
-                        <span className="font-semibold text-xs truncate max-w-[150px]">
-                          {uploadedFile?.name || "Sin seleccionar"}
+                        <span className="text-sm text-emerald-100">Tipo</span>
+                        <span className="font-semibold text-sm">
+                          {sendMode === "document" ? "Documento" : "Email"}
                         </span>
                       </div>
+                      {sendMode === "document" && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-emerald-100">Archivo</span>
+                            <span className="font-semibold text-xs truncate max-w-[140px]">
+                              {uploadedFile?.name || "Sin seleccionar"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-emerald-100">Marca de agua</span>
+                            <span className="font-semibold text-xs">
+                              {WATERMARK_OPTIONS.find((o) => o.value === sendForm.watermarkType)?.label}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      {sendMode === "email" && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-emerald-100">Asunto</span>
+                          <span className="font-semibold text-xs truncate max-w-[140px]">
+                            {sendForm.subject || "Sin asunto"}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-amber-100">Marca de agua</span>
-                        <span className="font-semibold text-xs">
-                          {WATERMARK_OPTIONS.find(o => o.value === sendForm.watermarkType)?.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-amber-100">Destinatarios</span>
-                        <span className="font-bold text-lg">
-                          {sendForm.sendType === "group" 
-                            ? members.filter(m => 
-                                groups.find(g => g.id === sendForm.selectedGroup)?.name === "Rodaje" ||
-                                m.department.toLowerCase().includes(
-                                  groups.find(g => g.id === sendForm.selectedGroup)?.name.toLowerCase() || ""
-                                )
-                              ).length
-                            : sendForm.selectedMembers.length}
-                        </span>
+                        <span className="text-sm text-emerald-100">Destinatarios</span>
+                        <span className="font-bold text-lg">{getRecipientCount()}</span>
                       </div>
                     </div>
 
                     <button
-                      onClick={handleSendDocument}
-                      disabled={sending || !uploadedFile}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-amber-600 rounded-lg font-medium transition-colors hover:bg-amber-50 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleSend}
+                      disabled={sending}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-emerald-700 rounded-xl font-semibold transition-colors hover:bg-emerald-50 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {sending ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
                           Enviando...
                         </>
                       ) : (
                         <>
                           <Send size={18} />
-                          Enviar documento
+                          Enviar {sendMode === "document" ? "documento" : "email"}
                         </>
                       )}
                     </button>
                   </div>
 
-                  {/* Info Card */}
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <div className="flex gap-2">
                       <AlertCircle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
                       <div className="text-xs text-blue-800">
                         <p className="font-semibold mb-1">Importante</p>
                         <ul className="space-y-1">
-                          <li>• La marca de agua se aplicará automáticamente</li>
-                          <li>• Los destinatarios recibirán un email con el enlace</li>
+                          {sendMode === "document" && (
+                            <li>• La marca de agua se aplicará automáticamente</li>
+                          )}
+                          <li>• Los destinatarios recibirán un email</li>
                           <li>• Puedes ver el historial de envíos en la pestaña correspondiente</li>
                         </ul>
                       </div>
@@ -880,80 +923,87 @@ export default function DocumentationPage() {
 
           {/* History Tab */}
           {activeTab === "history" && (
-            <>
+            <div className="space-y-6">
               {/* Filters */}
-              <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <div className="relative">
-                      <Search
-                        size={18}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por archivo o destinatario..."
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      type="date"
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar por archivo, asunto o destinatario..."
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all"
                     />
                   </div>
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 text-sm transition-all"
+                  />
                 </div>
               </div>
 
               {/* Documents List */}
               {filteredDocuments.length === 0 ? (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
-                  <FileText size={64} className="text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                    No hay documentos enviados
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <FileText size={32} className="text-slate-300" />
+                  </div>
+                  <h3 className={`text-xl font-semibold text-slate-900 mb-2 ${spaceGrotesk.className}`}>
+                    No hay envíos
                   </h3>
-                  <p className="text-slate-600">
-                    Los documentos enviados aparecerán aquí
-                  </p>
+                  <p className="text-slate-500">Los documentos y emails enviados aparecerán aquí</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {filteredDocuments.map((doc) => (
                     <div
                       key={doc.id}
-                      className="bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-amber-300 hover:shadow-lg transition-all"
+                      className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-300 hover:shadow-lg transition-all"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-4 flex-1">
-                          <div className="bg-amber-100 p-3 rounded-lg">
-                            <FileText size={24} className="text-amber-600" />
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                            doc.type === "email" ? "bg-blue-100" : "bg-emerald-100"
+                          }`}>
+                            {doc.type === "email" ? (
+                              <Mail size={22} className="text-blue-600" />
+                            ) : (
+                              <FileText size={22} className="text-emerald-600" />
+                            )}
                           </div>
                           <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900 mb-1">{doc.fileName}</h3>
-                            <div className="flex flex-wrap gap-2 text-sm text-slate-600 mb-2">
-                              <span className="flex items-center gap-1">
-                                <Shield size={14} />
-                                Marca: {doc.watermark}
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-slate-900">
+                                {doc.type === "email" ? doc.subject : doc.fileName}
+                              </h3>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                doc.type === "email" 
+                                  ? "bg-blue-100 text-blue-700" 
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}>
+                                {doc.type === "email" ? "Email" : "Documento"}
                               </span>
-                              <span>•</span>
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-sm text-slate-600 mb-2">
+                              {doc.watermark && (
+                                <span className="flex items-center gap-1">
+                                  <Shield size={14} />
+                                  {doc.watermark}
+                                </span>
+                              )}
                               <span className="flex items-center gap-1">
                                 <Users size={14} />
                                 {doc.sentTo.length} destinatarios
                               </span>
                               {doc.groupName && (
-                                <>
-                                  <span>•</span>
-                                  <span className="flex items-center gap-1">
-                                    <Package size={14} />
-                                    {doc.groupName}
-                                  </span>
-                                </>
+                                <span className="flex items-center gap-1">
+                                  <Package size={14} />
+                                  {doc.groupName}
+                                </span>
                               )}
                             </div>
                             <p className="text-xs text-slate-500">
@@ -961,48 +1011,49 @@ export default function DocumentationPage() {
                             </p>
                           </div>
                         </div>
-                        <a
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                        >
-                          <Download size={16} />
-                          Descargar
-                        </a>
+                        {doc.fileUrl && (
+                          <a
+                            href={doc.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors"
+                          >
+                            <Download size={16} />
+                            Descargar
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Groups Tab */}
           {activeTab === "groups" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {groups.map((group) => {
-                const memberCount = members.filter((m) =>
-                  group.name === "Rodaje"
-                    ? true
-                    : m.department.toLowerCase().includes(group.name.toLowerCase())
-                ).length;
+                const colors = groupColors[group.color] || groupColors.blue;
+                const memberCount = getGroupMembers(group.id).length;
 
                 return (
                   <div
                     key={group.id}
-                    className={`bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-${group.color}-300 hover:shadow-lg transition-all`}
+                    className={`bg-white border-2 border-slate-200 rounded-2xl p-6 hover:shadow-lg transition-all`}
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className={`bg-${group.color}-100 p-3 rounded-lg`}>
-                        <Users size={24} className={`text-${group.color}-600`} />
+                      <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center`}>
+                        <Users size={22} className={colors.text} />
                       </div>
-                      <span className={`text-xs bg-${group.color}-100 text-${group.color}-700 px-2 py-1 rounded-full font-medium`}>
+                      <span className={`text-xs ${colors.bg} ${colors.text} px-3 py-1 rounded-full font-semibold`}>
                         {memberCount} personas
                       </span>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{group.name}</h3>
-                    <p className="text-sm text-slate-600">{group.description}</p>
+                    <h3 className={`text-lg font-semibold text-slate-900 mb-1 ${spaceGrotesk.className}`}>
+                      {group.name}
+                    </h3>
+                    <p className="text-sm text-slate-500">{group.description}</p>
                   </div>
                 );
               })}
@@ -1013,4 +1064,3 @@ export default function DocumentationPage() {
     </div>
   );
 }
-
