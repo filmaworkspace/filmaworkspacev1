@@ -1,32 +1,30 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
   Briefcase,
   Plus,
-  X,
   Trash2,
   AlertCircle,
-  CheckCircle2,
+  CheckCircle,
   Users,
   AlertTriangle,
   Folder,
   ChevronRight,
   ChevronDown,
   Info,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion, arrayRemove } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 interface Member { userId: string; name: string; email: string; department?: string; position?: string; }
-interface DepartmentWithCount { name: string; memberCount: number; members: Member[]; }
-interface ConfirmModal { isOpen: boolean; title: string; message: string; onConfirm: () => void; type: "danger" | "warning"; }
+interface DepartmentData { name: string; members: Member[]; }
 
 export default function ConfigDepartments() {
   const { id } = useParams();
@@ -38,13 +36,13 @@ export default function ConfigDepartments() {
   const [projectName, setProjectName] = useState("");
   const [departments, setDepartments] = useState<string[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [departmentsWithCount, setDepartmentsWithCount] = useState<DepartmentWithCount[]>([]);
-  const [showAddDepartment, setShowAddDepartment] = useState(false);
+  const [departmentsData, setDepartmentsData] = useState<DepartmentData[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newDepartment, setNewDepartment] = useState("");
+  const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [expandedDepartment, setExpandedDepartment] = useState<string | null>(null);
-  const [confirmModal, setConfirmModal] = useState<ConfirmModal>({ isOpen: false, title: "", message: "", onConfirm: () => {}, type: "danger" });
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; action: () => void; type: "danger" | "warning" } | null>(null);
 
   useEffect(() => { const unsub = onAuthStateChanged(auth, (u) => { if (!u) router.push("/"); else setUserId(u.uid); }); return () => unsub(); }, [router]);
 
@@ -70,11 +68,8 @@ export default function ConfigDepartments() {
   }, [userId, id, router]);
 
   useEffect(() => {
-    const depts: DepartmentWithCount[] = departments.map((d) => {
-      const m = members.filter((m) => m.department === d);
-      return { name: d, memberCount: m.length, members: m };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-    setDepartmentsWithCount(depts);
+    const data: DepartmentData[] = departments.map((d) => ({ name: d, members: members.filter((m) => m.department === d) })).sort((a, b) => a.name.localeCompare(b.name));
+    setDepartmentsData(data);
   }, [departments, members]);
 
   const handleAddDepartment = async () => {
@@ -85,196 +80,202 @@ export default function ConfigDepartments() {
       await updateDoc(doc(db, "projects", id as string), { departments: arrayUnion(newDepartment.trim()) });
       setDepartments([...departments, newDepartment.trim()]);
       setNewDepartment("");
-      setShowAddDepartment(false);
-      setSuccessMessage("Departamento agregado");
+      setShowAddForm(false);
+      setSuccessMessage("Departamento creado");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (e) { setErrorMessage("Error"); }
     finally { setSaving(false); }
   };
 
-  const handleRemoveDepartment = async (dept: string) => {
-    if (!id) return;
+  const handleRemoveDepartment = (dept: string) => {
     const usersIn = members.filter((m) => m.department === dept);
     if (usersIn.length > 0) {
-      setConfirmModal({ isOpen: true, title: "No se puede eliminar", message: `"${dept}" tiene ${usersIn.length} usuario${usersIn.length !== 1 ? "s" : ""}. Reasígnalos primero.`, type: "warning", onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false }) });
+      setConfirmModal({ open: true, title: "No se puede eliminar", message: `"${dept}" tiene ${usersIn.length} miembro${usersIn.length !== 1 ? "s" : ""}. Reasígnalos primero.`, type: "warning", action: () => setConfirmModal(null) });
       return;
     }
     setConfirmModal({
-      isOpen: true, title: "Eliminar departamento", message: `¿Eliminar "${dept}"? Esta acción no se puede deshacer.`, type: "danger",
-      onConfirm: async () => {
+      open: true, title: "Eliminar departamento", message: `¿Eliminar "${dept}"?`, type: "danger",
+      action: async () => {
         setSaving(true);
         try {
           await updateDoc(doc(db, "projects", id as string), { departments: arrayRemove(dept) });
           setDepartments(departments.filter((d) => d !== dept));
-          setSuccessMessage("Departamento eliminado");
+          setSuccessMessage("Eliminado");
           setTimeout(() => setSuccessMessage(""), 3000);
         } catch (e) { setErrorMessage("Error"); }
-        finally { setSaving(false); setConfirmModal({ ...confirmModal, isOpen: false }); }
+        finally { setSaving(false); setConfirmModal(null); }
       }
     });
   };
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center"><div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div><p className="text-slate-600 text-sm">Cargando...</p></div></div>;
-  if (errorMessage && !hasConfigAccess) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center max-w-md"><AlertCircle size={48} className="mx-auto text-red-500 mb-4" /><p className="text-slate-700 mb-4">{errorMessage}</p><Link href="/dashboard" className="text-slate-900 hover:underline font-medium">Volver</Link></div></div>;
+  const assignedCount = members.filter((m) => m.department).length;
+  const unassignedCount = members.filter((m) => !m.department).length;
+  const coverage = members.length > 0 ? Math.round((assignedCount / members.length) * 100) : 0;
+
+  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center"><div className="w-10 h-10 border-[3px] border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-3"></div><p className="text-slate-400 text-sm">Cargando...</p></div></div>;
+  if (errorMessage && !hasConfigAccess) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center max-w-sm"><div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4"><AlertCircle size={24} className="text-slate-400" /></div><p className="text-slate-600 mb-4">{errorMessage}</p><Link href="/dashboard" className="text-slate-900 hover:underline text-sm font-medium">Volver</Link></div></div>;
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-slate-900 text-white">
-        <div className="max-w-5xl mx-auto px-6 md:px-12 py-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-slate-400 text-sm flex items-center gap-1"><Folder size={14} />{projectName}<ChevronRight size={14} /><span>Configuración</span></div>
+      {/* Header */}
+      <div className="mt-[4.5rem] bg-slate-900">
+        <div className="max-w-4xl mx-auto px-6 py-5">
+          <div className="flex items-center gap-2 text-[13px] mb-3">
+            <Link href={`/project/${id}`} className="text-slate-500 hover:text-white transition-colors">{projectName}</Link>
+            <ChevronRight size={12} className="text-slate-600" />
+            <span className="text-slate-500">Configuración</span>
+            <ChevronRight size={12} className="text-slate-600" />
+            <span className="text-white font-medium">Departamentos</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center"><Briefcase size={24} className="text-white" /></div>
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-2xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Departamentos</h1>
-              <p className="text-slate-400 text-sm">{departments.length} departamento{departments.length !== 1 ? "s" : ""} • {members.filter((m) => m.department).length} asignado{members.filter((m) => m.department).length !== 1 ? "s" : ""}</p>
+              <h1 className="text-[17px] font-semibold text-white">Departamentos</h1>
+              <p className="text-slate-500 text-xs mt-0.5">{departments.length} departamento{departments.length !== 1 ? "s" : ""} • {assignedCount} asignado{assignedCount !== 1 ? "s" : ""}</p>
             </div>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-3.5 py-2 bg-white text-slate-900 rounded-lg text-sm font-medium hover:bg-slate-100 transition-colors">
+              <Plus size={15} />Nuevo
+            </button>
           </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
-        <div className="max-w-5xl mx-auto">
-          {successMessage && <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-700"><CheckCircle2 size={20} /><span className="font-medium">{successMessage}</span></div>}
-          {errorMessage && hasConfigAccess && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700"><AlertCircle size={20} /><span>{errorMessage}</span></div>}
+      <main className="flex-grow px-6 py-8">
+        <div className="max-w-4xl mx-auto space-y-5">
+          {successMessage && <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3"><CheckCircle size={16} className="text-emerald-600" /><span className="text-sm text-emerald-700">{successMessage}</span></div>}
+          {errorMessage && hasConfigAccess && <div className="p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3"><AlertCircle size={16} className="text-red-600" /><span className="text-sm text-red-700">{errorMessage}</span></div>}
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4">
             <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><Briefcase size={18} className="text-slate-600" /></div>
-                <span className="text-2xl font-bold text-slate-900">{departments.length}</span>
+              <div className="flex items-center justify-between mb-2">
+                <Briefcase size={16} className="text-slate-400" />
+                <span className="text-xl font-semibold text-slate-900">{departments.length}</span>
               </div>
-              <p className="text-xs text-slate-500 mt-2">Departamentos</p>
+              <p className="text-xs text-slate-500">Departamentos</p>
             </div>
             <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center"><Users size={18} className="text-emerald-600" /></div>
-                <span className="text-2xl font-bold text-slate-900">{members.filter((m) => m.department).length}</span>
+              <div className="flex items-center justify-between mb-2">
+                <Users size={16} className="text-emerald-500" />
+                <span className="text-xl font-semibold text-slate-900">{assignedCount}</span>
               </div>
-              <p className="text-xs text-slate-500 mt-2">Asignados</p>
+              <p className="text-xs text-slate-500">Asignados</p>
             </div>
             <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><AlertCircle size={18} className="text-amber-600" /></div>
-                <span className="text-2xl font-bold text-slate-900">{members.filter((m) => !m.department).length}</span>
+              <div className="flex items-center justify-between mb-2">
+                <User size={16} className="text-amber-500" />
+                <span className="text-xl font-semibold text-slate-900">{unassignedCount}</span>
               </div>
-              <p className="text-xs text-slate-500 mt-2">Sin asignar</p>
+              <p className="text-xs text-slate-500">Sin asignar</p>
             </div>
           </div>
 
-          {/* Departments Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><Briefcase size={20} className="text-slate-600" /></div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Lista de departamentos</h2>
-                    <p className="text-sm text-slate-500">Organiza tu equipo</p>
-                  </div>
-                </div>
-                <button onClick={() => setShowAddDepartment(!showAddDepartment)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"><Plus size={16} />Nuevo</button>
+          {/* Coverage */}
+          {members.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-500">Cobertura de asignación</span>
+                <span className="text-xs font-semibold text-slate-700">{coverage}%</span>
               </div>
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${coverage === 100 ? "bg-emerald-500" : coverage > 50 ? "bg-blue-500" : "bg-amber-500"}`} style={{ width: `${coverage}%` }}></div>
+              </div>
+            </div>
+          )}
 
-              {/* Add Form */}
-              {showAddDepartment && (
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Nuevo departamento</p>
-                  <div className="flex gap-2">
-                    <input type="text" value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddDepartment()} placeholder="Nombre del departamento" className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white text-sm" />
-                    <button onClick={handleAddDepartment} disabled={saving || !newDepartment.trim()} className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">{saving ? "..." : "Agregar"}</button>
-                    <button onClick={() => { setShowAddDepartment(false); setNewDepartment(""); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
-                  </div>
-                </div>
-              )}
+          {/* Add Form */}
+          {showAddForm && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Nuevo departamento</p>
+              <div className="flex gap-2">
+                <input type="text" value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddDepartment()} placeholder="Nombre del departamento" autoFocus className="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+                <button onClick={handleAddDepartment} disabled={saving || !newDepartment.trim()} className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50">{saving ? "..." : "Crear"}</button>
+                <button onClick={() => { setShowAddForm(false); setNewDepartment(""); }} className="px-4 py-2.5 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
+              </div>
+            </div>
+          )}
 
-              {/* Departments List */}
-              {departmentsWithCount.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-200">
-                  <Briefcase size={40} className="text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-600 font-medium mb-1">No hay departamentos</p>
-                  <p className="text-sm text-slate-500">Crea el primero para organizar tu equipo</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {departmentsWithCount.map((dept) => (
-                    <div key={dept.name} className="border border-slate-200 rounded-xl overflow-hidden bg-white hover:border-slate-300 transition-all">
-                      <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setExpandedDepartment(expandedDepartment === dept.name ? null : dept.name)}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><Briefcase size={18} className="text-slate-600" /></div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-slate-900">{dept.name}</h3>
-                            <p className="text-xs text-slate-500 flex items-center gap-1"><Users size={12} />{dept.memberCount} miembro{dept.memberCount !== 1 ? "s" : ""}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {dept.memberCount === 0 && <button onClick={(e) => { e.stopPropagation(); handleRemoveDepartment(dept.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>}
-                          <ChevronDown size={18} className={`text-slate-400 transition-transform ${expandedDepartment === dept.name ? "rotate-180" : ""}`} />
-                        </div>
+          {/* Departments List */}
+          {departmentsData.length === 0 ? (
+            <div className="text-center py-16 bg-slate-50 rounded-2xl">
+              <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Briefcase size={24} className="text-slate-400" />
+              </div>
+              <p className="text-sm font-medium text-slate-600 mb-1">Sin departamentos</p>
+              <p className="text-xs text-slate-500">Crea el primero para organizar el equipo</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+              {departmentsData.map((dept) => (
+                <div key={dept.name}>
+                  <div className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setExpandedDept(expandedDept === dept.name ? null : dept.name)}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                        <Briefcase size={18} className="text-slate-500" />
                       </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{dept.name}</p>
+                        <p className="text-xs text-slate-500">{dept.members.length} miembro{dept.members.length !== 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {dept.members.length === 0 && (
+                        <button onClick={(e) => { e.stopPropagation(); handleRemoveDepartment(dept.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                      <ChevronDown size={16} className={`text-slate-400 transition-transform ${expandedDept === dept.name ? "rotate-180" : ""}`} />
+                    </div>
+                  </div>
 
-                      {expandedDepartment === dept.name && (
-                        <div className="border-t border-slate-200 bg-slate-50 p-4">
-                          {dept.members.length > 0 ? (
-                            <>
-                              <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Miembros</p>
-                              <div className="space-y-2">
-                                {dept.members.map((m) => (
-                                  <div key={m.userId} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-semibold">{m.name?.[0]?.toUpperCase()}</div>
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium text-slate-900">{m.name}</p>
-                                      {m.position && <p className="text-xs text-slate-500">{m.position}</p>}
-                                    </div>
-                                  </div>
-                                ))}
+                  {expandedDept === dept.name && (
+                    <div className="px-5 pb-4 pt-1 bg-slate-50">
+                      {dept.members.length > 0 ? (
+                        <div className="space-y-2">
+                          {dept.members.map((m) => (
+                            <div key={m.userId} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100">
+                              <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-semibold">{m.name?.[0]?.toUpperCase()}</div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{m.name}</p>
+                                {m.position && <p className="text-xs text-slate-500">{m.position}</p>}
                               </div>
-                            </>
-                          ) : (
-                            <p className="text-center text-sm text-slate-500 py-4">No hay miembros en este departamento</p>
-                          )}
+                            </div>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="text-center text-xs text-slate-500 py-4">Sin miembros asignados</p>
                       )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Info Note */}
-          <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <div className="flex gap-3">
-              <Info size={18} className="text-slate-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-slate-600">
-                <p className="font-medium mb-1">Sobre los departamentos</p>
-                <p className="text-slate-500">Los departamentos organizan el equipo. Solo puedes eliminar departamentos vacíos. Los miembros se asignan desde la sección de Usuarios.</p>
-              </div>
-            </div>
+          {/* Info */}
+          <div className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 rounded-xl">
+            <Info size={14} className="text-slate-400 mt-0.5" />
+            <p className="text-xs text-slate-500 leading-relaxed">Solo puedes eliminar departamentos vacíos. Asigna miembros desde la sección de Usuarios.</p>
           </div>
         </div>
       </main>
 
       {/* Confirm Modal */}
-      {confirmModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="bg-slate-900 px-6 py-4">
-              <h3 className="text-lg font-semibold text-white">{confirmModal.title}</h3>
-            </div>
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
             <div className="p-6">
-              <div className="flex items-start gap-3 mb-6">
-                <div className={`p-2 rounded-xl ${confirmModal.type === "danger" ? "bg-red-100" : "bg-amber-100"}`}>
-                  <AlertTriangle size={20} className={confirmModal.type === "danger" ? "text-red-600" : "text-amber-600"} />
+              <div className="flex items-start gap-3 mb-4">
+                <div className={`p-2 rounded-xl ${confirmModal.type === "danger" ? "bg-red-50" : "bg-amber-50"}`}>
+                  <AlertTriangle size={18} className={confirmModal.type === "danger" ? "text-red-600" : "text-amber-600"} />
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">{confirmModal.message}</p>
+                <div>
+                  <p className="text-[15px] font-semibold text-slate-900 mb-1">{confirmModal.title}</p>
+                  <p className="text-sm text-slate-600">{confirmModal.message}</p>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors">Cancelar</button>
-                <button onClick={confirmModal.onConfirm} disabled={saving} className={`flex-1 px-4 py-2.5 text-white rounded-xl font-medium transition-colors disabled:opacity-50 ${confirmModal.type === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}>{saving ? "..." : "Confirmar"}</button>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmModal(null)} className="flex-1 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmModal.action} disabled={saving} className={`flex-1 py-2.5 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 ${confirmModal.type === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}>{saving ? "..." : "Confirmar"}</button>
               </div>
             </div>
           </div>
