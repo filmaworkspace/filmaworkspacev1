@@ -342,7 +342,7 @@ export default function ConfigUsers() {
       <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
         <div className="text-center">
           <div className="w-12 h-12 border-[3px] border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500 text-sm font-medium">Cargando equipo...</p>
+          <p className="text-slate-500 text-sm font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -393,7 +393,7 @@ export default function ConfigUsers() {
               </div>
               <div>
                 <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
-                  Equipo
+                  Usuarios
                 </h1>
                 <p className="text-slate-400 text-sm mt-0.5">
                   {members.length} miembro{members.length !== 1 ? "s" : ""} · {pendingInvitations.length} pendiente{pendingInvitations.length !== 1 ? "s" : ""}
