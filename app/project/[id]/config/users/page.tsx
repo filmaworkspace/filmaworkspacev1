@@ -156,7 +156,7 @@ export default function ConfigUsers() {
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       {/* Hero Header */}
-      <div className="mt-[4.5rem] bg-slate-900 text-white">
+      <div className="mt-[4rem] bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <div className="flex items-center justify-between mb-2">
             <div className="text-slate-400 text-sm flex items-center gap-1"><Folder size={14} />{projectName}<ChevronRight size={14} /><span>Configuración</span></div>
