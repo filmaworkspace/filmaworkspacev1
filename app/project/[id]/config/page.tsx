@@ -110,7 +110,7 @@ export default function ConfigGeneral() {
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       {/* Hero Header */}
-      <div className="mt-[4.5rem] bg-slate-900 text-white">
+      <div className="mt-[4rem] bg-slate-900 text-white">
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-8">
           <div className="flex items-center justify-between mb-2">
             <div className="text-slate-400 text-sm flex items-center gap-1">
@@ -251,4 +251,5 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
