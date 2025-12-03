@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
   Info,
   Edit2,
@@ -9,34 +9,33 @@ import {
   X,
   Building2,
   AlertCircle,
-  CheckCircle2,
+  CheckCircle,
   Folder,
   ChevronRight,
-  Settings,
   Film,
   Clapperboard,
   Video,
   Sparkles,
-  CheckCircle,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc, collection, getDocs, Timestamp } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
-const PHASE_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
-  Desarrollo: { color: "text-sky-700", icon: Sparkles, bg: "bg-sky-100" },
-  Preproducción: { color: "text-amber-700", icon: Clapperboard, bg: "bg-amber-100" },
-  Rodaje: { color: "text-indigo-700", icon: Film, bg: "bg-indigo-100" },
-  Postproducción: { color: "text-purple-700", icon: Video, bg: "bg-purple-100" },
-  Finalizado: { color: "text-emerald-700", icon: CheckCircle, bg: "bg-emerald-100" },
+const PHASE_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
+  Desarrollo: { color: "text-sky-600", bg: "bg-sky-50", icon: Sparkles },
+  Preproducción: { color: "text-amber-600", bg: "bg-amber-50", icon: Clapperboard },
+  Rodaje: { color: "text-rose-600", bg: "bg-rose-50", icon: Film },
+  Postproducción: { color: "text-violet-600", bg: "bg-violet-50", icon: Video },
+  Finalizado: { color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle },
 };
 
-interface ProjectData { name: string; phase: string; description?: string; producers?: string[]; departments?: string[]; createdAt: Timestamp; }
+interface ProjectData { name: string; phase: string; description?: string; producers?: string[]; createdAt: Timestamp; updatedAt?: Timestamp; }
 interface Producer { id: string; name: string; }
 
 export default function ConfigGeneral() {
@@ -60,28 +59,24 @@ export default function ConfigGeneral() {
     if (!userId || !id) return;
     const loadData = async () => {
       try {
-        const userProjectRef = doc(db, `userProjects/${userId}/projects/${id}`);
-        const userProjectSnap = await getDoc(userProjectRef);
-        if (!userProjectSnap.exists()) { setErrorMessage("No tienes acceso a este proyecto"); setLoading(false); return; }
-
+        const userProjectSnap = await getDoc(doc(db, `userProjects/${userId}/projects/${id}`));
+        if (!userProjectSnap.exists()) { setErrorMessage("No tienes acceso"); setLoading(false); return; }
         const hasConfig = userProjectSnap.data().permissions?.config || false;
         setHasConfigAccess(hasConfig);
-        if (!hasConfig) { setErrorMessage("No tienes permisos para acceder a la configuración"); setLoading(false); return; }
+        if (!hasConfig) { setErrorMessage("Sin permisos de configuración"); setLoading(false); return; }
 
-        const projectRef = doc(db, "projects", id as string);
-        const projectSnap = await getDoc(projectRef);
+        const projectSnap = await getDoc(doc(db, "projects", id as string));
         if (projectSnap.exists()) {
           const d = projectSnap.data();
           setProjectName(d.name);
-          const proj: ProjectData = { name: d.name, phase: d.phase, description: d.description || "", producers: d.producers || [], departments: d.departments || [], createdAt: d.createdAt };
-          setProject(proj);
-          setProjectForm({ name: proj.name, phase: proj.phase, description: proj.description || "" });
+          setProject({ name: d.name, phase: d.phase, description: d.description || "", producers: d.producers || [], createdAt: d.createdAt, updatedAt: d.updatedAt });
+          setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
         const producersSnap = await getDocs(collection(db, "producers"));
         setAllProducers(producersSnap.docs.map((d) => ({ id: d.id, name: d.data().name })));
         setLoading(false);
-      } catch (error) { setErrorMessage("Error al cargar los datos"); setLoading(false); }
+      } catch (error) { setErrorMessage("Error al cargar"); setLoading(false); }
     };
     loadData();
   }, [userId, id, router]);
@@ -89,161 +84,183 @@ export default function ConfigGeneral() {
   const handleSaveProject = async () => {
     if (!id) return;
     setSaving(true);
-    setSuccessMessage("");
-    setErrorMessage("");
     try {
-      await updateDoc(doc(db, "projects", id as string), { name: projectForm.name, phase: projectForm.phase, description: projectForm.description });
-      setProject({ ...project!, name: projectForm.name, phase: projectForm.phase, description: projectForm.description });
+      await updateDoc(doc(db, "projects", id as string), { name: projectForm.name, phase: projectForm.phase, description: projectForm.description, updatedAt: Timestamp.now() });
+      setProject({ ...project!, name: projectForm.name, phase: projectForm.phase, description: projectForm.description, updatedAt: Timestamp.now() });
       setProjectName(projectForm.name);
       setEditingProject(false);
-      setSuccessMessage("Proyecto actualizado");
+      setSuccessMessage("Cambios guardados");
       setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) { setErrorMessage("Error al actualizar"); }
+    } catch (error) { setErrorMessage("Error al guardar"); }
     finally { setSaving(false); }
   };
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center"><div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div><p className="text-slate-600 text-sm">Cargando...</p></div></div>;
-  if (errorMessage && !project) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center max-w-md"><AlertCircle size={48} className="mx-auto text-red-500 mb-4" /><p className="text-slate-700 mb-4">{errorMessage}</p><Link href="/dashboard" className="text-slate-900 hover:underline font-medium">Volver al panel</Link></div></div>;
+  const formatDate = (ts: Timestamp) => {
+    if (!ts) return "—";
+    return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(ts.toDate());
+  };
+
+  const formatRelativeTime = (ts: Timestamp) => {
+    if (!ts) return "";
+    const diff = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
+    if (diff < 60) return "hace unos segundos";
+    if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `hace ${Math.floor(diff / 86400)}d`;
+    return formatDate(ts);
+  };
+
+  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center"><div className="w-10 h-10 border-[3px] border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-3"></div><p className="text-slate-400 text-sm">Cargando...</p></div></div>;
+  if (errorMessage && !project) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center max-w-sm"><div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4"><AlertCircle size={24} className="text-slate-400" /></div><p className="text-slate-600 mb-4">{errorMessage}</p><Link href="/dashboard" className="text-slate-900 hover:underline text-sm font-medium">Volver al panel</Link></div></div>;
 
   const PhaseIcon = PHASE_CONFIG[project?.phase || ""]?.icon || Film;
+  const phaseConfig = PHASE_CONFIG[project?.phase || ""] || { color: "text-slate-600", bg: "bg-slate-50" };
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-slate-900 text-white">
-        <div className="max-w-5xl mx-auto px-6 md:px-12 py-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-slate-400 text-sm flex items-center gap-1">
-              <Folder size={14} />{projectName}<ChevronRight size={14} /><span>Configuración</span>
-            </div>
+      {/* Header */}
+      <div className="mt-[4.5rem] bg-slate-900">
+        <div className="max-w-4xl mx-auto px-6 py-5">
+          <div className="flex items-center gap-2 text-[13px] mb-3">
+            <Link href={`/project/${id}`} className="text-slate-500 hover:text-white transition-colors">{projectName}</Link>
+            <ChevronRight size={12} className="text-slate-600" />
+            <span className="text-slate-500">Configuración</span>
+            <ChevronRight size={12} className="text-slate-600" />
+            <span className="text-white font-medium">General</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center"><Settings size={24} className="text-white" /></div>
-            <div>
-              <h1 className={`text-2xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Configuración general</h1>
-              <p className="text-slate-400 text-sm">Información básica del proyecto</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <h1 className="text-[17px] font-semibold text-white">Información del proyecto</h1>
+            {project?.updatedAt && (
+              <span className="text-slate-500 text-xs flex items-center gap-1.5">
+                <Clock size={12} />
+                {formatRelativeTime(project.updatedAt)}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
-        <div className="max-w-5xl mx-auto">
-          {successMessage && <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-700"><CheckCircle2 size={20} /><span className="font-medium">{successMessage}</span></div>}
-          {errorMessage && project && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700"><AlertCircle size={20} /><span>{errorMessage}</span></div>}
+      <main className="flex-grow px-6 py-8">
+        <div className="max-w-4xl mx-auto space-y-5">
+          {successMessage && <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3"><CheckCircle size={16} className="text-emerald-600" /><span className="text-sm text-emerald-700">{successMessage}</span></div>}
+          {errorMessage && project && <div className="p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3"><AlertCircle size={16} className="text-red-600" /><span className="text-sm text-red-700">{errorMessage}</span></div>}
 
-          <div className="space-y-6">
-            {/* Project Info */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><Info size={20} className="text-slate-600" /></div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-900">Información del proyecto</h2>
-                      <p className="text-sm text-slate-500">Datos básicos</p>
-                    </div>
+          {/* Project Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl ${phaseConfig.bg} flex items-center justify-center`}>
+                    <PhaseIcon size={20} className={phaseConfig.color} />
                   </div>
-                  {!editingProject && (
-                    <button onClick={() => setEditingProject(true)} className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors">
-                      <Edit2 size={14} />Editar
-                    </button>
-                  )}
-                </div>
-
-                {!editingProject ? (
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Nombre</p>
-                      <p className="text-lg font-semibold text-slate-900">{project?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Fase actual</p>
-                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl ${PHASE_CONFIG[project?.phase || ""]?.bg || "bg-slate-100"}`}>
-                        <PhaseIcon size={16} className={PHASE_CONFIG[project?.phase || ""]?.color || "text-slate-600"} />
-                        <span className={`text-sm font-medium ${PHASE_CONFIG[project?.phase || ""]?.color || "text-slate-600"}`}>{project?.phase}</span>
-                      </div>
-                    </div>
-                    {project?.description && (
-                      <div>
-                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Descripción</p>
-                        <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl">{project.description}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Nombre</label>
-                      <input type="text" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Fase actual</label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {PHASES.map((phase) => {
-                          const config = PHASE_CONFIG[phase];
-                          const Icon = config?.icon || Film;
-                          return (
-                            <button key={phase} onClick={() => setProjectForm({ ...projectForm, phase })} className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-left ${projectForm.phase === phase ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
-                              <Icon size={16} className={projectForm.phase === phase ? "text-slate-900" : "text-slate-400"} />
-                              <span className={`text-sm ${projectForm.phase === phase ? "font-medium text-slate-900" : "text-slate-600"}`}>{phase}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Descripción</label>
-                      <textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} rows={3} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50 resize-none" />
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={handleSaveProject} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
-                        <Save size={16} />{saving ? "Guardando..." : "Guardar"}
-                      </button>
-                      <button onClick={() => { setEditingProject(false); setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" }); }} disabled={saving} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-medium transition-colors">
-                        <X size={16} />Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Producers - Read Only */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><Building2 size={20} className="text-amber-600" /></div>
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Productoras asignadas</h2>
-                    <p className="text-sm text-slate-500">{project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? "s" : ""} vinculada{project?.producers?.length !== 1 ? "s" : ""}</p>
+                    <h2 className="text-[15px] font-semibold text-slate-900">Datos del proyecto</h2>
+                    <p className="text-xs text-slate-500">Nombre, fase y descripción</p>
                   </div>
                 </div>
-
-                {project?.producers && project.producers.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {project.producers.map((producerId) => {
-                      const producer = allProducers.find((p) => p.id === producerId);
-                      if (!producer) return null;
-                      return (
-                        <div key={producer.id} className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
-                          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><Building2 size={18} className="text-amber-600" /></div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-slate-900">{producer.name}</h3>
-                            <p className="text-xs text-slate-500">Productora activa</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-200">
-                    <Building2 size={40} className="text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium mb-1">No hay productoras</p>
-                    <p className="text-sm text-slate-500">Este proyecto no tiene productoras vinculadas</p>
-                  </div>
+                {!editingProject && (
+                  <button onClick={() => setEditingProject(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-medium transition-colors">
+                    <Edit2 size={12} />Editar
+                  </button>
                 )}
               </div>
+
+              {!editingProject ? (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Nombre</p>
+                      <p className="text-sm font-medium text-slate-900">{project?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Fase</p>
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${phaseConfig.bg}`}>
+                        <PhaseIcon size={13} className={phaseConfig.color} />
+                        <span className={`text-xs font-medium ${phaseConfig.color}`}>{project?.phase}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {project?.description && (
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Descripción</p>
+                      <p className="text-sm text-slate-600 leading-relaxed">{project.description}</p>
+                    </div>
+                  )}
+                  <div className="pt-4 border-t border-slate-100">
+                    <span className="text-xs text-slate-400 flex items-center gap-1.5"><Calendar size={12} />Creado {formatDate(project?.createdAt!)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Nombre</label>
+                    <input type="text" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Fase</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {PHASES.map((phase) => {
+                        const cfg = PHASE_CONFIG[phase];
+                        const Icon = cfg.icon;
+                        const isSelected = projectForm.phase === phase;
+                        return (
+                          <button key={phase} onClick={() => setProjectForm({ ...projectForm, phase })} className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${isSelected ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
+                            <Icon size={16} className={isSelected ? "text-slate-900" : "text-slate-400"} />
+                            <span className={`text-[10px] ${isSelected ? "font-medium text-slate-900" : "text-slate-500"}`}>{phase}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Descripción</label>
+                    <textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} rows={3} placeholder="Breve descripción del proyecto..." className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm resize-none" />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={handleSaveProject} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                      <Save size={14} />{saving ? "Guardando..." : "Guardar"}
+                    </button>
+                    <button onClick={() => { setEditingProject(false); setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" }); }} disabled={saving} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Producers Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Building2 size={20} className="text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-[15px] font-semibold text-slate-900">Productoras</h2>
+                  <p className="text-xs text-slate-500">{project?.producers?.length || 0} asociada{project?.producers?.length !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+
+              {project?.producers && project.producers.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {project.producers.map((producerId) => {
+                    const producer = allProducers.find((p) => p.id === producerId);
+                    if (!producer) return null;
+                    return (
+                      <div key={producer.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
+                        <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                          <Building2 size={16} className="text-slate-400" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-700">{producer.name}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 rounded-xl bg-slate-50">
+                  <Building2 size={28} className="text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500">Sin productoras asociadas</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -251,5 +268,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
-
