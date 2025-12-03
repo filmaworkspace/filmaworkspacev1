@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -10,7 +10,6 @@ import {
   collection,
   getDocs,
   setDoc,
-  updateDoc,
   Timestamp,
   query,
   where,
@@ -21,24 +20,23 @@ import {
   Clock,
   Settings,
   Calendar,
-  Users,
-  Play,
-  Pause,
+  Save,
+  Bell,
+  Download,
+  Search,
+  TrendingUp,
+  BarChart3,
+  ChevronRight,
   CheckCircle,
   AlertCircle,
   Info,
-  Save,
-  Bell,
-  Mail,
-  Download,
-  Filter,
-  Search,
-  Eye,
-  TrendingUp,
-  BarChart3,
+  Timer,
+  CalendarDays,
+  Zap,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 interface TimeTrackingConfig {
   enabled: boolean;
@@ -67,14 +65,38 @@ interface TimeEntry {
 }
 
 const DAYS_OF_WEEK = [
-  { value: "monday", label: "Lunes" },
-  { value: "tuesday", label: "Martes" },
-  { value: "wednesday", label: "Miércoles" },
-  { value: "thursday", label: "Jueves" },
-  { value: "friday", label: "Viernes" },
-  { value: "saturday", label: "Sábado" },
-  { value: "sunday", label: "Domingo" },
+  { value: "monday", label: "Lun", fullLabel: "Lunes" },
+  { value: "tuesday", label: "Mar", fullLabel: "Martes" },
+  { value: "wednesday", label: "Mié", fullLabel: "Miércoles" },
+  { value: "thursday", label: "Jue", fullLabel: "Jueves" },
+  { value: "friday", label: "Vie", fullLabel: "Viernes" },
+  { value: "saturday", label: "Sáb", fullLabel: "Sábado" },
+  { value: "sunday", label: "Dom", fullLabel: "Domingo" },
 ];
+
+const statusConfig = {
+  "on-time": {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    icon: CheckCircle,
+    label: "A tiempo",
+  },
+  late: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    icon: Clock,
+    label: "Tarde",
+  },
+  missing: {
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
+    icon: AlertCircle,
+    label: "Falta",
+  },
+};
 
 export default function TimeTrackingPage() {
   const params = useParams();
@@ -83,7 +105,7 @@ export default function TimeTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "config" | "reports">("overview");
-  
+
   const [config, setConfig] = useState<TimeTrackingConfig>({
     enabled: true,
     sendTime: "18:00",
@@ -122,19 +144,16 @@ export default function TimeTrackingPage() {
     try {
       setLoading(true);
 
-      // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
       }
 
-      // Load time tracking config
       const configDoc = await getDoc(doc(db, `projects/${id}/config/timeTracking`));
       if (configDoc.exists()) {
         setConfig(configDoc.data() as TimeTrackingConfig);
       }
 
-      // Load time entries (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -154,7 +173,6 @@ export default function TimeTrackingPage() {
 
       setTimeEntries(entries);
 
-      // Calculate stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -290,11 +308,11 @@ export default function TimeTrackingPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <div className="w-12 h-12 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500 text-sm font-medium">Cargando...</p>
           </div>
         </main>
       </div>
@@ -302,347 +320,387 @@ export default function TimeTrackingPage() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-amber-50 to-amber-100 border-y border-amber-200 px-6 md:px-12 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-amber-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
+    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      {/* Hero Header */}
+      <div className="mt-[4rem] bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-blue-100 mb-6">
+            <Link href="/dashboard" className="hover:text-white transition-colors">
+              <Folder size={14} />
+            </Link>
+            <ChevronRight size={14} className="text-blue-200" />
+            <Link
+              href={`/project/${id}/team`}
+              className="text-sm hover:text-white transition-colors"
+            >
+              Team
+            </Link>
+            <ChevronRight size={14} className="text-blue-200" />
+            <span className="text-sm text-white font-medium">Control horario</span>
           </div>
-          <h1 className="text-sm font-medium text-amber-900 tracking-tight">
-            {projectName}
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-amber-600 hover:text-amber-900 transition-colors text-sm font-medium"
-          >
-            Volver a proyectos
-          </Link>
+
+          {/* Title */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+              <Clock size={26} className="text-white" />
+            </div>
+            <div>
+              <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
+                Control horario
+              </h1>
+              <p className="text-blue-100 text-sm mt-0.5">
+                Registro automático de jornada del equipo
+              </p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle size={18} className="text-emerald-300" />
+                <span className="text-2xl font-bold">{stats.todaySubmitted}</span>
+              </div>
+              <p className="text-sm text-blue-100">Hoy registrados</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <AlertCircle size={18} className="text-amber-300" />
+                <span className="text-2xl font-bold">{stats.todayPending}</span>
+              </div>
+              <p className="text-sm text-blue-100">Hoy pendientes</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp size={18} className="text-emerald-300" />
+                <span className="text-2xl font-bold">{stats.weekTotal.toFixed(0)}h</span>
+              </div>
+              <p className="text-sm text-blue-100">Horas semana</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <BarChart3 size={18} className="text-white/80" />
+                <span className="text-2xl font-bold">{stats.onTimeRate.toFixed(0)}%</span>
+              </div>
+              <p className="text-sm text-blue-100">Puntualidad</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
+      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-amber-500 to-amber-700 p-3 rounded-xl shadow-lg">
-                  <Clock size={28} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                    Control horario
-                  </h1>
-                  <p className="text-slate-600 text-sm mt-1">
-                    Registro automático de jornada del equipo
-                  </p>
-                </div>
-              </div>
-            </div>
-          </header>
-
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-slate-200">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 p-1.5 inline-flex gap-1">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "overview"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <BarChart3 size={16} />
-                Resumen
-              </div>
+              <BarChart3 size={16} />
+              Resumen
             </button>
             <button
               onClick={() => setActiveTab("config")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "config"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Settings size={16} />
-                Configuración
-              </div>
+              <Settings size={16} />
+              Configuración
             </button>
             <button
               onClick={() => setActiveTab("reports")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === "reports"
-                  ? "border-amber-600 text-amber-600"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Calendar size={16} />
-                Registros
-              </div>
+              <Calendar size={16} />
+              Registros
             </button>
           </div>
 
           {/* Overview Tab */}
           {activeTab === "overview" && (
-            <>
-              {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-blue-700 font-medium">Hoy registrados</p>
-                    <CheckCircle size={20} className="text-blue-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-blue-900">{stats.todaySubmitted}</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-amber-700 font-medium">Hoy pendientes</p>
-                    <AlertCircle size={20} className="text-amber-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-amber-900">{stats.todayPending}</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-emerald-700 font-medium">Horas semana</p>
-                    <TrendingUp size={20} className="text-emerald-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-emerald-900">
-                    {stats.weekTotal.toFixed(1)}h
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-purple-700 font-medium">Tasa puntualidad</p>
-                    <BarChart3 size={20} className="text-purple-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-purple-900">
-                    {stats.onTimeRate.toFixed(0)}%
-                  </p>
-                </div>
-              </div>
-
+            <div className="space-y-6">
               {/* Info Card */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-                <div className="flex gap-3">
-                  <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Info size={22} className="text-blue-600" />
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-blue-900 mb-2">
+                    <h3 className={`font-semibold text-blue-900 mb-2 ${spaceGrotesk.className}`}>
                       ¿Cómo funciona el control horario automático?
-                    </p>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>
-                        • Cada día laborable, el sistema envía automáticamente un formulario al equipo
+                    </h3>
+                    <ul className="text-sm text-blue-800 space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <Zap size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        Cada día laborable, el sistema envía automáticamente un formulario al equipo
                       </li>
-                      <li>• El equipo registra su entrada, salida y descanso</li>
-                      <li>
-                        • Puedes configurar recordatorios automáticos para quienes no hayan registrado
+                      <li className="flex items-start gap-2">
+                        <Timer size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        El equipo registra su entrada, salida y descanso
                       </li>
-                      <li>• Todos los registros quedan almacenados y puedes exportarlos</li>
+                      <li className="flex items-start gap-2">
+                        <Bell size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        Puedes configurar recordatorios automáticos para quienes no hayan registrado
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Download size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        Todos los registros quedan almacenados y puedes exportarlos
+                      </li>
                     </ul>
                   </div>
                 </div>
               </div>
-            </>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => setActiveTab("config")}
+                  className="group bg-white border border-slate-200 rounded-2xl p-6 text-left hover:border-blue-300 hover:shadow-lg transition-all"
+                >
+                  <div className="w-12 h-12 bg-slate-100 group-hover:bg-blue-100 rounded-xl flex items-center justify-center mb-4 transition-colors">
+                    <Settings size={22} className="text-slate-600 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <h3 className={`font-semibold text-slate-900 mb-1 ${spaceGrotesk.className}`}>
+                    Configurar horarios
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Define cuándo enviar formularios y recordatorios
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("reports")}
+                  className="group bg-white border border-slate-200 rounded-2xl p-6 text-left hover:border-blue-300 hover:shadow-lg transition-all"
+                >
+                  <div className="w-12 h-12 bg-slate-100 group-hover:bg-blue-100 rounded-xl flex items-center justify-center mb-4 transition-colors">
+                    <CalendarDays size={22} className="text-slate-600 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <h3 className={`font-semibold text-slate-900 mb-1 ${spaceGrotesk.className}`}>
+                    Ver registros
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Consulta el historial de jornadas del equipo
+                  </p>
+                </button>
+
+                <button
+                  onClick={exportReport}
+                  className="group bg-white border border-slate-200 rounded-2xl p-6 text-left hover:border-blue-300 hover:shadow-lg transition-all"
+                >
+                  <div className="w-12 h-12 bg-slate-100 group-hover:bg-blue-100 rounded-xl flex items-center justify-center mb-4 transition-colors">
+                    <Download size={22} className="text-slate-600 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <h3 className={`font-semibold text-slate-900 mb-1 ${spaceGrotesk.className}`}>
+                    Exportar datos
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Descarga los registros en formato CSV
+                  </p>
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Configuration Tab */}
           {activeTab === "config" && (
-            <div className="max-w-4xl">
-              <div className="bg-white border-2 border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
-                {/* Enable/Disable */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="font-semibold text-slate-900">Control horario activo</p>
-                    <p className="text-sm text-slate-600">
-                      Enviar formularios automáticos al equipo
-                    </p>
+            <div className="max-w-3xl">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Settings size={18} className="text-white" />
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.enabled}
-                      onChange={(e) =>
-                        setConfig({ ...config, enabled: e.target.checked })
-                      }
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-                  </label>
+                  <div>
+                    <h2 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Configuración del control horario
+                    </h2>
+                    <p className="text-xs text-slate-500">Personaliza el envío de formularios y recordatorios</p>
+                  </div>
                 </div>
 
-                {config.enabled && (
-                  <>
-                    {/* Send Time */}
+                <div className="p-6 space-y-8">
+                  {/* Enable/Disable */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                     <div>
-                      <label className="block text-sm font-semibold text-slate-900 mb-2">
-                        <div className="flex items-center gap-2">
-                          <Clock size={16} />
-                          Hora de envío del formulario
-                        </div>
-                      </label>
-                      <input
-                        type="time"
-                        value={config.sendTime}
-                        onChange={(e) =>
-                          setConfig({ ...config, sendTime: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">
-                        El formulario se enviará todos los días laborables a esta hora
+                      <p className="font-semibold text-slate-900">Control horario activo</p>
+                      <p className="text-sm text-slate-500">
+                        Enviar formularios automáticos al equipo
                       </p>
                     </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.enabled}
+                        onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-12 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
 
-                    {/* Days Selection */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-900 mb-3">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={16} />
+                  {config.enabled && (
+                    <>
+                      {/* Send Time */}
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-900 mb-3">
+                          <Clock size={16} className="text-blue-600" />
+                          Hora de envío del formulario
+                        </label>
+                        <input
+                          type="time"
+                          value={config.sendTime}
+                          onChange={(e) => setConfig({ ...config, sendTime: e.target.value })}
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">
+                          El formulario se enviará todos los días laborables a esta hora
+                        </p>
+                      </div>
+
+                      {/* Days Selection */}
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-900 mb-3">
+                          <Calendar size={16} className="text-blue-600" />
                           Días laborables
-                        </div>
-                      </label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {DAYS_OF_WEEK.map((day) => (
-                          <button
-                            key={day.value}
-                            onClick={() => toggleDay(day.value)}
-                            className={`px-4 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
-                              config.sendDays.includes(day.value)
-                                ? "border-amber-500 bg-amber-50 text-amber-700"
-                                : "border-slate-200 text-slate-600 hover:border-slate-300"
-                            }`}
-                          >
-                            {day.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Reminder */}
-                    <div className="border-t pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <p className="font-semibold text-slate-900 flex items-center gap-2">
-                            <Bell size={16} />
-                            Recordatorio automático
-                          </p>
-                          <p className="text-sm text-slate-600">
-                            Enviar recordatorio a quienes no hayan registrado
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={config.reminderEnabled}
-                            onChange={(e) =>
-                              setConfig({ ...config, reminderEnabled: e.target.checked })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
                         </label>
+                        <div className="flex gap-2">
+                          {DAYS_OF_WEEK.map((day) => (
+                            <button
+                              key={day.value}
+                              onClick={() => toggleDay(day.value)}
+                              title={day.fullLabel}
+                              className={`w-12 h-12 rounded-xl border-2 transition-all text-sm font-semibold ${
+                                config.sendDays.includes(day.value)
+                                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                                  : "border-slate-200 text-slate-400 hover:border-slate-300"
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
-                      {config.reminderEnabled && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Hora del recordatorio
+                      {/* Reminder */}
+                      <div className="border-t border-slate-100 pt-8">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                              <Bell size={18} className="text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900">Recordatorio automático</p>
+                              <p className="text-sm text-slate-500">
+                                Enviar recordatorio a quienes no hayan registrado
+                              </p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={config.reminderEnabled}
+                              onChange={(e) => setConfig({ ...config, reminderEnabled: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-12 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
-                          <input
-                            type="time"
-                            value={config.reminderTime}
-                            onChange={(e) =>
-                              setConfig({ ...config, reminderTime: e.target.value })
-                            }
-                            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                          />
                         </div>
-                      )}
-                    </div>
 
-                    {/* Additional Options */}
-                    <div className="border-t pt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-slate-900">Requerir notas</p>
-                          <p className="text-sm text-slate-600">
-                            Obligar a incluir notas en cada registro
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={config.requireNotes}
-                            onChange={(e) =>
-                              setConfig({ ...config, requireNotes: e.target.checked })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-                        </label>
+                        {config.reminderEnabled && (
+                          <div className="ml-13 pl-13">
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                              Hora del recordatorio
+                            </label>
+                            <input
+                              type="time"
+                              value={config.reminderTime}
+                              onChange={(e) => setConfig({ ...config, reminderTime: e.target.value })}
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all"
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-slate-900">Permitir registro tardío</p>
-                          <p className="text-sm text-slate-600">
-                            Permitir registrar después del día laborable
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={config.allowLateSubmission}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                allowLateSubmission: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-                        </label>
-                      </div>
+                      {/* Additional Options */}
+                      <div className="border-t border-slate-100 pt-8 space-y-4">
+                        <h4 className={`font-semibold text-slate-900 mb-4 ${spaceGrotesk.className}`}>
+                          Opciones adicionales
+                        </h4>
 
-                      {config.allowLateSubmission && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Horas permitidas para registro tardío
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                          <div>
+                            <p className="font-medium text-slate-900">Requerir notas</p>
+                            <p className="text-sm text-slate-500">
+                              Obligar a incluir notas en cada registro
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={config.requireNotes}
+                              onChange={(e) => setConfig({ ...config, requireNotes: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-12 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="168"
-                            value={config.lateSubmissionHours}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                lateSubmissionHours: parseInt(e.target.value),
-                              })
-                            }
-                            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                          />
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
 
-                {/* Save Button */}
-                <div className="border-t pt-6">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                          <div>
+                            <p className="font-medium text-slate-900">Permitir registro tardío</p>
+                            <p className="text-sm text-slate-500">
+                              Permitir registrar después del día laborable
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={config.allowLateSubmission}
+                              onChange={(e) => setConfig({ ...config, allowLateSubmission: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-12 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </label>
+                        </div>
+
+                        {config.allowLateSubmission && (
+                          <div className="p-4 bg-slate-50 rounded-xl">
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                              Horas permitidas para registro tardío
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="168"
+                              value={config.lateSubmissionHours}
+                              onChange={(e) => setConfig({ ...config, lateSubmissionHours: parseInt(e.target.value) })}
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all bg-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
                   <button
                     onClick={handleSaveConfig}
                     disabled={saving}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors shadow-lg disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -663,163 +721,150 @@ export default function TimeTrackingPage() {
 
           {/* Reports Tab */}
           {activeTab === "reports" && (
-            <>
+            <div className="space-y-6">
               {/* Filters */}
-              <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
-                    <div className="relative">
-                      <Search
-                        size={18}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por nombre o departamento..."
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                    >
-                      <option value="all">Todos los estados</option>
-                      <option value="on-time">A tiempo</option>
-                      <option value="late">Tarde</option>
-                      <option value="missing">Sin registrar</option>
-                    </select>
-                  </div>
-
-                  <div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      type="date"
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar por nombre o departamento..."
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all"
                     />
                   </div>
-                </div>
-              </div>
 
-              {/* Export Button */}
-              <div className="flex justify-end mb-4">
-                <button
-                  onClick={exportReport}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-amber-600 text-amber-600 rounded-lg hover:bg-amber-50 transition-colors text-sm font-medium"
-                >
-                  <Download size={16} />
-                  Exportar
-                </button>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all min-w-[160px]"
+                  >
+                    <option value="all">Todos los estados</option>
+                    <option value="on-time">A tiempo</option>
+                    <option value="late">Tarde</option>
+                    <option value="missing">Sin registrar</option>
+                  </select>
+
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm transition-all"
+                  />
+
+                  <button
+                    onClick={exportReport}
+                    className="flex items-center justify-center gap-2 px-5 py-3 border-2 border-blue-500 text-blue-600 rounded-xl hover:bg-blue-50 transition-colors text-sm font-semibold"
+                  >
+                    <Download size={16} />
+                    Exportar
+                  </button>
+                </div>
               </div>
 
               {/* Entries Table */}
               {filteredEntries.length === 0 ? (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
-                  <Clock size={64} className="text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Clock size={32} className="text-slate-300" />
+                  </div>
+                  <h3 className={`text-xl font-semibold text-slate-900 mb-2 ${spaceGrotesk.className}`}>
                     No hay registros
                   </h3>
-                  <p className="text-slate-600">
+                  <p className="text-slate-500">
                     {searchTerm || statusFilter !== "all" || dateFilter
-                      ? "Intenta ajustar los filtros"
+                      ? "Intenta ajustar los filtros de búsqueda"
                       : "Los registros de jornada aparecerán aquí"}
                   </p>
                 </div>
               ) : (
-                <div className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100">
+                    <p className="text-sm text-slate-500">
+                      {filteredEntries.length} registro{filteredEntries.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-slate-50 border-b-2 border-slate-200">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Usuario
                           </th>
-                          <th className="text-left px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Fecha
                           </th>
-                          <th className="text-center px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Entrada
                           </th>
-                          <th className="text-center px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Salida
                           </th>
-                          <th className="text-center px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Descanso
                           </th>
-                          <th className="text-center px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Total
                           </th>
-                          <th className="text-center px-4 py-3 text-xs font-semibold text-slate-700 uppercase">
+                          <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             Estado
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {filteredEntries.map((entry) => (
-                          <tr key={entry.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">
-                                  {entry.userName}
-                                </p>
-                                <p className="text-xs text-slate-600">{entry.department}</p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-slate-900">
-                              {formatDate(entry.date)}
-                            </td>
-                            <td className="px-4 py-3 text-center text-sm font-mono text-slate-900">
-                              {entry.startTime}
-                            </td>
-                            <td className="px-4 py-3 text-center text-sm font-mono text-slate-900">
-                              {entry.endTime}
-                            </td>
-                            <td className="px-4 py-3 text-center text-sm text-slate-600">
-                              {entry.breakMinutes} min
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-sm font-semibold text-slate-900">
-                                {entry.totalHours.toFixed(1)}h
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {entry.status === "on-time" && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                  <CheckCircle size={12} />
-                                  A tiempo
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredEntries.map((entry) => {
+                          const status = statusConfig[entry.status];
+                          const StatusIcon = status.icon;
+                          return (
+                            <tr key={entry.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                    {entry.userName?.[0]?.toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-slate-900">{entry.userName}</p>
+                                    <p className="text-xs text-slate-500">{entry.department}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-slate-900">
+                                {formatDate(entry.date)}
+                              </td>
+                              <td className="px-6 py-4 text-center text-sm font-mono text-slate-900">
+                                {entry.startTime}
+                              </td>
+                              <td className="px-6 py-4 text-center text-sm font-mono text-slate-900">
+                                {entry.endTime}
+                              </td>
+                              <td className="px-6 py-4 text-center text-sm text-slate-500">
+                                {entry.breakMinutes} min
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="text-sm font-bold text-slate-900">
+                                  {entry.totalHours.toFixed(1)}h
                                 </span>
-                              )}
-                              {entry.status === "late" && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                                  <Clock size={12} />
-                                  Tarde
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${status.bg} ${status.text} ${status.border}`}>
+                                  <StatusIcon size={12} />
+                                  {status.label}
                                 </span>
-                              )}
-                              {entry.status === "missing" && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-                                  <AlertCircle size={12} />
-                                  Falta
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </main>
     </div>
   );
 }
-
