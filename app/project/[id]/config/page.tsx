@@ -245,20 +245,10 @@ export default function ConfigGeneral() {
                 )}
               </div>
             </div>
-
-            {/* Info Note */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <div className="flex gap-3">
-                <Info size={18} className="text-slate-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-slate-600">
-                  <p className="font-medium mb-1">Sobre esta sección</p>
-                  <p className="text-slate-500">Aquí puedes modificar el nombre, la fase y la descripción del proyecto. Las productoras se gestionan desde la sección de Productoras.</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </main>
     </div>
   );
 }
+
