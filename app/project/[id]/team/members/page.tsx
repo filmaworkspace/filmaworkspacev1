@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -15,35 +15,36 @@ import {
   Timestamp,
   query,
   orderBy,
-  where,
 } from "firebase/firestore";
 import {
   Folder,
   Users,
   Plus,
   Search,
-  Filter,
   Download,
   Edit,
   Trash2,
   X,
-  UserPlus,
   UserMinus,
   DollarSign,
   Briefcase,
-  Calendar,
-  Mail,
   Phone,
-  MapPin,
-  FileText,
   Eye,
   CheckCircle,
-  AlertCircle,
   Clock,
-  TrendingUp,
+  ChevronRight,
+  ArrowLeft,
+  Building2,
+  CreditCard,
+  AlertTriangle,
+  User,
+  Mail,
+  MapPin,
+  FileText,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 interface TeamMember {
   id: string;
@@ -93,6 +94,30 @@ const POSITIONS = [
   { value: "Crew", label: "Crew" },
 ];
 
+const statusConfig = {
+  active: { 
+    bg: "bg-emerald-50", 
+    text: "text-emerald-700", 
+    border: "border-emerald-200",
+    icon: CheckCircle,
+    label: "Activo"
+  },
+  "on-leave": { 
+    bg: "bg-amber-50", 
+    text: "text-amber-700", 
+    border: "border-amber-200",
+    icon: Clock,
+    label: "De baja"
+  },
+  left: { 
+    bg: "bg-slate-50", 
+    text: "text-slate-600", 
+    border: "border-slate-200",
+    icon: UserMinus,
+    label: "Fuera"
+  },
+};
+
 export default function TeamMembersPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -108,6 +133,7 @@ export default function TeamMembersPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -151,7 +177,6 @@ export default function TeamMembersPage() {
     try {
       setLoading(true);
 
-      // Load project
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
@@ -159,7 +184,6 @@ export default function TeamMembersPage() {
         setDepartments(depts.map((d: string) => ({ name: d })));
       }
 
-      // Load team members
       const membersQuery = query(
         collection(db, `projects/${id}/teamMembers`),
         orderBy("createdAt", "desc")
@@ -175,11 +199,10 @@ export default function TeamMembersPage() {
 
       setMembers(membersData);
 
-      // Calculate stats
       const active = membersData.filter((m) => m.status === "active").length;
       const onLeave = membersData.filter((m) => m.status === "on-leave").length;
       const left = membersData.filter((m) => m.status === "left").length;
-      
+
       const totalPayroll = membersData
         .filter((m) => m.status === "active" && m.salaryType === "monthly")
         .reduce((sum, m) => sum + m.salary, 0);
@@ -235,7 +258,7 @@ export default function TeamMembersPage() {
       };
 
       await addDoc(collection(db, `projects/${id}/teamMembers`), memberData);
-      
+
       resetForm();
       setShowModal(false);
       loadData();
@@ -277,12 +300,9 @@ export default function TeamMembersPage() {
   };
 
   const handleDeleteMember = async (memberId: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este miembro del equipo?")) {
-      return;
-    }
-
     try {
       await deleteDoc(doc(db, `projects/${id}/teamMembers`, memberId));
+      setShowDeleteConfirm(null);
       loadData();
     } catch (error) {
       console.error("Error eliminando miembro:", error);
@@ -350,43 +370,19 @@ export default function TeamMembersPage() {
     setShowModal(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      active: "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "on-leave": "bg-amber-100 text-amber-700 border-amber-200",
-      left: "bg-slate-100 text-slate-700 border-slate-200",
-    };
-
-    const labels = {
-      active: "Activo",
-      "on-leave": "De baja",
-      left: "Fuera del proyecto",
-    };
-
-    const icons = {
-      active: <CheckCircle size={12} />,
-      "on-leave": <Clock size={12} />,
-      left: <UserMinus size={12} />,
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${
-          styles[status as keyof typeof styles]
-        }`}
-      >
-        {icons[status as keyof typeof icons]}
-        {labels[status as keyof typeof labels]}
-      </span>
-    );
-  };
-
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("es-ES", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     }).format(date);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("es-ES", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   const exportMembers = () => {
@@ -438,11 +434,11 @@ export default function TeamMembersPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
+            <div className="w-12 h-12 border-[3px] border-slate-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500 text-sm font-medium">Cargando...</p>
           </div>
         </main>
       </div>
@@ -450,243 +446,235 @@ export default function TeamMembersPage() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Banner superior */}
-      <div className="mt-[4.5rem] bg-gradient-to-r from-amber-50 to-amber-100 border-y border-amber-200 px-6 md:px-12 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-amber-600 p-2 rounded-lg">
-            <Folder size={16} className="text-white" />
-          </div>
-          <h1 className="text-sm font-medium text-amber-900 tracking-tight">
-            {projectName}
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-amber-600 hover:text-amber-900 transition-colors text-sm font-medium"
-          >
-            Volver a proyectos
-          </Link>
-        </div>
-      </div>
-
-      <main className="pb-16 px-6 md:px-12 flex-grow mt-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-amber-500 to-amber-700 p-3 rounded-xl shadow-lg">
-                  <Users size={28} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight">
-                    Gestión de equipo
-                  </h1>
-                  <p className="text-slate-600 text-sm mt-1">
-                    Incorporaciones, bajas y datos del equipo
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
+    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      {/* Hero Header */}
+      <div className="mt-[4rem] bg-gradient-to-br from-amber-600 via-amber-500 to-orange-500 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          {/* Breadcrumb */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 text-amber-100">
+              <Link
+                href="/dashboard"
+                className="hover:text-white transition-colors"
               >
-                <Plus size={20} />
-                Añadir miembro
-              </button>
-            </div>
-          </header>
-
-          {/* Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-blue-700 font-medium">Total</p>
-                <Users size={20} className="text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-emerald-700 font-medium">Activos</p>
-                <CheckCircle size={20} className="text-emerald-600" />
-              </div>
-              <p className="text-3xl font-bold text-emerald-900">{stats.active}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-amber-700 font-medium">De baja</p>
-                <Clock size={20} className="text-amber-600" />
-              </div>
-              <p className="text-3xl font-bold text-amber-900">{stats.onLeave}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-slate-700 font-medium">Fuera</p>
-                <UserMinus size={20} className="text-slate-600" />
-              </div>
-              <p className="text-3xl font-bold text-slate-900">{stats.left}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-purple-700 font-medium">Nómina</p>
-                <DollarSign size={20} className="text-purple-600" />
-              </div>
-              <p className="text-2xl font-bold text-purple-900">
-                {stats.totalPayroll.toLocaleString()} €
-              </p>
-              <p className="text-xs text-purple-600 mt-1">Mensual</p>
+                <Folder size={14} />
+              </Link>
+              <ChevronRight size={14} className="text-amber-200" />
+              <Link
+                href={`/project/${id}/team`}
+                className="text-sm hover:text-white transition-colors"
+              >
+                Team
+              </Link>
+              <ChevronRight size={14} className="text-amber-200" />
+              <span className="text-sm text-white font-medium">Miembros</span>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="bg-white border-2 border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <div className="relative">
-                  <Search
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por nombre, email o departamento..."
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                  />
-                </div>
+          {/* Title & Actions */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                <Users size={26} className="text-white" />
               </div>
-
               <div>
-                <select
-                  value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                >
-                  <option value="all">Todos los departamentos</option>
-                  {departments.map((dept) => (
-                    <option key={dept.name} value={dept.name}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
-                >
-                  <option value="all">Todos los estados</option>
-                  <option value="active">Activos</option>
-                  <option value="on-leave">De baja</option>
-                  <option value="left">Fuera del proyecto</option>
-                </select>
+                <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
+                  Gestión de equipo
+                </h1>
+                <p className="text-amber-100 text-sm mt-0.5">
+                  Incorporaciones, bajas y datos del equipo
+                </p>
               </div>
             </div>
-          </div>
 
-          {/* Export Button */}
-          <div className="flex justify-end mb-4">
             <button
-              onClick={exportMembers}
-              className="flex items-center gap-2 px-4 py-2 border-2 border-amber-600 text-amber-600 rounded-lg hover:bg-amber-50 transition-colors text-sm font-medium"
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-50 transition-all shadow-lg"
             >
-              <Download size={16} />
-              Exportar
+              <Plus size={16} />
+              Añadir miembro
             </button>
           </div>
 
-          {/* Members Table */}
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Users size={18} className="text-white/80" />
+                <span className="text-2xl font-bold">{stats.total}</span>
+              </div>
+              <p className="text-sm text-amber-100">Total</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle size={18} className="text-emerald-300" />
+                <span className="text-2xl font-bold">{stats.active}</span>
+              </div>
+              <p className="text-sm text-amber-100">Activos</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Clock size={18} className="text-amber-200" />
+                <span className="text-2xl font-bold">{stats.onLeave}</span>
+              </div>
+              <p className="text-sm text-amber-100">De baja</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <UserMinus size={18} className="text-red-300" />
+                <span className="text-2xl font-bold">{stats.left}</span>
+              </div>
+              <p className="text-sm text-amber-100">Fuera</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <DollarSign size={18} className="text-emerald-300" />
+                <span className="text-xl font-bold">{formatCurrency(stats.totalPayroll)} €</span>
+              </div>
+              <p className="text-sm text-amber-100">Nómina mensual</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Filters Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nombre, email o departamento..."
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-sm transition-all"
+                />
+              </div>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-sm transition-all min-w-[180px]"
+              >
+                <option value="all">Todos los departamentos</option>
+                {departments.map((dept) => (
+                  <option key={dept.name} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 text-sm transition-all min-w-[160px]"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="active">Activos</option>
+                <option value="on-leave">De baja</option>
+                <option value="left">Fuera del proyecto</option>
+              </select>
+
+              <button
+                onClick={exportMembers}
+                className="flex items-center justify-center gap-2 px-5 py-3 border-2 border-amber-500 text-amber-600 rounded-xl hover:bg-amber-50 transition-colors text-sm font-semibold"
+              >
+                <Download size={16} />
+                Exportar
+              </button>
+            </div>
+          </div>
+
+          {/* Members List */}
           {filteredMembers.length === 0 ? (
-            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center">
-              <Users size={64} className="text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Users size={32} className="text-slate-300" />
+              </div>
+              <h3 className={`text-xl font-semibold text-slate-900 mb-2 ${spaceGrotesk.className}`}>
                 {searchTerm || departmentFilter !== "all" || statusFilter !== "all"
                   ? "No se encontraron miembros"
                   : "No hay miembros en el equipo"}
               </h3>
-              <p className="text-slate-600 mb-6">
+              <p className="text-slate-500 mb-6">
                 {searchTerm || departmentFilter !== "all" || statusFilter !== "all"
-                  ? "Intenta ajustar los filtros"
+                  ? "Intenta ajustar los filtros de búsqueda"
                   : "Comienza añadiendo el primer miembro del equipo"}
               </p>
               {!searchTerm && departmentFilter === "all" && statusFilter === "all" && (
                 <button
                   onClick={openCreateModal}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-all shadow-lg"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold transition-all shadow-lg"
                 >
-                  <Plus size={20} />
+                  <Plus size={18} />
                   Añadir primer miembro
                 </button>
               )}
             </div>
           ) : (
-            <div className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <p className="text-sm text-slate-500">
+                  {filteredMembers.length} de {members.length} miembros
+                </p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50 border-b-2 border-slate-200">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Nombre
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Miembro
                       </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Departamento
                       </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Posición
-                      </th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Contrato
                       </th>
-                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Salario
                       </th>
-                      <th className="text-center px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Estado
                       </th>
-                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {filteredMembers.map((member) => (
-                      <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div>
-                            <p className="font-semibold text-slate-900">{member.name}</p>
-                            <p className="text-sm text-slate-600">{member.email}</p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Briefcase size={14} className="text-slate-400" />
-                            <span className="text-sm text-slate-900">{member.department}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm font-medium text-slate-900">
-                            {member.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-slate-600 capitalize">
-                            {member.contractType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredMembers.map((member) => {
+                      const status = statusConfig[member.status];
+                      const StatusIcon = status.icon;
+                      return (
+                        <tr key={member.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {member.name?.[0]?.toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900">{member.name}</p>
+                                <p className="text-sm text-slate-500">{member.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">{member.department}</p>
+                              <p className="text-xs text-slate-500">{member.role}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-slate-600 capitalize">
+                              {member.contractType}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
                             <p className="font-semibold text-slate-900">
-                              {member.salary.toLocaleString()} €
+                              {formatCurrency(member.salary)} €
                             </p>
                             <p className="text-xs text-slate-500 capitalize">
                               {member.salaryType === "monthly" && "mensual"}
@@ -694,38 +682,41 @@ export default function TeamMembersPage() {
                               {member.salaryType === "hourly" && "por hora"}
                               {member.salaryType === "project" && "por proyecto"}
                             </p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {getStatusBadge(member.status)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openViewModal(member)}
-                              className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Ver detalles"
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <button
-                              onClick={() => openEditModal(member)}
-                              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Editar"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteMember(member.id)}
-                              className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${status.bg} ${status.text} ${status.border}`}>
+                              <StatusIcon size={12} />
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => openViewModal(member)}
+                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                title="Ver detalles"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                onClick={() => openEditModal(member)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => setShowDeleteConfirm(member.id)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -734,369 +725,401 @@ export default function TeamMembersPage() {
         </div>
       </main>
 
-      {/* Modal de crear/editar/ver miembro */}
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={22} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className={`font-semibold text-slate-900 mb-1 ${spaceGrotesk.className}`}>
+                  Eliminar miembro
+                </h3>
+                <p className="text-sm text-slate-600">
+                  ¿Estás seguro de eliminar este miembro del equipo? Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 py-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl text-sm font-medium transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDeleteMember(showDeleteConfirm)}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-red-600/20"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit/View Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-500 to-amber-700 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">
-                {modalMode === "create" && "Nuevo miembro del equipo"}
-                {modalMode === "edit" && "Editar miembro"}
-                {modalMode === "view" && "Detalles del miembro"}
-              </h2>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Users size={20} className="text-white" />
+                </div>
+                <div>
+                  <h2 className={`text-xl font-semibold text-white ${spaceGrotesk.className}`}>
+                    {modalMode === "create" && "Nuevo miembro"}
+                    {modalMode === "edit" && "Editar miembro"}
+                    {modalMode === "view" && "Detalles del miembro"}
+                  </h2>
+                  <p className="text-amber-100 text-sm">
+                    {modalMode === "view" ? selectedMember?.name : "Completa la información"}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => {
                   setShowModal(false);
                   resetForm();
                 }}
-                className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-xl transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <div className="space-y-6">
-                {/* Información personal */}
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="space-y-8">
+                {/* Personal Info Section */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Users size={20} className="text-amber-600" />
-                    Información personal
-                  </h3>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                      <User size={16} className="text-amber-600" />
+                    </div>
+                    <h3 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Información personal
+                    </h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Nombre completo *
                       </label>
                       <input
                         type="text"
-                        value={formData.name}
+                        value={modalMode === "view" ? selectedMember?.name : formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="Juan García López"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Email *
                       </label>
                       <input
                         type="email"
-                        value={formData.email}
+                        value={modalMode === "view" ? selectedMember?.email : formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="juan@ejemplo.com"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Teléfono
                       </label>
                       <input
                         type="tel"
-                        value={formData.phone}
+                        value={modalMode === "view" ? selectedMember?.phone : formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="+34 600 000 000"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         NIF/NIE
                       </label>
                       <input
                         type="text"
-                        value={formData.taxId}
+                        value={modalMode === "view" ? selectedMember?.taxId : formData.taxId}
                         onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="12345678Z"
                       />
                     </div>
-
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Dirección
                       </label>
                       <input
                         type="text"
-                        value={formData.address}
+                        value={modalMode === "view" ? selectedMember?.address : formData.address}
                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="Calle Principal 123, Madrid"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Información laboral */}
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Briefcase size={20} className="text-amber-600" />
-                    Información laboral
-                  </h3>
+                {/* Work Info Section */}
+                <div className="border-t border-slate-100 pt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Briefcase size={16} className="text-blue-600" />
+                    </div>
+                    <h3 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Información laboral
+                    </h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Departamento *
                       </label>
                       <select
-                        value={formData.department}
-                        onChange={(e) =>
-                          setFormData({ ...formData, department: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedMember?.department : formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       >
                         <option value="">Seleccionar</option>
                         {departments.map((dept) => (
-                          <option key={dept.name} value={dept.name}>
-                            {dept.name}
-                          </option>
+                          <option key={dept.name} value={dept.name}>{dept.name}</option>
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Posición *
                       </label>
                       <select
-                        value={formData.position}
-                        onChange={(e) =>
-                          setFormData({ ...formData, position: e.target.value as any })
-                        }
+                        value={modalMode === "view" ? selectedMember?.role : formData.position}
+                        onChange={(e) => setFormData({ ...formData, position: e.target.value as any })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       >
                         {POSITIONS.map((pos) => (
-                          <option key={pos.value} value={pos.value}>
-                            {pos.label}
-                          </option>
+                          <option key={pos.value} value={pos.value}>{pos.label}</option>
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Tipo de contrato *
                       </label>
                       <select
-                        value={formData.contractType}
-                        onChange={(e) =>
-                          setFormData({ ...formData, contractType: e.target.value as any })
-                        }
+                        value={modalMode === "view" ? selectedMember?.contractType : formData.contractType}
+                        onChange={(e) => setFormData({ ...formData, contractType: e.target.value as any })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       >
                         {CONTRACT_TYPES.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
+                          <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Estado *
                       </label>
                       <select
-                        value={formData.status}
-                        onChange={(e) =>
-                          setFormData({ ...formData, status: e.target.value as any })
-                        }
+                        value={modalMode === "view" ? selectedMember?.status : formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       >
                         <option value="active">Activo</option>
                         <option value="on-leave">De baja</option>
                         <option value="left">Fuera del proyecto</option>
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Fecha de incorporación *
                       </label>
                       <input
                         type="date"
-                        value={formData.joinDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, joinDate: e.target.value })
+                        value={modalMode === "view" 
+                          ? selectedMember?.joinDate?.toISOString().split("T")[0] 
+                          : formData.joinDate
                         }
+                        onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       />
                     </div>
-
-                    {formData.status === "left" && (
+                    {(formData.status === "left" || selectedMember?.status === "left") && (
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                           Fecha de salida
                         </label>
                         <input
                           type="date"
-                          value={formData.leaveDate}
-                          onChange={(e) =>
-                            setFormData({ ...formData, leaveDate: e.target.value })
+                          value={modalMode === "view" 
+                            ? selectedMember?.leaveDate?.toISOString().split("T")[0] || ""
+                            : formData.leaveDate
                           }
+                          onChange={(e) => setFormData({ ...formData, leaveDate: e.target.value })}
                           disabled={modalMode === "view"}
-                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         />
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Información salarial */}
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <DollarSign size={20} className="text-amber-600" />
-                    Información salarial
-                  </h3>
+                {/* Salary Section */}
+                <div className="border-t border-slate-100 pt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <DollarSign size={16} className="text-emerald-600" />
+                    </div>
+                    <h3 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Información salarial
+                    </h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Salario (€) *
                       </label>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
-                        value={formData.salary}
-                        onChange={(e) =>
-                          setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })
-                        }
+                        value={modalMode === "view" ? selectedMember?.salary : formData.salary}
+                        onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="2000"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Tipo de salario *
                       </label>
                       <select
-                        value={formData.salaryType}
-                        onChange={(e) =>
-                          setFormData({ ...formData, salaryType: e.target.value as any })
-                        }
+                        value={modalMode === "view" ? selectedMember?.salaryType : formData.salaryType}
+                        onChange={(e) => setFormData({ ...formData, salaryType: e.target.value as any })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                       >
                         {SALARY_TYPES.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
+                          <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
                       </select>
                     </div>
-
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Número de cuenta (IBAN)
                       </label>
                       <input
                         type="text"
-                        value={formData.bankAccount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, bankAccount: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedMember?.bankAccount : formData.bankAccount}
+                        onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="ES91 2100 0418 4502 0005 1332"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Contacto de emergencia */}
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Phone size={20} className="text-amber-600" />
-                    Contacto de emergencia
-                  </h3>
+                {/* Emergency Contact Section */}
+                <div className="border-t border-slate-100 pt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                      <Phone size={16} className="text-red-600" />
+                    </div>
+                    <h3 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Contacto de emergencia
+                    </h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Nombre del contacto
                       </label>
                       <input
                         type="text"
-                        value={formData.emergencyContact}
-                        onChange={(e) =>
-                          setFormData({ ...formData, emergencyContact: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedMember?.emergencyContact : formData.emergencyContact}
+                        onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="María García"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
                         Teléfono de emergencia
                       </label>
                       <input
                         type="tel"
-                        value={formData.emergencyPhone}
-                        onChange={(e) =>
-                          setFormData({ ...formData, emergencyPhone: e.target.value })
-                        }
+                        value={modalMode === "view" ? selectedMember?.emergencyPhone : formData.emergencyPhone}
+                        onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all"
                         placeholder="+34 600 000 000"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Notas */}
-                <div className="border-t pt-6">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Notas adicionales
-                  </label>
+                {/* Notes Section */}
+                <div className="border-t border-slate-100 pt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <FileText size={16} className="text-slate-600" />
+                    </div>
+                    <h3 className={`font-semibold text-slate-900 ${spaceGrotesk.className}`}>
+                      Notas adicionales
+                    </h3>
+                  </div>
                   <textarea
-                    value={formData.notes}
+                    value={modalMode === "view" ? selectedMember?.notes : formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     disabled={modalMode === "view"}
                     rows={3}
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-50 resize-none"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-600 text-sm transition-all resize-none"
                     placeholder="Información adicional relevante..."
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Botones de acción */}
-              <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+                className="px-6 py-3 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-xl font-medium transition-all"
+              >
+                {modalMode === "view" ? "Cerrar" : "Cancelar"}
+              </button>
+              {modalMode !== "view" && (
                 <button
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-2.5 border-2 border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  onClick={modalMode === "create" ? handleCreateMember : handleUpdateMember}
+                  disabled={saving}
+                  className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-amber-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {modalMode === "view" ? "Cerrar" : "Cancelar"}
+                  {saving ? "Guardando..." : modalMode === "create" ? "Crear miembro" : "Guardar cambios"}
                 </button>
-                {modalMode !== "view" && (
-                  <button
-                    onClick={modalMode === "create" ? handleCreateMember : handleUpdateMember}
-                    disabled={saving}
-                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors shadow-lg disabled:opacity-50"
-                  >
-                    {saving ? "Guardando..." : modalMode === "create" ? "Crear miembro" : "Guardar cambios"}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1104,4 +1127,3 @@ export default function TeamMembersPage() {
     </div>
   );
 }
-
