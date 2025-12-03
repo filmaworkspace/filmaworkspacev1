@@ -112,7 +112,7 @@ export default function TeamPage() {
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-[3px] border-slate-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-500 text-sm font-medium">Cargando equipo...</p>
+            <p className="text-slate-500 text-sm font-medium">Cargando...</p>
           </div>
         </main>
       </div>
@@ -434,3 +434,4 @@ export default function TeamPage() {
     </div>
   );
 }
+
