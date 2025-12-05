@@ -1,12 +1,11 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
 import {
-  Folder,
   BarChart3,
   Download,
   FileSpreadsheet,
@@ -14,17 +13,11 @@ import {
   DollarSign,
   FileText,
   Receipt,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   Building2,
-  ChevronRight,
-  RefreshCw,
-  PiggyBank,
+  ArrowLeft,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 interface ReportStats {
   totalBudget: number;
@@ -354,305 +347,148 @@ export default function ReportsPage() {
 
   const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
+  const reports = [
+    {
+      id: "budget",
+      icon: DollarSign,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+      title: "Informe de presupuesto",
+      description: "Todas las cuentas y subcuentas con presupuestado, comprometido, realizado y disponible.",
+      action: generateBudgetReport,
+    },
+    {
+      id: "pos",
+      icon: FileText,
+      iconBg: "bg-indigo-50",
+      iconColor: "text-indigo-600",
+      title: "Órdenes de compra",
+      description: "Detalle de todas las POs con importes comprometidos y estado de aprobación.",
+      meta: `${stats.totalPOs} registradas`,
+      action: generatePOsReport,
+    },
+    {
+      id: "invoices",
+      icon: Receipt,
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+      title: "Facturas",
+      description: "Listado completo de facturas con importes, vencimientos y estado de pago.",
+      meta: `${stats.totalInvoices} registradas`,
+      action: generateInvoicesReport,
+    },
+    {
+      id: "suppliers",
+      icon: Building2,
+      iconBg: "bg-violet-50",
+      iconColor: "text-violet-600",
+      title: "Proveedores",
+      description: "Base de datos de proveedores con información fiscal y estado de certificados.",
+      meta: `${stats.totalSuppliers} proveedores`,
+      action: generateSuppliersReport,
+    },
+    {
+      id: "cost-control",
+      icon: TrendingUp,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
+      title: "Cost Control",
+      description: "Informe detallado con presupuesto vs. comprometido vs. realizado con alertas.",
+      action: generateCostControlReport,
+    },
+    {
+      id: "executive",
+      icon: FileSpreadsheet,
+      iconBg: "bg-slate-100",
+      iconColor: "text-slate-600",
+      title: "Resumen ejecutivo",
+      description: "Resumen condensado con las métricas clave del proyecto para presentaciones.",
+      action: generateExecutiveSummary,
+    },
+  ];
+
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
-          </div>
-        </main>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  const budgetedPercent = stats.totalBudget > 0 ? ((stats.totalCommitted + stats.totalActual) / stats.totalBudget) * 100 : 0;
-
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex items-center justify-between mb-2">
-            <Link href={`/project/${id}/accounting`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
-              <Folder size={14} />
-              {projectName}
-              <ChevronRight size={14} />
-              <span>Contabilidad</span>
-            </Link>
-            <button onClick={loadData} className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10">
-              <RefreshCw size={14} />
-            </button>
-          </div>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
 
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-              <BarChart3 size={24} className="text-white" />
+            <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center">
+              <BarChart3 size={24} className="text-rose-600" />
             </div>
             <div>
-              <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Informes</h1>
-              <p className="text-slate-400 text-sm">Descarga informes financieros y de cost control</p>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <PiggyBank size={18} className="text-blue-400" />
-                <span className="text-xl font-bold">{stats.totalBudget.toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Presupuestado</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Clock size={18} className="text-amber-400" />
-                <span className="text-xl font-bold">{stats.totalCommitted.toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Comprometido</p>
-              <div className="mt-2 text-xs text-amber-400">{stats.totalBudget > 0 ? `${((stats.totalCommitted / stats.totalBudget) * 100).toFixed(1)}%` : "0%"}</div>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <CheckCircle size={18} className="text-emerald-400" />
-                <span className="text-xl font-bold">{stats.totalActual.toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Realizado</p>
-              <div className="mt-2 text-xs text-emerald-400">{stats.totalBudget > 0 ? `${((stats.totalActual / stats.totalBudget) * 100).toFixed(1)}%` : "0%"}</div>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <TrendingUp size={18} className="text-purple-400" />
-                <span className="text-xl font-bold">{stats.totalAvailable.toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Disponible</p>
-              <div className="mt-2 text-xs text-purple-400">{stats.totalBudget > 0 ? `${((stats.totalAvailable / stats.totalBudget) * 100).toFixed(1)}%` : "0%"}</div>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-              <span>Ejecución del presupuesto</span>
-              <span>{budgetedPercent.toFixed(1)}%</span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all" style={{ width: `${Math.min(budgetedPercent, 100)}%` }} />
+              <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
+              <p className="text-slate-500 text-sm">Descarga informes financieros y de cost control</p>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Reports Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Presupuesto */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <DollarSign size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Informe de presupuesto</h3>
-                  <p className="text-xs text-slate-500">Detalle de cuentas</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">Todas las cuentas y subcuentas con presupuestado, comprometido, realizado y disponible.</p>
-              <button
-                onClick={generateBudgetReport}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "budget" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Reports List */}
+        <div className="space-y-3">
+          {reports.map((report) => {
+            const Icon = report.icon;
+            const isGenerating = generating === report.id;
 
-            {/* POs */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <FileText size={24} />
+            return (
+              <div key={report.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-all flex items-center gap-4">
+                <div className={`w-12 h-12 ${report.iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                  <Icon size={22} className={report.iconColor} />
                 </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Órdenes de compra</h3>
-                  <p className="text-xs text-slate-500">{stats.totalPOs} POs registradas</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">Detalle de todas las POs con importes comprometidos y estado de aprobación.</p>
-              <button
-                onClick={generatePOsReport}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "pos" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
 
-            {/* Facturas */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                  <Receipt size={24} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">{report.title}</h3>
+                    {report.meta && (
+                      <span className="text-xs text-slate-400">• {report.meta}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-500 mt-0.5">{report.description}</p>
                 </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Facturas</h3>
-                  <p className="text-xs text-slate-500">{stats.totalInvoices} facturas registradas</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">Listado completo de facturas con importes, vencimientos y estado de pago.</p>
-              <button
-                onClick={generateInvoicesReport}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "invoices" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
 
-            {/* Proveedores */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
-                  <Building2 size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Proveedores</h3>
-                  <p className="text-xs text-slate-500">{stats.totalSuppliers} proveedores</p>
-                </div>
+                <button
+                  onClick={report.action}
+                  disabled={generating !== null}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      Descargar
+                    </>
+                  )}
+                </button>
               </div>
-              <p className="text-sm text-slate-600 mb-4">Base de datos de proveedores con información fiscal y estado de certificados.</p>
-              <button
-                onClick={generateSuppliersReport}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "suppliers" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
+            );
+          })}
+        </div>
 
-            {/* Cost Control */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all">
-                  <TrendingUp size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Cost Control</h3>
-                  <p className="text-xs text-slate-500">Análisis completo</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">Informe detallado con presupuesto vs. comprometido vs. realizado con alertas.</p>
-              <button
-                onClick={generateCostControlReport}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "cost-control" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Resumen Ejecutivo */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-slate-100 text-slate-700 rounded-xl flex items-center justify-center group-hover:bg-slate-800 group-hover:text-white transition-all">
-                  <FileSpreadsheet size={24} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Resumen ejecutivo</h3>
-                  <p className="text-xs text-slate-500">Vista global</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">Resumen condensado con las métricas clave del proyecto para presentaciones.</p>
-              <button
-                onClick={generateExecutiveSummary}
-                disabled={generating !== null}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
-              >
-                {generating === "executive" ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} />
-                    Descargar CSV
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Nota informativa */}
-          <div className="mt-8 bg-slate-50 border border-slate-200 rounded-2xl p-6">
-            <div className="flex gap-3">
-              <AlertCircle size={20} className="text-slate-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900 mb-2">Información sobre los informes</h4>
-                <ul className="text-sm text-slate-600 space-y-1">
-                  <li>• Los informes se generan en formato CSV (compatible con Excel)</li>
-                  <li>• Todos los importes se muestran en euros (€)</li>
-                  <li>• Los datos son en tiempo real del estado actual del proyecto</li>
-                  <li>• El informe de Cost Control incluye alertas automáticas cuando el disponible es menor al 10%</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+        {/* Note */}
+        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <p className="text-sm text-slate-600">
+            Los informes se generan en formato CSV compatible con Excel. Todos los importes en euros (€) y los datos son en tiempo real.
+          </p>
         </div>
       </main>
     </div>
   );
 }
-
