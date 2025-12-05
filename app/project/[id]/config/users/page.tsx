@@ -296,7 +296,7 @@ export default function ConfigUsers() {
 
         {/* Project Roles */}
         {projectMembers.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
               <Shield size={18} className="text-slate-400" />
               <h3 className="font-semibold text-slate-900">Roles de proyecto</h3>
@@ -345,7 +345,7 @@ export default function ConfigUsers() {
 
         {/* Department Members */}
         {deptMembers.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
               <Briefcase size={18} className="text-slate-400" />
               <h3 className="font-semibold text-slate-900">Departamentos</h3>
