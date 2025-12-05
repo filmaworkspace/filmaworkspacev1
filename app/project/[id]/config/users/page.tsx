@@ -325,7 +325,10 @@ export default function ConfigUsers() {
                           {activeMenu === m.userId && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
+                              <div
+                                className="absolute z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-36"
+                                style={{ right: 0, top: "100%", marginTop: "4px" }}
+                              >
                                 <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} />Eliminar</button>
                               </div>
                             </>
