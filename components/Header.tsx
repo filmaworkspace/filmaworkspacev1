@@ -143,18 +143,6 @@ export default function Header() {
       : "panel"
     : null;
 
-  const teamPage = isTeamSection
-    ? pathname.includes("/members")
-      ? "members"
-      : pathname.includes("/planning")
-      ? "planning"
-      : pathname.includes("/time-tracking")
-      ? "time-tracking"
-      : pathname.includes("/documentation")
-      ? "documentation"
-      : "panel"
-    : null;
-
   const configTab = isConfigSection ? (pathname.includes("/users") ? "users" : pathname.includes("/departments") ? "departments" : "general") : null;
 
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
@@ -246,30 +234,12 @@ export default function Header() {
             </>
           )}
 
-          {/* Team Menu */}
+          {/* Team Menu - Solo Panel */}
           {isTeamSection && projectId && (
-            <>
-              <NavLink href={`/project/${projectId}/team`} isActive={teamPage === "panel"}>
-                <LayoutDashboard size={15} />
-                <span>Panel</span>
-              </NavLink>
-              <NavLink href={`/project/${projectId}/team/members`} isActive={teamPage === "members"}>
-                <Users size={15} />
-                <span>Equipo</span>
-              </NavLink>
-              <NavLink href={`/project/${projectId}/team/time-tracking`} isActive={teamPage === "time-tracking"}>
-                <Clock size={15} />
-                <span>Horarios</span>
-              </NavLink>
-              <NavLink href={`/project/${projectId}/team/planning`} isActive={teamPage === "planning"}>
-                <List size={15} />
-                <span>Planificación</span>
-              </NavLink>
-              <NavLink href={`/project/${projectId}/team/documentation`} isActive={teamPage === "documentation"}>
-                <FileText size={15} />
-                <span>Documentos</span>
-              </NavLink>
-            </>
+            <NavLink href={`/project/${projectId}/team`} isActive={true}>
+              <Users size={15} />
+              <span>Equipo</span>
+            </NavLink>
           )}
         </nav>
 
@@ -441,46 +411,15 @@ export default function Header() {
                 </button>
               </>
             ) : (
+              /* Team Section - Solo Panel */
               <>
                 <Link
                   href={`/project/${projectId}/team`}
                   onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <LayoutDashboard size={16} />
-                  Panel
-                </Link>
-                <Link
-                  href={`/project/${projectId}/team/members`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "members" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-900 bg-slate-100 font-medium"
                 >
                   <Users size={16} />
                   Equipo
-                </Link>
-                <Link
-                  href={`/project/${projectId}/team/time-tracking`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "time-tracking" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <Clock size={16} />
-                  Horarios
-                </Link>
-                <Link
-                  href={`/project/${projectId}/team/planning`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "planning" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <List size={16} />
-                  Planificación
-                </Link>
-                <Link
-                  href={`/project/${projectId}/team/documentation`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${teamPage === "documentation" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <FileText size={16} />
-                  Documentos
                 </Link>
                 <div className="border-t border-slate-100 my-2"></div>
                 <button
