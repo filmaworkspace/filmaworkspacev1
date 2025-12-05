@@ -252,7 +252,7 @@ export default function ConfigUsers() {
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><Users size={24} className="text-slate-600" /></div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
-                <p className="text-slate-500 text-sm mt-1">Usuarios del proyecto · {members.length} miembro{members.length !== 1 ? "s" : ""}</p>
+                <p className="text-slate-500 text-sm mt-1">Usuarios del proyecto · {members.length} usuario{members.length !== 1 ? "s" : ""}</p>
               </div>
             </div>
             <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><UserPlus size={16} />Invitar</button>
