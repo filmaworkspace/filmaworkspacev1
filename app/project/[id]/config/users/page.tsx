@@ -310,7 +310,7 @@ export default function ConfigUsers() {
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">{m.name?.[0]?.toUpperCase()}</div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative">
                           <p className="font-medium text-slate-900">{m.name}</p>
                           {m.userId === userId && <span className="text-xs text-slate-400">(tú)</span>}
                         </div>
