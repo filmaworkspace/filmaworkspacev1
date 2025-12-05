@@ -140,7 +140,7 @@ export default function ConfigDepartments() {
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"><ArrowLeft size={16} />Volver al dashboard</Link>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><Layers size={24} className="text-slate-600" /></div>
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><Briefcase size={24} className="text-slate-600" /></div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
                 <p className="text-slate-500 text-sm mt-1">Departamentos · {departments.length} departamento{departments.length !== 1 ? "s" : ""}</p>
