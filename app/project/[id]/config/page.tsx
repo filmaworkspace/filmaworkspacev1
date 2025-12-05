@@ -1,70 +1,35 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { DM_Sans, Instrument_Serif } from "next/font/google";
 import {
-  Edit2,
-  Save,
+  Pencil,
+  Check,
   Building2,
   AlertCircle,
-  CheckCircle,
-  Folder,
-  Calendar,
-  Clock,
-  ArrowLeft,
-  Settings,
+  ChevronRight,
+  Archive,
+  Copy,
+  Trash2,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, Timestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: ["400"] });
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
 
-const phaseColors: Record<string, { gradient: string; bg: string; border: string; text: string; dot: string; ring: string }> = {
-  Desarrollo: {
-    gradient: "from-sky-400 to-sky-600",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-    text: "text-sky-700",
-    dot: "bg-sky-500",
-    ring: "ring-sky-500/20"
-  },
-  Preproducción: {
-    gradient: "from-amber-400 to-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-700",
-    dot: "bg-amber-500",
-    ring: "ring-amber-500/20"
-  },
-  Rodaje: {
-    gradient: "from-indigo-400 to-indigo-600",
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
-    text: "text-indigo-700",
-    dot: "bg-indigo-500",
-    ring: "ring-indigo-500/20"
-  },
-  Postproducción: {
-    gradient: "from-purple-400 to-purple-600",
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    text: "text-purple-700",
-    dot: "bg-purple-500",
-    ring: "ring-purple-500/20"
-  },
-  Finalizado: {
-    gradient: "from-emerald-400 to-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    text: "text-emerald-700",
-    dot: "bg-emerald-500",
-    ring: "ring-emerald-500/20"
-  },
+const phaseConfig: Record<string, { color: string; bg: string }> = {
+  Desarrollo: { color: "#0ea5e9", bg: "#f0f9ff" },
+  Preproducción: { color: "#f59e0b", bg: "#fffbeb" },
+  Rodaje: { color: "#6366f1", bg: "#eef2ff" },
+  Postproducción: { color: "#a855f7", bg: "#faf5ff" },
+  Finalizado: { color: "#10b981", bg: "#ecfdf5" },
 };
 
 interface ProjectData {
@@ -74,6 +39,7 @@ interface ProjectData {
   producers?: string[];
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  archived?: boolean;
 }
 
 interface Producer {
@@ -88,13 +54,18 @@ export default function ConfigGeneral() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
-  const [projectName, setProjectName] = useState("");
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
-  const [editingProject, setEditingProject] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [projectForm, setProjectForm] = useState({ name: "", phase: "", description: "" });
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [tempValue, setTempValue] = useState("");
+  const [showActions, setShowActions] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 2500);
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -110,14 +81,12 @@ export default function ConfigGeneral() {
       try {
         const userProjectSnap = await getDoc(doc(db, `userProjects/${userId}/projects/${id}`));
         if (!userProjectSnap.exists()) {
-          setErrorMessage("No tienes acceso a este proyecto");
           setLoading(false);
           return;
         }
         const hasConfig = userProjectSnap.data().permissions?.config || false;
         setHasConfigAccess(hasConfig);
         if (!hasConfig) {
-          setErrorMessage("No tienes permisos de configuración");
           setLoading(false);
           return;
         }
@@ -125,100 +94,115 @@ export default function ConfigGeneral() {
         const projectSnap = await getDoc(doc(db, "projects", id as string));
         if (projectSnap.exists()) {
           const d = projectSnap.data();
-          setProjectName(d.name);
           setProject({
             name: d.name,
             phase: d.phase,
             description: d.description || "",
             producers: d.producers || [],
             createdAt: d.createdAt,
-            updatedAt: d.updatedAt
+            updatedAt: d.updatedAt,
+            archived: d.archived || false,
           });
-          setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
         const producersSnap = await getDocs(collection(db, "producers"));
         setAllProducers(producersSnap.docs.map((d) => ({ id: d.id, name: d.data().name })));
         setLoading(false);
-      } catch (error) {
-        setErrorMessage("Error al cargar los datos");
+      } catch {
+        showToast("error", "Error al cargar");
         setLoading(false);
       }
     };
     loadData();
   }, [userId, id, router]);
 
-  const handleSaveProject = async () => {
-    if (!id) return;
+  const saveField = async (field: string, value: string) => {
+    if (!id || !project) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, "projects", id as string), {
-        name: projectForm.name,
-        phase: projectForm.phase,
-        description: projectForm.description,
-        updatedAt: Timestamp.now()
+        [field]: value,
+        updatedAt: Timestamp.now(),
       });
-      setProject({
-        ...project!,
-        name: projectForm.name,
-        phase: projectForm.phase,
-        description: projectForm.description,
-        updatedAt: Timestamp.now()
-      });
-      setProjectName(projectForm.name);
-      setEditingProject(false);
-      setSuccessMessage("Cambios guardados correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      setErrorMessage("Error al guardar los cambios");
+      setProject({ ...project, [field]: value, updatedAt: Timestamp.now() });
+      setEditingField(null);
+      showToast("success", "Guardado");
+    } catch {
+      showToast("error", "Error al guardar");
     } finally {
       setSaving(false);
     }
   };
 
-  const formatDate = (ts: Timestamp) => {
-    if (!ts) return "—";
-    return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(ts.toDate());
+  const startEditing = (field: string, currentValue: string) => {
+    setEditingField(field);
+    setTempValue(currentValue);
   };
 
-  const formatRelativeTime = (ts: Timestamp) => {
-    if (!ts) return "";
-    const diff = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
-    if (diff < 60) return "hace unos segundos";
-    if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
-    if (diff < 604800) return `hace ${Math.floor(diff / 86400)} días`;
-    return formatDate(ts);
+  const cancelEditing = () => {
+    setEditingField(null);
+    setTempValue("");
   };
 
-  const currentPhaseStyle = phaseColors[project?.phase || "Desarrollo"];
+  const handleKeyDown = (e: React.KeyboardEvent, field: string) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      saveField(field, tempValue);
+    }
+    if (e.key === "Escape") {
+      cancelEditing();
+    }
+  };
+
+  const copyProjectId = () => {
+    navigator.clipboard.writeText(id as string);
+    showToast("success", "ID copiado");
+    setShowActions(false);
+  };
+
+  const archiveProject = async () => {
+    if (!id || !project) return;
+    try {
+      await updateDoc(doc(db, "projects", id as string), {
+        archived: !project.archived,
+        updatedAt: Timestamp.now(),
+      });
+      setProject({ ...project, archived: !project.archived });
+      showToast("success", project.archived ? "Proyecto restaurado" : "Proyecto archivado");
+      setShowActions(false);
+    } catch {
+      showToast("error", "Error");
+    }
+  };
+
+  const deleteProject = async () => {
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, "projects", id as string));
+      router.push("/dashboard");
+    } catch {
+      showToast("error", "Error al eliminar");
+    }
+  };
+
+  const phaseStyle = phaseConfig[project?.phase || "Desarrollo"];
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-[3px] border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500 text-sm font-medium">Cargando configuración...</p>
-        </div>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${dmSans.className}`}>
+        <div className="w-5 h-5 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (errorMessage && !project) {
+  if (!hasConfigAccess) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
-        <div className="text-center max-w-sm">
-          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={28} className="text-red-500" />
-          </div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
-          <p className="text-slate-600 text-sm mb-6">{errorMessage}</p>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Volver al panel
+      <div className={`min-h-screen bg-white flex items-center justify-center ${dmSans.className}`}>
+        <div className="text-center">
+          <AlertCircle size={32} className="text-neutral-300 mx-auto mb-3" />
+          <p className="text-neutral-500 text-sm">Sin acceso</p>
+          <Link href="/dashboard" className="text-sm text-neutral-900 underline mt-4 inline-block">
+            Volver
           </Link>
         </div>
       </div>
@@ -226,292 +210,273 @@ export default function ConfigGeneral() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-5xl mx-auto px-6 md:px-12 py-10">
-          {/* Breadcrumb */}
-          <div className="flex items-center justify-between mb-6">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm group"
-            >
-              <Folder size={14} />
-              <span>{projectName}</span>
+    <div className={`min-h-screen bg-white ${dmSans.className}`}>
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-6 right-6 z-50 px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg transition-all animate-in slide-in-from-top-2 ${
+            toast.type === "success"
+              ? "bg-neutral-900 text-white"
+              : "bg-red-500 text-white"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-2">¿Eliminar proyecto?</h3>
+            <p className="text-sm text-neutral-500 mb-6">
+              Esta acción no se puede deshacer. Se eliminarán todos los datos asociados.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={deleteProject}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-2 text-sm text-neutral-400">
+            <Link href="/dashboard" className="hover:text-neutral-600 transition-colors">
+              Proyectos
             </Link>
-            {project?.updatedAt && (
-              <span className="text-slate-500 text-xs flex items-center gap-1.5">
-                <Clock size={12} />
-                Actualizado {formatRelativeTime(project.updatedAt)}
-              </span>
+            <ChevronRight size={14} />
+            <span className="text-neutral-900">{project?.name}</span>
+          </div>
+
+          {/* Actions Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowActions(!showActions)}
+              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+            >
+              <MoreHorizontal size={18} className="text-neutral-500" />
+            </button>
+
+            {showActions && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 z-20">
+                  <button
+                    onClick={copyProjectId}
+                    className="w-full px-4 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-3"
+                  >
+                    <Copy size={15} className="text-neutral-400" />
+                    Copiar ID
+                  </button>
+                  <button
+                    onClick={archiveProject}
+                    className="w-full px-4 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-3"
+                  >
+                    <Archive size={15} className="text-neutral-400" />
+                    {project?.archived ? "Restaurar" : "Archivar"}
+                  </button>
+                  <div className="border-t border-neutral-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setShowActions(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                  >
+                    <Trash2 size={15} />
+                    Eliminar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Project Name - Editable */}
+        <div className="mb-12 group">
+          {editingField === "name" ? (
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={tempValue}
+                onChange={(e) => setTempValue(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, "name")}
+                autoFocus
+                className={`text-4xl font-normal text-neutral-900 bg-transparent border-b-2 border-neutral-900 outline-none w-full ${instrumentSerif.className}`}
+              />
+              <button
+                onClick={() => saveField("name", tempValue)}
+                disabled={saving}
+                className="p-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={cancelEditing}
+                className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={() => startEditing("name", project?.name || "")}
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              <h1 className={`text-4xl text-neutral-900 ${instrumentSerif.className}`}>
+                {project?.name}
+              </h1>
+              <Pencil
+                size={16}
+                className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+            </div>
+          )}
+
+          {project?.archived && (
+            <span className="inline-block mt-3 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
+              Archivado
+            </span>
+          )}
+        </div>
+
+        {/* Fields */}
+        <div className="space-y-8">
+          {/* Phase */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
+              Fase
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {PHASES.map((phase) => {
+                const config = phaseConfig[phase];
+                const isActive = project?.phase === phase;
+                return (
+                  <button
+                    key={phase}
+                    onClick={() => saveField("phase", phase)}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: isActive ? config.bg : "transparent",
+                      color: isActive ? config.color : "#a3a3a3",
+                      border: isActive ? `1.5px solid ${config.color}` : "1.5px solid #e5e5e5",
+                    }}
+                  >
+                    {phase}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="group">
+            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
+              Descripción
+            </label>
+            {editingField === "description" ? (
+              <div>
+                <textarea
+                  value={tempValue}
+                  onChange={(e) => setTempValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") cancelEditing();
+                  }}
+                  autoFocus
+                  rows={3}
+                  className="w-full text-neutral-700 bg-neutral-50 rounded-xl p-4 outline-none border-2 border-neutral-200 focus:border-neutral-400 resize-none transition-colors"
+                />
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => saveField("description", tempValue)}
+                    disabled={saving}
+                    className="px-4 py-2 text-sm font-medium bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    onClick={cancelEditing}
+                    className="px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => startEditing("description", project?.description || "")}
+                className="cursor-pointer group/desc"
+              >
+                {project?.description ? (
+                  <p className="text-neutral-600 leading-relaxed">{project.description}</p>
+                ) : (
+                  <p className="text-neutral-300 italic">Añadir descripción...</p>
+                )}
+                <Pencil
+                  size={14}
+                  className="text-neutral-300 mt-2 opacity-0 group-hover/desc:opacity-100 transition-opacity"
+                />
+              </div>
             )}
           </div>
 
-          {/* Title */}
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
-              <Settings size={26} className="text-white" />
-            </div>
-            <div>
-              <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>
-                Configuración
-              </h1>
-              <p className="text-slate-400 text-sm mt-0.5">Información general del proyecto</p>
+          {/* Producers */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
+              Productoras
+            </label>
+            {project?.producers && project.producers.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {project.producers.map((producerId) => {
+                  const producer = allProducers.find((p) => p.id === producerId);
+                  if (!producer) return null;
+                  return (
+                    <div
+                      key={producer.id}
+                      className="flex items-center gap-2 px-3 py-2 bg-neutral-50 rounded-lg border border-neutral-100"
+                    >
+                      <Building2 size={14} className="text-neutral-400" />
+                      <span className="text-sm text-neutral-700">{producer.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-neutral-300 text-sm italic">Sin productoras</p>
+            )}
+          </div>
+
+          {/* Danger Zone */}
+          <div className="pt-8 mt-8 border-t border-neutral-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-700">Zona de peligro</p>
+                <p className="text-xs text-neutral-400 mt-0.5">Acciones irreversibles</p>
+              </div>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Eliminar proyecto
+              </button>
             </div>
           </div>
         </div>
       </div>
-
-      <main className="flex-grow px-6 md:px-12 py-8 -mt-4">
-        <div className="max-w-5xl mx-auto space-y-6">
-          {/* Success Message */}
-          {successMessage && (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
-              <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <CheckCircle size={16} className="text-emerald-600" />
-              </div>
-              <span className="text-sm font-medium text-emerald-700">{successMessage}</span>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {errorMessage && project && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center">
-                <AlertCircle size={16} className="text-red-600" />
-              </div>
-              <span className="text-sm font-medium text-red-700">{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Main Project Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {/* Card Header */}
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${currentPhaseStyle.gradient} flex items-center justify-center shadow-lg`}>
-                  <div className="w-3 h-3 bg-white rounded-full"></div>
-                </div>
-                <div>
-                  <h2 className={`text-xl font-semibold text-slate-900 ${spaceGrotesk.className}`}>
-                    Datos del proyecto
-                  </h2>
-                  <p className="text-sm text-slate-500">Nombre, fase y descripción</p>
-                </div>
-              </div>
-              {!editingProject && (
-                <button
-                  onClick={() => setEditingProject(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl text-sm font-medium transition-all group"
-                >
-                  <Edit2 size={14} className="group-hover:rotate-12 transition-transform" />
-                  Editar
-                </button>
-              )}
-            </div>
-
-            {/* Card Content */}
-            <div className="p-8">
-              {!editingProject ? (
-                <div className="space-y-8">
-                  {/* Project Name Display */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                        Nombre del proyecto
-                      </label>
-                      <p className={`text-2xl font-semibold text-slate-900 ${spaceGrotesk.className}`}>
-                        {project?.name}
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                        Fase actual
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${currentPhaseStyle.bg} ${currentPhaseStyle.border} border`}>
-                          <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`}></span>
-                          <span className={`text-sm font-semibold ${currentPhaseStyle.text}`}>
-                            {project?.phase}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  {project?.description && (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                        Descripción
-                      </label>
-                      <p className="text-slate-600 leading-relaxed max-w-2xl">
-                        {project.description}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Metadata Footer */}
-                  <div className="pt-6 border-t border-slate-100 flex items-center gap-6">
-                    <span className="flex items-center gap-2 text-sm text-slate-400">
-                      <Calendar size={14} />
-                      Creado el {formatDate(project?.createdAt!)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                /* Edit Mode */
-                <div className="space-y-6">
-                  {/* Project Name Input */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                      Nombre del proyecto
-                    </label>
-                    <input
-                      type="text"
-                      value={projectForm.name}
-                      onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-lg font-medium transition-all"
-                      placeholder="Nombre del proyecto"
-                    />
-                  </div>
-
-                  {/* Phase Selector */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
-                      Fase del proyecto
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      {PHASES.map((phase) => {
-                        const style = phaseColors[phase];
-                        const isSelected = projectForm.phase === phase;
-                        return (
-                          <button
-                            key={phase}
-                            onClick={() => setProjectForm({ ...projectForm, phase })}
-                            className={`relative flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 ${
-                              isSelected
-                                ? `${style.border} ${style.bg} ring-4 ${style.ring}`
-                                : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50"
-                            }`}
-                          >
-                            <div className={`w-3 h-3 rounded-full transition-all ${
-                              isSelected ? style.dot : "bg-slate-300"
-                            }`}></div>
-                            <span className={`text-xs font-semibold transition-colors ${
-                              isSelected ? style.text : "text-slate-500"
-                            }`}>
-                              {phase}
-                            </span>
-                            {isSelected && (
-                              <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${style.dot} flex items-center justify-center`}>
-                                <CheckCircle size={10} className="text-white" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Description Textarea */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-                      Descripción
-                    </label>
-                    <textarea
-                      value={projectForm.description}
-                      onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                      rows={4}
-                      placeholder="Describe brevemente el proyecto, su objetivo y características principales..."
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-sm resize-none transition-all"
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-3 pt-4">
-                    <button
-                      onClick={handleSaveProject}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-900/20"
-                    >
-                      <Save size={16} />
-                      {saving ? "Guardando..." : "Guardar cambios"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingProject(false);
-                        setProjectForm({
-                          name: project?.name || "",
-                          phase: project?.phase || "",
-                          description: project?.description || ""
-                        });
-                      }}
-                      disabled={saving}
-                      className="px-6 py-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl text-sm font-medium transition-all"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Producers Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-8 py-6 border-b border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg">
-                  <Building2 size={22} className="text-white" />
-                </div>
-                <div>
-                  <h2 className={`text-xl font-semibold text-slate-900 ${spaceGrotesk.className}`}>
-                    Productoras
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    {project?.producers?.length || 0} productora{project?.producers?.length !== 1 ? "s" : ""} asociada{project?.producers?.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8">
-              {project?.producers && project.producers.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {project.producers.map((producerId) => {
-                    const producer = allProducers.find((p) => p.id === producerId);
-                    if (!producer) return null;
-                    return (
-                      <div
-                        key={producer.id}
-                        className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group"
-                      >
-                        <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center group-hover:scale-105 transition-transform">
-                          <Building2 size={20} className="text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{producer.name}</p>
-                          <p className="text-xs text-slate-400">Productora asociada</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200">
-                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Building2 size={28} className="text-slate-300" />
-                  </div>
-                  <p className="text-slate-500 font-medium mb-1">Sin productoras asociadas</p>
-                  <p className="text-sm text-slate-400">Las productoras aparecerán aquí cuando se asocien al proyecto</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
   );
 }
