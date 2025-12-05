@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Layers, Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users } from "lucide-react";
+import { Layers, Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -223,7 +223,7 @@ export default function ConfigDepartments() {
           </div>
         ) : (
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Layers size={28} className="text-slate-400" /></div>
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase size={28} className="text-slate-400" /></div>
             <p className="text-slate-600 text-sm font-medium mb-1">Sin departamentos</p>
             <p className="text-slate-400 text-xs mb-4">Crea el primer departamento para organizar tu equipo</p>
             <button onClick={() => setShowAddForm(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={14} />Crear departamento</button>
