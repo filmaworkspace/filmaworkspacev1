@@ -1,35 +1,35 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { DM_Sans, Instrument_Serif } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
-  Pencil,
-  Check,
+  Edit2,
+  Save,
   Building2,
   AlertCircle,
-  ChevronRight,
+  CheckCircle,
+  ArrowLeft,
+  Settings,
   Archive,
   Copy,
   Trash2,
   MoreHorizontal,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc } from "firebase/firestore";
 
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: ["400"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
 
-const phaseConfig: Record<string, { color: string; bg: string }> = {
-  Desarrollo: { color: "#0ea5e9", bg: "#f0f9ff" },
-  Preproducción: { color: "#f59e0b", bg: "#fffbeb" },
-  Rodaje: { color: "#6366f1", bg: "#eef2ff" },
-  Postproducción: { color: "#a855f7", bg: "#faf5ff" },
-  Finalizado: { color: "#10b981", bg: "#ecfdf5" },
+const phaseColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  Desarrollo: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", dot: "bg-sky-500" },
+  Preproducción: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
+  Rodaje: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+  Postproducción: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
+  Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
 };
 
 interface ProjectData {
@@ -56,15 +56,15 @@ export default function ConfigGeneral() {
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
-  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [tempValue, setTempValue] = useState("");
+  const [projectForm, setProjectForm] = useState({ name: "", phase: "", description: "" });
   const [showActions, setShowActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 2500);
+    setTimeout(() => setToast(null), 3000);
   };
 
   useEffect(() => {
@@ -103,54 +103,43 @@ export default function ConfigGeneral() {
             updatedAt: d.updatedAt,
             archived: d.archived || false,
           });
+          setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
         const producersSnap = await getDocs(collection(db, "producers"));
         setAllProducers(producersSnap.docs.map((d) => ({ id: d.id, name: d.data().name })));
         setLoading(false);
       } catch {
-        showToast("error", "Error al cargar");
+        showToast("error", "Error al cargar los datos");
         setLoading(false);
       }
     };
     loadData();
   }, [userId, id, router]);
 
-  const saveField = async (field: string, value: string) => {
-    if (!id || !project) return;
+  const handleSaveProject = async () => {
+    if (!id) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, "projects", id as string), {
-        [field]: value,
-        updatedAt: Timestamp.now(),
+        name: projectForm.name,
+        phase: projectForm.phase,
+        description: projectForm.description,
+        updatedAt: Timestamp.now()
       });
-      setProject({ ...project, [field]: value, updatedAt: Timestamp.now() });
-      setEditingField(null);
-      showToast("success", "Guardado");
+      setProject({
+        ...project!,
+        name: projectForm.name,
+        phase: projectForm.phase,
+        description: projectForm.description,
+        updatedAt: Timestamp.now()
+      });
+      setEditingProject(false);
+      showToast("success", "Cambios guardados");
     } catch {
       showToast("error", "Error al guardar");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const startEditing = (field: string, currentValue: string) => {
-    setEditingField(field);
-    setTempValue(currentValue);
-  };
-
-  const cancelEditing = () => {
-    setEditingField(null);
-    setTempValue("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, field: string) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      saveField(field, tempValue);
-    }
-    if (e.key === "Escape") {
-      cancelEditing();
     }
   };
 
@@ -185,23 +174,27 @@ export default function ConfigGeneral() {
     }
   };
 
-  const phaseStyle = phaseConfig[project?.phase || "Desarrollo"];
+  const currentPhaseStyle = phaseColors[project?.phase || "Desarrollo"];
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${dmSans.className}`}>
-        <div className="w-5 h-5 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin" />
+      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
+        <div className="w-10 h-10 border-[3px] border-slate-200 border-t-slate-700 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!hasConfigAccess) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${dmSans.className}`}>
+      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
         <div className="text-center">
-          <AlertCircle size={32} className="text-neutral-300 mx-auto mb-3" />
-          <p className="text-neutral-500 text-sm">Sin acceso</p>
-          <Link href="/dashboard" className="text-sm text-neutral-900 underline mt-4 inline-block">
+          <AlertCircle size={32} className="text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm mb-4">Sin acceso a configuración</p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            <ArrowLeft size={16} />
             Volver
           </Link>
         </div>
@@ -210,38 +203,33 @@ export default function ConfigGeneral() {
   }
 
   return (
-    <div className={`min-h-screen bg-white ${dmSans.className}`}>
+    <div className={`min-h-screen bg-slate-50 ${inter.className}`}>
       {/* Toast */}
       {toast && (
-        <div
-          className={`fixed top-6 right-6 z-50 px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg transition-all animate-in slide-in-from-top-2 ${
-            toast.type === "success"
-              ? "bg-neutral-900 text-white"
-              : "bg-red-500 text-white"
-          }`}
-        >
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${
+          toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {toast.message}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-2">¿Eliminar proyecto?</h3>
-            <p className="text-sm text-neutral-500 mb-6">
-              Esta acción no se puede deshacer. Se eliminarán todos los datos asociados.
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar proyecto?</h3>
+            <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={deleteProject}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
               >
                 Eliminar
               </button>
@@ -250,233 +238,195 @@ export default function ConfigGeneral() {
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-2 text-sm text-neutral-400">
-            <Link href="/dashboard" className="hover:text-neutral-600 transition-colors">
-              Proyectos
-            </Link>
-            <ChevronRight size={14} />
-            <span className="text-neutral-900">{project?.name}</span>
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6"
+          >
+            <ArrowLeft size={16} />
+            Dashboard
+          </Link>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                <Settings size={24} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold">{project?.name}</h1>
+                <p className="text-slate-400 text-sm">Configuración general</p>
+              </div>
+            </div>
+
+            {/* Actions Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowActions(!showActions)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <MoreHorizontal size={20} />
+              </button>
+              {showActions && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg py-1 z-20 text-slate-900">
+                    <button onClick={copyProjectId} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3">
+                      <Copy size={15} className="text-slate-400" /> Copiar ID
+                    </button>
+                    <button onClick={archiveProject} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3">
+                      <Archive size={15} className="text-slate-400" /> {project?.archived ? "Restaurar" : "Archivar"}
+                    </button>
+                    <div className="border-t border-slate-100 my-1" />
+                    <button onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
+                      <Trash2 size={15} /> Eliminar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Actions Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowActions(!showActions)}
-              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-            >
-              <MoreHorizontal size={18} className="text-neutral-500" />
-            </button>
+      {/* Content */}
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        {project?.archived && (
+          <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
+            Este proyecto está archivado
+          </div>
+        )}
 
-            {showActions && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 z-20">
-                  <button
-                    onClick={copyProjectId}
-                    className="w-full px-4 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-3"
-                  >
-                    <Copy size={15} className="text-neutral-400" />
-                    Copiar ID
-                  </button>
-                  <button
-                    onClick={archiveProject}
-                    className="w-full px-4 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 flex items-center gap-3"
-                  >
-                    <Archive size={15} className="text-neutral-400" />
-                    {project?.archived ? "Restaurar" : "Archivar"}
-                  </button>
-                  <div className="border-t border-neutral-100 my-1" />
-                  <button
-                    onClick={() => {
-                      setShowActions(false);
-                      setShowDeleteConfirm(true);
-                    }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-                  >
-                    <Trash2 size={15} />
-                    Eliminar
-                  </button>
-                </div>
-              </>
+        {/* Project Info Card */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">Datos del proyecto</h2>
+            {!editingProject && (
+              <button
+                onClick={() => setEditingProject(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Edit2 size={14} />
+                Editar
+              </button>
             )}
           </div>
-        </div>
 
-        {/* Project Name - Editable */}
-        <div className="mb-12 group">
-          {editingField === "name" ? (
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={tempValue}
-                onChange={(e) => setTempValue(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, "name")}
-                autoFocus
-                className={`text-4xl font-normal text-neutral-900 bg-transparent border-b-2 border-neutral-900 outline-none w-full ${instrumentSerif.className}`}
-              />
-              <button
-                onClick={() => saveField("name", tempValue)}
-                disabled={saving}
-                className="p-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-              >
-                <Check size={16} />
-              </button>
-              <button
-                onClick={cancelEditing}
-                className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <div
-              onClick={() => startEditing("name", project?.name || "")}
-              className="flex items-center gap-3 cursor-pointer"
-            >
-              <h1 className={`text-4xl text-neutral-900 ${instrumentSerif.className}`}>
-                {project?.name}
-              </h1>
-              <Pencil
-                size={16}
-                className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-            </div>
-          )}
-
-          {project?.archived && (
-            <span className="inline-block mt-3 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full">
-              Archivado
-            </span>
-          )}
-        </div>
-
-        {/* Fields */}
-        <div className="space-y-8">
-          {/* Phase */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
-              Fase
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {PHASES.map((phase) => {
-                const config = phaseConfig[phase];
-                const isActive = project?.phase === phase;
-                return (
+          <div className="p-6">
+            {!editingProject ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Nombre</label>
+                    <p className="text-lg font-semibold text-slate-900">{project?.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Fase</label>
+                    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
+                      <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`} />
+                      {project?.phase}
+                    </span>
+                  </div>
+                </div>
+                {project?.description && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Descripción</label>
+                    <p className="text-slate-600">{project.description}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Nombre</label>
+                  <input
+                    type="text"
+                    value={projectForm.name}
+                    onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PHASES.map((phase) => {
+                      const style = phaseColors[phase];
+                      const isSelected = projectForm.phase === phase;
+                      return (
+                        <button
+                          key={phase}
+                          onClick={() => setProjectForm({ ...projectForm, phase })}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
+                            isSelected
+                              ? `${style.bg} ${style.text} ${style.border}`
+                              : "border-slate-200 text-slate-500 hover:border-slate-300"
+                          }`}
+                        >
+                          {phase}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
+                  <textarea
+                    value={projectForm.description}
+                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-sm resize-none"
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
                   <button
-                    key={phase}
-                    onClick={() => saveField("phase", phase)}
+                    onClick={handleSaveProject}
                     disabled={saving}
-                    className="px-4 py-2 rounded-full text-sm font-medium transition-all"
-                    style={{
-                      backgroundColor: isActive ? config.bg : "transparent",
-                      color: isActive ? config.color : "#a3a3a3",
-                      border: isActive ? `1.5px solid ${config.color}` : "1.5px solid #e5e5e5",
+                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    <Save size={16} />
+                    {saving ? "Guardando..." : "Guardar"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingProject(false);
+                      setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" });
                     }}
-                  >
-                    {phase}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="group">
-            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
-              Descripción
-            </label>
-            {editingField === "description" ? (
-              <div>
-                <textarea
-                  value={tempValue}
-                  onChange={(e) => setTempValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") cancelEditing();
-                  }}
-                  autoFocus
-                  rows={3}
-                  className="w-full text-neutral-700 bg-neutral-50 rounded-xl p-4 outline-none border-2 border-neutral-200 focus:border-neutral-400 resize-none transition-colors"
-                />
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => saveField("description", tempValue)}
-                    disabled={saving}
-                    className="px-4 py-2 text-sm font-medium bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    onClick={cancelEditing}
-                    className="px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+                    className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
                   >
                     Cancelar
                   </button>
                 </div>
               </div>
-            ) : (
-              <div
-                onClick={() => startEditing("description", project?.description || "")}
-                className="cursor-pointer group/desc"
-              >
-                {project?.description ? (
-                  <p className="text-neutral-600 leading-relaxed">{project.description}</p>
-                ) : (
-                  <p className="text-neutral-300 italic">Añadir descripción...</p>
-                )}
-                <Pencil
-                  size={14}
-                  className="text-neutral-300 mt-2 opacity-0 group-hover/desc:opacity-100 transition-opacity"
-                />
-              </div>
             )}
           </div>
+        </div>
 
-          {/* Producers */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-400 uppercase tracking-wide mb-3">
-              Productoras
-            </label>
+        {/* Producers Card */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-900">Productoras</h2>
+          </div>
+          <div className="p-6">
             {project?.producers && project.producers.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {project.producers.map((producerId) => {
                   const producer = allProducers.find((p) => p.id === producerId);
                   if (!producer) return null;
                   return (
-                    <div
-                      key={producer.id}
-                      className="flex items-center gap-2 px-3 py-2 bg-neutral-50 rounded-lg border border-neutral-100"
-                    >
-                      <Building2 size={14} className="text-neutral-400" />
-                      <span className="text-sm text-neutral-700">{producer.name}</span>
+                    <div key={producer.id} className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <Building2 size={16} className="text-slate-400" />
+                      <span className="text-sm font-medium text-slate-700">{producer.name}</span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-neutral-300 text-sm italic">Sin productoras</p>
+              <p className="text-sm text-slate-400">Sin productoras asociadas</p>
             )}
           </div>
-
-          {/* Danger Zone */}
-          <div className="pt-8 mt-8 border-t border-neutral-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-700">Zona de peligro</p>
-                <p className="text-xs text-neutral-400 mt-0.5">Acciones irreversibles</p>
-              </div>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Eliminar proyecto
-              </button>
-            </div>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
