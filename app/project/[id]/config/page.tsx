@@ -14,6 +14,9 @@ import {
   Copy,
   Trash2,
   MoreHorizontal,
+  ExternalLink,
+  Calendar,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -145,7 +148,7 @@ export default function ConfigGeneral() {
 
   const copyProjectId = () => {
     navigator.clipboard.writeText(id as string);
-    showToast("success", "ID copiado");
+    showToast("success", "ID copiado al portapapeles");
     setShowActions(false);
   };
 
@@ -174,28 +177,35 @@ export default function ConfigGeneral() {
     }
   };
 
+  const formatDate = (ts: Timestamp) => {
+    if (!ts) return "—";
+    return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(ts.toDate());
+  };
+
   const currentPhaseStyle = phaseColors[project?.phase || "Desarrollo"];
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
-        <div className="w-10 h-10 border-[3px] border-slate-200 border-t-slate-700 rounded-full animate-spin" />
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!hasConfigAccess) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center">
-          <AlertCircle size={32} className="text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm mb-4">Sin acceso a configuración</p>
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={28} className="text-slate-400" />
+          </div>
+          <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft size={16} />
-            Volver
+            Volver al dashboard
           </Link>
         </div>
       </div>
@@ -203,11 +213,11 @@ export default function ConfigGeneral() {
   }
 
   return (
-    <div className={`min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${
-          toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+          toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"
         }`}>
           {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {toast.message}
@@ -217,9 +227,9 @@ export default function ConfigGeneral() {
       {/* Delete Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
             <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar proyecto?</h3>
-            <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer.</p>
+            <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Se eliminarán todos los datos del proyecto.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
@@ -239,24 +249,31 @@ export default function ConfigGeneral() {
       )}
 
       {/* Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="mt-[4.5rem] border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6"
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
             <ArrowLeft size={16} />
-            Dashboard
+            Volver al dashboard
           </Link>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
-                <Settings size={24} />
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <Settings size={24} className="text-slate-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold">{project?.name}</h1>
-                <p className="text-slate-400 text-sm">Configuración general</p>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-slate-900">{project?.name}</h1>
+                  {project?.archived && (
+                    <span className="text-xs font-medium px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
+                      Archivado
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-500 text-sm mt-1">Configuración general</p>
               </div>
             </div>
 
@@ -264,23 +281,23 @@ export default function ConfigGeneral() {
             <div className="relative">
               <button
                 onClick={() => setShowActions(!showActions)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
               >
-                <MoreHorizontal size={20} />
+                <MoreHorizontal size={20} className="text-slate-500" />
               </button>
               {showActions && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg py-1 z-20 text-slate-900">
-                    <button onClick={copyProjectId} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-20">
+                    <button onClick={copyProjectId} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
                       <Copy size={15} className="text-slate-400" /> Copiar ID
                     </button>
-                    <button onClick={archiveProject} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3">
+                    <button onClick={archiveProject} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
                       <Archive size={15} className="text-slate-400" /> {project?.archived ? "Restaurar" : "Archivar"}
                     </button>
                     <div className="border-t border-slate-100 my-1" />
                     <button onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
-                      <Trash2 size={15} /> Eliminar
+                      <Trash2 size={15} /> Eliminar proyecto
                     </button>
                   </div>
                 </>
@@ -291,139 +308,168 @@ export default function ConfigGeneral() {
       </div>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        {project?.archived && (
-          <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
-            Este proyecto está archivado
-          </div>
-        )}
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        <div className="space-y-6">
+          {/* Project Info Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Información del proyecto</h2>
+              {!editingProject && (
+                <button
+                  onClick={() => setEditingProject(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Edit2 size={14} />
+                  Editar
+                </button>
+              )}
+            </div>
 
-        {/* Project Info Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">Datos del proyecto</h2>
-            {!editingProject && (
-              <button
-                onClick={() => setEditingProject(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
-              >
-                <Edit2 size={14} />
-                Editar
-              </button>
-            )}
-          </div>
-
-          <div className="p-6">
-            {!editingProject ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Nombre</label>
-                    <p className="text-lg font-semibold text-slate-900">{project?.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Fase</label>
-                    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
-                      <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`} />
-                      {project?.phase}
-                    </span>
-                  </div>
-                </div>
-                {project?.description && (
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Descripción</label>
-                    <p className="text-slate-600">{project.description}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Nombre</label>
-                  <input
-                    type="text"
-                    value={projectForm.name}
-                    onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
-                  <div className="flex flex-wrap gap-2">
-                    {PHASES.map((phase) => {
-                      const style = phaseColors[phase];
-                      const isSelected = projectForm.phase === phase;
-                      return (
-                        <button
-                          key={phase}
-                          onClick={() => setProjectForm({ ...projectForm, phase })}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
-                            isSelected
-                              ? `${style.bg} ${style.text} ${style.border}`
-                              : "border-slate-200 text-slate-500 hover:border-slate-300"
-                          }`}
-                        >
-                          {phase}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
-                  <textarea
-                    value={projectForm.description}
-                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 text-sm resize-none"
-                  />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={handleSaveProject}
-                    disabled={saving}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50"
-                  >
-                    <Save size={16} />
-                    {saving ? "Guardando..." : "Guardar"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingProject(false);
-                      setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" });
-                    }}
-                    className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Producers Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">Productoras</h2>
-          </div>
-          <div className="p-6">
-            {project?.producers && project.producers.length > 0 ? (
-              <div className="flex flex-wrap gap-3">
-                {project.producers.map((producerId) => {
-                  const producer = allProducers.find((p) => p.id === producerId);
-                  if (!producer) return null;
-                  return (
-                    <div key={producer.id} className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100">
-                      <Building2 size={16} className="text-slate-400" />
-                      <span className="text-sm font-medium text-slate-700">{producer.name}</span>
+            <div className="p-6">
+              {!editingProject ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Nombre</label>
+                      <p className="text-lg font-semibold text-slate-900">{project?.name}</p>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">Sin productoras asociadas</p>
-            )}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
+                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
+                        <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`} />
+                        {project?.phase}
+                      </span>
+                    </div>
+                  </div>
+                  {project?.description && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
+                      <p className="text-slate-600 leading-relaxed">{project.description}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-6 pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <Calendar size={14} />
+                      Creado {formatDate(project?.createdAt!)}
+                    </div>
+                    {project?.updatedAt && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <RefreshCw size={14} />
+                        Actualizado {formatDate(project.updatedAt)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Nombre</label>
+                    <input
+                      type="text"
+                      value={projectForm.name}
+                      onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PHASES.map((phase) => {
+                        const style = phaseColors[phase];
+                        const isSelected = projectForm.phase === phase;
+                        return (
+                          <button
+                            key={phase}
+                            onClick={() => setProjectForm({ ...projectForm, phase })}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                              isSelected
+                                ? `${style.bg} ${style.text} ${style.border}`
+                                : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
+                            }`}
+                          >
+                            {phase}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
+                    <textarea
+                      value={projectForm.description}
+                      onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm resize-none bg-slate-50"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleSaveProject}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      <Save size={16} />
+                      {saving ? "Guardando..." : "Guardar cambios"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingProject(false);
+                        setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" });
+                      }}
+                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Producers Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Productoras asociadas</h2>
+            </div>
+            <div className="p-6">
+              {project?.producers && project.producers.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {project.producers.map((producerId) => {
+                    const producer = allProducers.find((p) => p.id === producerId);
+                    if (!producer) return null;
+                    return (
+                      <div key={producer.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <Building2 size={16} className="text-amber-600" />
+                        <span className="text-sm font-medium text-slate-700">{producer.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Building2 size={24} className="text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">Sin productoras asociadas</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Links */}
+          <div className="grid grid-cols-2 gap-4">
+            <Link
+              href={`/project/${id}/config/users`}
+              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors group"
+            >
+              <span className="text-sm font-medium text-slate-700">Gestionar equipo</span>
+              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
+            </Link>
+            <Link
+              href={`/project/${id}/config/departments`}
+              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors group"
+            >
+              <span className="text-sm font-medium text-slate-700">Departamentos</span>
+              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
+            </Link>
           </div>
         </div>
       </main>
