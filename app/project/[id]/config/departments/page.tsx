@@ -165,7 +165,7 @@ export default function ConfigDepartments() {
 
         {/* Departments List */}
         {departmentsData.length > 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible divide-y divide-slate-100">
             {departmentsData.map((dept) => {
               const color = deptColors[dept.colorIndex];
               return (
