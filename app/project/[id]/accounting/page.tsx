@@ -6,19 +6,15 @@ import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
 import {
-  Folder,
   FileText,
   Receipt,
   ArrowRight,
   ArrowLeft,
-  Clock,
   Settings,
   Bell,
   ChevronRight,
   BarChart3,
   Plus,
-  TrendingUp,
-  AlertCircle,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -52,8 +48,8 @@ export default function AccountingPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState("");
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-  const [poStats, setPoStats] = useState({ total: 0, pending: 0, approved: 0 });
-  const [invoiceStats, setInvoiceStats] = useState({ total: 0, pending: 0, paid: 0 });
+  const [poCount, setPoCount] = useState(0);
+  const [invoiceCount, setInvoiceCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -112,14 +108,9 @@ export default function AccountingPage() {
           return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
         }));
 
-        // PO Stats
+        // PO Count
         const allPosSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
-        const allPOs = allPosSnapshot.docs.map(doc => doc.data());
-        setPoStats({
-          total: allPOs.length,
-          pending: allPOs.filter(po => po.status === "pending").length,
-          approved: allPOs.filter(po => po.status === "approved").length,
-        });
+        setPoCount(allPosSnapshot.size);
 
         // Recent Invoices
         const invoicesRecentQuery = query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc"), limit(5));
@@ -129,14 +120,9 @@ export default function AccountingPage() {
           return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
         }));
 
-        // Invoice Stats
+        // Invoice Count
         const allInvoicesSnapshot = await getDocs(collection(db, `projects/${id}/invoices`));
-        const allInvoices = allInvoicesSnapshot.docs.map(doc => doc.data());
-        setInvoiceStats({
-          total: allInvoices.length,
-          pending: allInvoices.filter(inv => inv.status === "pending" || inv.status === "pending_approval").length,
-          paid: allInvoices.filter(inv => inv.status === "paid").length,
-        });
+        setInvoiceCount(allInvoicesSnapshot.size);
 
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -148,7 +134,7 @@ export default function AccountingPage() {
     loadProjectData();
   }, [id, userId]);
 
-  const getStatusBadge = (status: string, type: "po" | "invoice") => {
+  const getStatusBadge = (status: string) => {
     const config: Record<string, { bg: string; text: string; label: string }> = {
       draft: { bg: "bg-slate-100", text: "text-slate-600", label: "Borrador" },
       pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
@@ -160,7 +146,7 @@ export default function AccountingPage() {
       cancelled: { bg: "bg-slate-100", text: "text-slate-600", label: "Cancelada" },
     };
     const c = config[status] || config.pending;
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text} border border-current/10`}>{c.label}</span>;
+    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
   };
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -188,10 +174,7 @@ export default function AccountingPage() {
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <BarChart3 size={24} className="text-indigo-600" />
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
-                <p className="text-slate-500 text-sm mt-1">Contabilidad del proyecto</p>
-              </div>
+              <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -219,7 +202,6 @@ export default function AccountingPage() {
       <main className="max-w-5xl mx-auto px-6 py-8">
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* POs Card */}
           <Link href={`/project/${id}/accounting/pos`}>
             <div className="group bg-white border border-slate-200 hover:border-indigo-300 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
               <div className="flex items-center justify-between">
@@ -229,7 +211,7 @@ export default function AccountingPage() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">Órdenes de compra</h2>
-                    <p className="text-sm text-slate-500">{poStats.total} órdenes · {poStats.pending} pendientes</p>
+                    <p className="text-sm text-slate-500">{poCount} {poCount === 1 ? "orden" : "órdenes"}</p>
                   </div>
                 </div>
                 <div className="w-10 h-10 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center transition-colors">
@@ -239,7 +221,6 @@ export default function AccountingPage() {
             </div>
           </Link>
 
-          {/* Invoices Card */}
           <Link href={`/project/${id}/accounting/invoices`}>
             <div className="group bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
               <div className="flex items-center justify-between">
@@ -249,7 +230,7 @@ export default function AccountingPage() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">Facturas</h2>
-                    <p className="text-sm text-slate-500">{invoiceStats.total} facturas · {invoiceStats.paid} pagadas</p>
+                    <p className="text-sm text-slate-500">{invoiceCount} {invoiceCount === 1 ? "factura" : "facturas"}</p>
                   </div>
                 </div>
                 <div className="w-10 h-10 bg-slate-100 group-hover:bg-emerald-100 rounded-full flex items-center justify-center transition-colors">
@@ -260,48 +241,13 @@ export default function AccountingPage() {
           </Link>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-slate-400 uppercase">Total POs</span>
-              <FileText size={14} className="text-indigo-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{poStats.total}</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-slate-400 uppercase">POs Pendientes</span>
-              <Clock size={14} className="text-amber-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{poStats.pending}</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-slate-400 uppercase">Total Facturas</span>
-              <Receipt size={14} className="text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{invoiceStats.total}</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-slate-400 uppercase">Pagadas</span>
-              <TrendingUp size={14} className="text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{invoiceStats.paid}</p>
-          </div>
-        </div>
-
         {/* Recent Activity */}
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
             {/* Recent POs */}
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                  POs recientes
-                </h3>
+                <h3 className="font-semibold text-slate-900">POs recientes</h3>
                 <Link href={`/project/${id}/accounting/pos`} className="text-sm text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1">
                   Ver todas <ChevronRight size={14} />
                 </Link>
@@ -332,7 +278,7 @@ export default function AccountingPage() {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
-                            {getStatusBadge(po.status, "po")}
+                            {getStatusBadge(po.status)}
                           </div>
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
                         </div>
@@ -346,10 +292,7 @@ export default function AccountingPage() {
             {/* Recent Invoices */}
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Facturas recientes
-                </h3>
+                <h3 className="font-semibold text-slate-900">Facturas recientes</h3>
                 <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1">
                   Ver todas <ChevronRight size={14} />
                 </Link>
@@ -380,7 +323,7 @@ export default function AccountingPage() {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
-                            {getStatusBadge(invoice.status, "invoice")}
+                            {getStatusBadge(invoice.status)}
                           </div>
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
                         </div>
