@@ -460,7 +460,7 @@ export default function ConfigGeneral() {
               href={`/project/${id}/config/users`}
               className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors group"
             >
-              <span className="text-sm font-medium text-slate-700">Gestionar equipo</span>
+              <span className="text-sm font-medium text-slate-700">Usuarios</span>
               <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
             </Link>
             <Link
@@ -476,3 +476,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
