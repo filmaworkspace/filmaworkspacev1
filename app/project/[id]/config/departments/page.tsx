@@ -143,7 +143,7 @@ export default function ConfigDepartments() {
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><Layers size={24} className="text-slate-600" /></div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
-                <p className="text-slate-500 text-sm mt-1">Departamentos · {departments.length} área{departments.length !== 1 ? "s" : ""}</p>
+                <p className="text-slate-500 text-sm mt-1">Departamentos · {departments.length} departamento{departments.length !== 1 ? "s" : ""}</p>
               </div>
             </div>
             <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={16} />Nuevo</button>
