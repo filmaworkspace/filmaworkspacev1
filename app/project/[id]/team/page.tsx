@@ -24,7 +24,7 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
         <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin mx-auto"></div>
@@ -35,7 +35,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
       <main className="pt-20 pb-16 px-6 flex-grow flex items-center justify-center">
         <div className="text-center max-w-sm">
           {/* Icono */}
