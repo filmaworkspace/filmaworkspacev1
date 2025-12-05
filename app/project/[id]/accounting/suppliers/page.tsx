@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -17,7 +17,6 @@ import {
   orderBy,
 } from "firebase/firestore";
 import {
-  Folder,
   Plus,
   Search,
   Download,
@@ -35,12 +34,11 @@ import {
   FileText,
   Clock,
   Eye,
-  RefreshCw,
-  ChevronRight,
+  ArrowLeft,
+  MoreHorizontal,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 interface Address {
   street: string;
@@ -99,7 +97,6 @@ const COUNTRIES = [
 export default function SuppliersPage() {
   const params = useParams();
   const id = params?.id as string;
-  const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -112,19 +109,14 @@ export default function SuppliersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fiscalName: "",
     commercialName: "",
     country: "ES",
     taxId: "",
-    address: {
-      street: "",
-      number: "",
-      city: "",
-      province: "",
-      postalCode: "",
-    },
+    address: { street: "", number: "", city: "", province: "", postalCode: "" },
     paymentMethod: "transferencia" as PaymentMethod,
     bankAccount: "",
   });
@@ -136,33 +128,29 @@ export default function SuppliersPage() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setUserId(user.uid);
-      }
+      if (user) setUserId(user.uid);
     });
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (userId && id) {
-      loadData();
-    }
+    if (userId && id) loadData();
   }, [userId, id]);
 
   useEffect(() => {
     filterSuppliers();
   }, [searchTerm, filterStatus, suppliers]);
 
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   const loadData = async () => {
     try {
       setLoading(true);
       setErrorMessage("");
-
-      const projectDoc = await getDoc(doc(db, "projects", id));
-      if (!projectDoc.exists()) {
-        throw new Error("El proyecto no existe");
-      }
-      setProjectName(projectDoc.data().name || "Proyecto");
 
       const suppliersRef = collection(db, `projects/${id}/suppliers`);
       const suppliersQuery = query(suppliersRef, orderBy("fiscalName", "asc"));
@@ -376,6 +364,7 @@ export default function SuppliersPage() {
     } catch (error: any) {
       setErrorMessage(`Error eliminando proveedor: ${error.message}`);
     }
+    setOpenMenuId(null);
   };
 
   const resetForm = () => {
@@ -415,18 +404,20 @@ export default function SuppliersPage() {
     });
     setModalMode("edit");
     setShowModal(true);
+    setOpenMenuId(null);
   };
 
   const openViewModal = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setModalMode("view");
     setShowModal(true);
+    setOpenMenuId(null);
   };
 
   const getCertificateBadge = (cert: Certificate) => {
     if (!cert.uploaded) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700">
           <FileX size={12} />
           No subido
         </span>
@@ -435,7 +426,7 @@ export default function SuppliersPage() {
 
     if (!cert.expiryDate) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
           <FileCheck size={12} />
           Subido
         </span>
@@ -447,7 +438,7 @@ export default function SuppliersPage() {
 
     if (cert.expiryDate < now) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700">
           <AlertCircle size={12} />
           Caducado
         </span>
@@ -456,7 +447,7 @@ export default function SuppliersPage() {
 
     if (cert.expiryDate < thirtyDaysFromNow) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
           <Clock size={12} />
           Por caducar
         </span>
@@ -464,7 +455,7 @@ export default function SuppliersPage() {
     }
 
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
         <CheckCircle size={12} />
         Válido
       </span>
@@ -472,21 +463,13 @@ export default function SuppliersPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
-      valid: "bg-emerald-100 text-emerald-700",
-      expiring: "bg-amber-100 text-amber-700",
-      expired: "bg-red-100 text-red-700",
+    const config: Record<string, { bg: string; text: string; label: string }> = {
+      valid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Válido" },
+      expiring: { bg: "bg-amber-50", text: "text-amber-700", label: "Por caducar" },
+      expired: { bg: "bg-red-50", text: "text-red-700", label: "Acción requerida" },
     };
-    const labels = {
-      valid: "Válido",
-      expiring: "Por caducar",
-      expired: "Acción requerida",
-    };
-    return (
-      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${styles[status as keyof typeof styles] || ""}`}>
-        {labels[status as keyof typeof labels] || status}
-      </span>
-    );
+    const c = config[status] || config.valid;
+    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
   };
 
   const exportSuppliers = () => {
@@ -498,7 +481,7 @@ export default function SuppliersPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.setAttribute("href", URL.createObjectURL(blob));
-    link.setAttribute("download", `proveedores_${projectName}_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `proveedores_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -506,266 +489,190 @@ export default function SuppliersPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
-          </div>
-        </main>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  const validCount = suppliers.filter((s) => getCertificateStatus(s) === "valid").length;
-  const expiringCount = suppliers.filter((s) => getCertificateStatus(s) === "expiring").length;
-  const expiredCount = suppliers.filter((s) => getCertificateStatus(s) === "expired").length;
-
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex items-center justify-between mb-2">
-            <Link href={`/project/${id}/accounting`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
-              <Folder size={14} />
-              {projectName}
-              <ChevronRight size={14} />
-              <span>Contabilidad</span>
-            </Link>
-            <button
-              onClick={loadData}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
-            >
-              <RefreshCw size={14} />
-            </button>
-          </div>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-                <Building2 size={24} className="text-white" />
+              <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center">
+                <Building2 size={24} className="text-violet-600" />
               </div>
               <div>
-                <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Proveedores</h1>
-                <p className="text-slate-400 text-sm">Gestión de proveedores del proyecto</p>
+                <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
+                <p className="text-slate-500 text-sm">{suppliers.length} {suppliers.length === 1 ? "proveedor" : "proveedores"}</p>
               </div>
             </div>
-            <button
-              onClick={openCreateModal}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 rounded-xl font-medium transition-all hover:bg-slate-100 shadow-lg"
-            >
-              <Plus size={18} />
-              Añadir proveedor
-            </button>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Building2 size={18} className="text-blue-400" />
-                <span className="text-2xl font-bold">{suppliers.length}</span>
-              </div>
-              <p className="text-sm text-slate-400">Total proveedores</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <CheckCircle size={18} className="text-emerald-400" />
-                <span className="text-2xl font-bold">{validCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Certificados válidos</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Clock size={18} className="text-amber-400" />
-                <span className="text-2xl font-bold">{expiringCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Próximos a caducar</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <AlertCircle size={18} className="text-red-400" />
-                <span className="text-2xl font-bold">{expiredCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Acción requerida</p>
+            <div className="flex items-center gap-2">
+              <button onClick={exportSuppliers} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                <Download size={16} />
+                Exportar
+              </button>
+              <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+                <Plus size={18} />
+                Añadir proveedor
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Messages */}
-          {errorMessage && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-              <AlertCircle size={20} />
-              <span className="flex-1">{errorMessage}</span>
-              <button onClick={() => setErrorMessage("")}><X size={16} /></button>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
-              <CheckCircle size={20} />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          {/* Filters */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o NIF..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
-                >
-                  <option value="all">Todos los estados</option>
-                  <option value="valid">Certificados válidos</option>
-                  <option value="expiring">Próximos a caducar</option>
-                  <option value="expired">Acción requerida</option>
-                </select>
-
-                <button
-                  onClick={exportSuppliers}
-                  className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium"
-                >
-                  <Download size={16} />
-                  Exportar
-                </button>
-              </div>
-            </div>
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Messages */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+            <AlertCircle size={20} />
+            <span className="flex-1">{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")}><X size={16} /></button>
           </div>
+        )}
 
-          {/* Suppliers List */}
-          {filteredSuppliers.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Building2 size={32} className="text-slate-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                {searchTerm || filterStatus !== "all" ? "No se encontraron proveedores" : "No hay proveedores registrados"}
-              </h3>
-              <p className="text-slate-500 mb-6">
-                {searchTerm || filterStatus !== "all" ? "Intenta ajustar los filtros" : "Añade tu primer proveedor al proyecto"}
-              </p>
-              {!searchTerm && filterStatus === "all" && (
-                <button
-                  onClick={openCreateModal}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors"
-                >
-                  <Plus size={18} />
-                  Añadir proveedor
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Proveedor</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">País / NIF</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Método pago</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Cert. Bancario</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Cert. Contratista</th>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredSuppliers.map((supplier) => {
-                      const status = getCertificateStatus(supplier);
-                      return (
-                        <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-slate-900">{supplier.fiscalName}</p>
-                              {supplier.commercialName && (
-                                <p className="text-sm text-slate-500">{supplier.commercialName}</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <Globe size={14} className="text-slate-400" />
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">{supplier.country}</p>
-                                <p className="text-xs text-slate-500">{supplier.taxId}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700">
-                              <CreditCard size={12} />
-                              {PAYMENT_METHODS.find((pm) => pm.value === supplier.paymentMethod)?.label || supplier.paymentMethod}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
-                          <td className="px-6 py-4">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
-                          <td className="px-6 py-4">{getStatusBadge(status)}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => openViewModal(supplier)}
-                                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Ver detalles"
-                              >
-                                <Eye size={16} />
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+            <CheckCircle size={20} />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o NIF..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
+            className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+          >
+            <option value="all">Todos los estados</option>
+            <option value="valid">Certificados válidos</option>
+            <option value="expiring">Próximos a caducar</option>
+            <option value="expired">Acción requerida</option>
+          </select>
+        </div>
+
+        {/* Table */}
+        {filteredSuppliers.length === 0 ? (
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+            <Building2 size={32} className="text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+              {searchTerm || filterStatus !== "all" ? "No se encontraron proveedores" : "No hay proveedores registrados"}
+            </h3>
+            <p className="text-slate-500 text-sm mb-4">
+              {searchTerm || filterStatus !== "all" ? "Intenta ajustar los filtros" : "Añade tu primer proveedor al proyecto"}
+            </p>
+            {!searchTerm && filterStatus === "all" && (
+              <button onClick={openCreateModal} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+                <Plus size={16} />
+                Añadir proveedor
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Proveedor</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">NIF</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Certificados</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase w-20"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSuppliers.map((supplier) => {
+                  const status = getCertificateStatus(supplier);
+                  return (
+                    <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <button onClick={() => openViewModal(supplier)} className="text-left hover:text-violet-600 transition-colors">
+                          <p className="font-medium text-slate-900">{supplier.fiscalName}</p>
+                          {supplier.commercialName && <p className="text-xs text-slate-500">{supplier.commercialName}</p>}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Globe size={14} className="text-slate-400" />
+                          <span className="text-sm text-slate-900">{supplier.taxId}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {getCertificateBadge(supplier.certificates.bankOwnership)}
+                          {getCertificateBadge(supplier.certificates.contractorsCertificate)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{getStatusBadge(status)}</td>
+                      <td className="px-6 py-4">
+                        <div className="relative">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === supplier.id ? null : supplier.id); }}
+                            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <MoreHorizontal size={18} />
+                          </button>
+
+                          {openMenuId === supplier.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1">
+                              <button onClick={() => openViewModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                <Eye size={14} /> Ver detalles
                               </button>
-                              <button
-                                onClick={() => openEditModal(supplier)}
-                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Editar"
-                              >
-                                <Edit size={16} />
+                              <button onClick={() => openEditModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                <Edit size={14} /> Editar
                               </button>
                               <button
                                 onClick={() => handleDeleteSupplier(supplier.id)}
                                 disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={supplier.hasAssignedPOs || supplier.hasAssignedInvoices ? "Tiene documentos asignados" : "Eliminar"}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={14} /> Eliminar
                               </button>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </main>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); resetForm(); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {modalMode === "create" && "Nuevo proveedor"}
                 {modalMode === "edit" && "Editar proveedor"}
-                {modalMode === "view" && "Detalles del proveedor"}
+                {modalMode === "view" && selectedSupplier?.fiscalName}
               </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={20} />
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={18} />
               </button>
             </div>
 
@@ -780,8 +687,8 @@ export default function SuppliersPage() {
               <div className="space-y-6">
                 {/* Información básica */}
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                    <Building2 size={16} className="text-slate-500" />
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <Building2 size={14} />
                     Información básica
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -792,8 +699,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.fiscalName : formData.fiscalName}
                         onChange={(e) => setFormData({ ...formData, fiscalName: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                        placeholder="Nombre Fiscal S.L."
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -803,8 +709,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.commercialName : formData.commercialName}
                         onChange={(e) => setFormData({ ...formData, commercialName: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                        placeholder="Nombre Comercial"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -813,7 +718,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.country : formData.country}
                         onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       >
                         {COUNTRIES.map((country) => (
                           <option key={country.code} value={country.code}>{country.name}</option>
@@ -827,8 +732,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.taxId : formData.taxId}
                         onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                        placeholder="B12345678"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
@@ -836,8 +740,8 @@ export default function SuppliersPage() {
 
                 {/* Dirección */}
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                    <MapPin size={16} className="text-slate-500" />
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <MapPin size={14} />
                     Dirección
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -848,7 +752,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.address?.street : formData.address.street}
                         onChange={(e) => setFormData({ ...formData, address: { ...formData.address, street: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -858,7 +762,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.address?.number : formData.address.number}
                         onChange={(e) => setFormData({ ...formData, address: { ...formData.address, number: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -868,7 +772,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.address?.city : formData.address.city}
                         onChange={(e) => setFormData({ ...formData, address: { ...formData.address, city: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -878,7 +782,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.address?.province : formData.address.province}
                         onChange={(e) => setFormData({ ...formData, address: { ...formData.address, province: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -888,7 +792,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.address?.postalCode : formData.address.postalCode}
                         onChange={(e) => setFormData({ ...formData, address: { ...formData.address, postalCode: e.target.value } })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
@@ -896,8 +800,8 @@ export default function SuppliersPage() {
 
                 {/* Información de pago */}
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                    <CreditCard size={16} className="text-slate-500" />
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <CreditCard size={14} />
                     Información de pago
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -907,7 +811,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.paymentMethod : formData.paymentMethod}
                         onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as PaymentMethod })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       >
                         {PAYMENT_METHODS.map((method) => (
                           <option key={method.value} value={method.value}>{method.label}</option>
@@ -921,8 +825,7 @@ export default function SuppliersPage() {
                         value={modalMode === "view" ? selectedSupplier?.bankAccount : formData.bankAccount}
                         onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
                         disabled={modalMode === "view"}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                        placeholder="ES91 2100 0418 4502 0005 1332"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
@@ -931,69 +834,35 @@ export default function SuppliersPage() {
                 {/* Certificados */}
                 {modalMode !== "view" && (
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                      <FileText size={16} className="text-slate-500" />
+                    <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                      <FileText size={14} />
                       Certificados
                     </h3>
                     <div className="space-y-4">
-                      <div className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileCheck size={20} className="text-indigo-600" />
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h4 className="font-medium text-slate-900 mb-3">Certificado de titularidad bancaria</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Archivo</label>
+                            <input type="file" onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, file: e.target.files?.[0] || null } })} className="w-full text-sm" accept=".pdf,.jpg,.jpeg,.png" />
                           </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-slate-900 mb-1">Certificado de titularidad bancaria</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Archivo</label>
-                                <input
-                                  type="file"
-                                  onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, file: e.target.files?.[0] || null } })}
-                                  className="w-full text-sm"
-                                  accept=".pdf,.jpg,.jpeg,.png"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Fecha caducidad</label>
-                                <input
-                                  type="date"
-                                  value={certificates.bankOwnership.expiryDate}
-                                  onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, expiryDate: e.target.value } })}
-                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
-                                />
-                              </div>
-                            </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Fecha caducidad</label>
+                            <input type="date" value={certificates.bankOwnership.expiryDate} onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, expiryDate: e.target.value } })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                           </div>
                         </div>
                       </div>
 
-                      <div className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileCheck size={20} className="text-emerald-600" />
+                      <div className="border border-slate-200 rounded-xl p-4">
+                        <h4 className="font-medium text-slate-900 mb-3">Certificado de contratistas</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Archivo</label>
+                            <input type="file" onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, file: e.target.files?.[0] || null } })} className="w-full text-sm" accept=".pdf,.jpg,.jpeg,.png" />
                           </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-slate-900 mb-1">Certificado de contratistas</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Archivo</label>
-                                <input
-                                  type="file"
-                                  onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, file: e.target.files?.[0] || null } })}
-                                  className="w-full text-sm"
-                                  accept=".pdf,.jpg,.jpeg,.png"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Fecha caducidad</label>
-                                <input
-                                  type="date"
-                                  value={certificates.contractorsCertificate.expiryDate}
-                                  onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, expiryDate: e.target.value } })}
-                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
-                                />
-                              </div>
-                            </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Fecha caducidad</label>
+                            <input type="date" value={certificates.contractorsCertificate.expiryDate} onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, expiryDate: e.target.value } })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                           </div>
                         </div>
                       </div>
@@ -1004,8 +873,8 @@ export default function SuppliersPage() {
                 {/* Ver certificados en modo view */}
                 {modalMode === "view" && selectedSupplier && (
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                      <FileText size={16} className="text-slate-500" />
+                    <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                      <FileText size={14} />
                       Estado de certificados
                     </h3>
                     <div className="space-y-3">
@@ -1013,9 +882,7 @@ export default function SuppliersPage() {
                         <div>
                           <p className="font-medium text-slate-900">Certificado de titularidad bancaria</p>
                           {selectedSupplier.certificates.bankOwnership.expiryDate && (
-                            <p className="text-sm text-slate-500">
-                              Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.bankOwnership.expiryDate)}
-                            </p>
+                            <p className="text-sm text-slate-500">Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.bankOwnership.expiryDate)}</p>
                           )}
                         </div>
                         {getCertificateBadge(selectedSupplier.certificates.bankOwnership)}
@@ -1024,9 +891,7 @@ export default function SuppliersPage() {
                         <div>
                           <p className="font-medium text-slate-900">Certificado de contratistas</p>
                           {selectedSupplier.certificates.contractorsCertificate.expiryDate && (
-                            <p className="text-sm text-slate-500">
-                              Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.contractorsCertificate.expiryDate)}
-                            </p>
+                            <p className="text-sm text-slate-500">Caduca: {new Intl.DateTimeFormat("es-ES").format(selectedSupplier.certificates.contractorsCertificate.expiryDate)}</p>
                           )}
                         </div>
                         {getCertificateBadge(selectedSupplier.certificates.contractorsCertificate)}
@@ -1038,19 +903,12 @@ export default function SuppliersPage() {
 
               {/* Actions */}
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
-                <button
-                  onClick={() => { setShowModal(false); resetForm(); }}
-                  className="px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors"
-                >
+                <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors">
                   {modalMode === "view" ? "Cerrar" : "Cancelar"}
                 </button>
                 {modalMode !== "view" && (
-                  <button
-                    onClick={modalMode === "create" ? handleCreateSupplier : handleUpdateSupplier}
-                    disabled={saving}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                  <button onClick={modalMode === "create" ? handleCreateSupplier : handleUpdateSupplier} disabled={saving} className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2">
+                    {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                     {modalMode === "create" ? "Crear proveedor" : "Guardar cambios"}
                   </button>
                 )}
@@ -1062,5 +920,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-
-
