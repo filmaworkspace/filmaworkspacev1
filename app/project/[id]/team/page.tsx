@@ -22,17 +22,7 @@ export default function TeamPage() {
     }
   }, [id]);
 
-  if (loading) {
-    return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin mx-auto"></div>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
 
   return (
     <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
@@ -64,3 +54,4 @@ export default function TeamPage() {
     </div>
   );
 }
+
