@@ -2,9 +2,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
-  Folder,
   Users,
   UserPlus,
   Search,
@@ -18,11 +17,10 @@ import {
   UserCheck,
   UserX,
   Clock,
-  UserCircle,
   Info,
   Edit,
-  ChevronRight,
-  RefreshCw,
+  ArrowLeft,
+  MoreHorizontal,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -39,8 +37,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 const DEPARTMENT_POSITIONS = ["HOD", "Coordinator", "Crew"];
@@ -50,19 +47,19 @@ const ACCOUNTING_ACCESS_LEVELS = {
     label: "Usuario",
     description: "Panel principal y Proveedores",
     permissions: { panel: true, suppliers: true, budget: false, users: false, reports: false },
-    color: "bg-blue-100 text-blue-700",
+    color: "bg-blue-50 text-blue-700",
   },
   accounting: {
     label: "Contabilidad",
     description: "Panel, Proveedores e Informes",
     permissions: { panel: true, suppliers: true, budget: false, users: false, reports: true },
-    color: "bg-indigo-100 text-indigo-700",
+    color: "bg-indigo-50 text-indigo-700",
   },
   accounting_extended: {
     label: "Contabilidad ampliada",
     description: "Acceso completo a contabilidad",
     permissions: { panel: true, suppliers: true, budget: true, users: true, reports: true },
-    color: "bg-purple-100 text-purple-700",
+    color: "bg-purple-50 text-purple-700",
   },
 };
 
@@ -113,7 +110,7 @@ export default function AccountingUsersPage() {
   const [accountingMembers, setAccountingMembers] = useState<Member[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -123,6 +120,7 @@ export default function AccountingUsersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [foundUser, setFoundUser] = useState<{ name: string; email: string } | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
     email: "",
@@ -276,6 +274,12 @@ export default function AccountingUsersPage() {
     const debounce = setTimeout(() => checkUserExists(), 500);
     return () => clearTimeout(debounce);
   }, [inviteForm.email]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const handleSendInvitation = async () => {
     if (!id || !inviteForm.email.trim() || !inviteForm.name.trim()) {
@@ -495,6 +499,7 @@ export default function AccountingUsersPage() {
       setTimeout(() => setErrorMessage(""), 3000);
     } finally {
       setSaving(false);
+      setOpenMenuId(null);
     }
   };
 
@@ -521,373 +526,299 @@ export default function AccountingUsersPage() {
 
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
-          </div>
-        </main>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (errorMessage && !hasAccountingAccess) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-            <p className="text-slate-700 mb-4">{errorMessage}</p>
-            <Link href="/dashboard" className="text-slate-900 hover:underline font-medium">
-              Volver al panel principal
-            </Link>
-          </div>
-        </main>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="text-center max-w-md">
+          <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+          <p className="text-slate-700 mb-4">{errorMessage}</p>
+          <Link href="/dashboard" className="text-slate-900 hover:underline font-medium">
+            Volver al panel principal
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const userLevelCount = accountingMembers.filter((m) => m.accountingAccessLevel === "user").length;
-  const accountingLevelCount = accountingMembers.filter((m) => m.accountingAccessLevel === "accounting").length;
-  const extendedLevelCount = accountingMembers.filter((m) => m.accountingAccessLevel === "accounting_extended").length;
-
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex items-center justify-between mb-2">
-            <Link href={`/project/${id}/accounting`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
-              <Folder size={14} />
-              {projectName}
-              <ChevronRight size={14} />
-              <span>Contabilidad</span>
-            </Link>
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10">
-              <RefreshCw size={14} />
-            </button>
-          </div>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-                <Users size={24} className="text-white" />
+              <div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center">
+                <Users size={24} className="text-sky-600" />
               </div>
               <div>
-                <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Usuarios</h1>
-                <p className="text-slate-400 text-sm">Gestión de accesos a contabilidad</p>
+                <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
+                <p className="text-slate-500 text-sm">{accountingMembers.length} con acceso a contabilidad</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 rounded-xl font-medium transition-all hover:bg-slate-100 shadow-lg"
-            >
+
+            <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
               <UserPlus size={18} />
               Dar acceso
             </button>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Users size={18} className="text-blue-400" />
-                <span className="text-2xl font-bold">{accountingMembers.length}</span>
-              </div>
-              <p className="text-sm text-slate-400">Total usuarios</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <UserCircle size={18} className="text-blue-400" />
-                <span className="text-2xl font-bold">{userLevelCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Nivel Usuario</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Shield size={18} className="text-indigo-400" />
-                <span className="text-2xl font-bold">{accountingLevelCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Nivel Contabilidad</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Shield size={18} className="text-purple-400" />
-                <span className="text-2xl font-bold">{extendedLevelCount}</span>
-              </div>
-              <p className="text-sm text-slate-400">Nivel Ampliado</p>
-            </div>
-          </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Messages */}
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
-              <CheckCircle2 size={20} />
-              <span>{successMessage}</span>
-            </div>
-          )}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Messages */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+            <CheckCircle2 size={20} />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
-          {errorMessage && hasAccountingAccess && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-              <AlertCircle size={20} />
-              <span>{errorMessage}</span>
-              <button onClick={() => setErrorMessage("")} className="ml-auto">
-                <X size={16} />
-              </button>
-            </div>
-          )}
+        {errorMessage && hasAccountingAccess && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+            <AlertCircle size={20} />
+            <span>{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")} className="ml-auto"><X size={16} /></button>
+          </div>
+        )}
 
-          {/* Pending Invitations */}
-          {pendingInvitations.length > 0 && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock size={16} className="text-amber-600" />
-                <h3 className="text-sm font-semibold text-amber-900">Invitaciones pendientes ({pendingInvitations.length})</h3>
-              </div>
-              <div className="space-y-2">
-                {pendingInvitations.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-amber-200">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">{inv.invitedName}</p>
-                      <p className="text-xs text-slate-500">{inv.invitedEmail}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {getAccessLevelBadge(inv.accountingAccessLevel)}
-                        <span className="text-xs text-slate-500">{inv.roleType === "project" ? `Rol: ${inv.role}` : `${inv.position} - ${inv.department}`}</span>
-                      </div>
+        {/* Pending Invitations */}
+        {pendingInvitations.length > 0 && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={16} className="text-amber-600" />
+              <h3 className="text-sm font-semibold text-amber-900">Invitaciones pendientes ({pendingInvitations.length})</h3>
+            </div>
+            <div className="space-y-2">
+              {pendingInvitations.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-amber-200">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-900">{inv.invitedName}</p>
+                    <p className="text-xs text-slate-500">{inv.invitedEmail}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {getAccessLevelBadge(inv.accountingAccessLevel)}
                     </div>
-                    <button onClick={() => handleCancelInvitation(inv.id)} className="ml-3 px-3 py-1.5 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-medium transition-colors">
-                      Cancelar
-                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Filters */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar usuario..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
-                >
-                  <option value="all">Todos</option>
-                  <option value="project">Roles de proyecto</option>
-                  {uniqueDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                  <option value="unassigned">Sin asignar</option>
-                </select>
-
-                <div className="flex border border-slate-200 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("cards")}
-                    className={`px-3 py-2 text-sm transition-colors ${viewMode === "cards" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-                  >
-                    <Grid3x3 size={16} />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("table")}
-                    className={`px-3 py-2 text-sm transition-colors border-l border-slate-200 ${viewMode === "table" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-                  >
-                    <List size={16} />
+                  <button onClick={() => handleCancelInvitation(inv.id)} className="ml-3 px-3 py-1.5 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-medium">
+                    Cancelar
                   </button>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Members Display */}
-          {filteredMembers.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users size={32} className="text-slate-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                {searchTerm || roleFilter !== "all" ? "No se encontraron usuarios" : "No hay usuarios con acceso"}
-              </h3>
-              <p className="text-slate-500 mb-6">
-                {searchTerm || roleFilter !== "all" ? "Intenta ajustar los filtros" : "Añade usuarios para dar acceso a contabilidad"}
-              </p>
-              {!searchTerm && roleFilter === "all" && (
-                <button
-                  onClick={() => setShowInviteModal(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors"
-                >
-                  <UserPlus size={18} />
-                  Dar acceso
-                </button>
-              )}
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar usuario..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+            >
+              <option value="all">Todos</option>
+              <option value="project">Roles de proyecto</option>
+              {uniqueDepartments.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+
+            <div className="flex border border-slate-200 rounded-xl overflow-hidden">
+              <button onClick={() => setViewMode("cards")} className={`px-3 py-2 text-sm transition-colors ${viewMode === "cards" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                <Grid3x3 size={16} />
+              </button>
+              <button onClick={() => setViewMode("table")} className={`px-3 py-2 text-sm transition-colors border-l border-slate-200 ${viewMode === "table" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                <List size={16} />
+              </button>
             </div>
-          ) : viewMode === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMembers.map((member) => {
-                const isProjectRoleMember = PROJECT_ROLES.includes(member.role || "");
+          </div>
+        </div>
 
-                return (
-                  <div key={member.userId} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg transition-all hover:border-slate-300">
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className={`w-12 h-12 rounded-xl ${isProjectRoleMember ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"} flex items-center justify-center text-lg font-semibold`}>
-                        {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{member.name || member.email}</p>
-                          {isProjectRoleMember && <Shield size={14} className="text-slate-600 flex-shrink-0" />}
-                        </div>
-                        {member.email && member.name && <p className="text-xs text-slate-500 truncate">{member.email}</p>}
-                      </div>
+        {/* Members Display */}
+        {filteredMembers.length === 0 ? (
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+            <Users size={32} className="text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+              {searchTerm || roleFilter !== "all" ? "No se encontraron usuarios" : "No hay usuarios con acceso"}
+            </h3>
+            <p className="text-slate-500 text-sm mb-4">
+              {searchTerm || roleFilter !== "all" ? "Intenta ajustar los filtros" : "Añade usuarios para dar acceso a contabilidad"}
+            </p>
+            {!searchTerm && roleFilter === "all" && (
+              <button onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+                <UserPlus size={16} />
+                Dar acceso
+              </button>
+            )}
+          </div>
+        ) : viewMode === "cards" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMembers.map((member) => {
+              const isProjectRoleMember = PROJECT_ROLES.includes(member.role || "");
+
+              return (
+                <div key={member.userId} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-xl ${isProjectRoleMember ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"} flex items-center justify-center text-lg font-semibold`}>
+                      {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase()}
                     </div>
-
-                    <div className="mb-3">
-                      {isProjectRoleMember ? (
-                        <span className="inline-block text-xs font-medium bg-slate-900 text-white px-3 py-1 rounded-lg">{member.role}</span>
-                      ) : member.department && member.position ? (
-                        <div className="text-sm text-slate-600">
-                          <span className="font-medium text-slate-900">{member.position}</span>
-                          <span className="text-slate-400"> · </span>
-                          <span>{member.department}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">Sin asignar</span>
-                      )}
-                    </div>
-
-                    <div className="mb-4">{getAccessLevelBadge(member.accountingAccessLevel)}</div>
-
-                    {member.userId !== userId && isProjectRoleMember && (
-                      <div className="flex gap-2 pt-3 border-t border-slate-100">
-                        <button
-                          onClick={() => {
-                            setEditingMember(member);
-                            setShowEditAccessModal(true);
-                          }}
-                          className="flex-1 flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 py-2 rounded-lg transition-colors"
-                        >
-                          <Edit size={14} />
-                          Cambiar
-                        </button>
-                        <button
-                          onClick={() => handleRemoveAccountingAccess(member.userId)}
-                          disabled={saving}
-                          className="flex-1 flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Trash2 size={14} />
-                          Quitar
-                        </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{member.name || member.email}</p>
+                        {isProjectRoleMember && <Shield size={14} className="text-slate-600 flex-shrink-0" />}
                       </div>
+                      {member.email && member.name && <p className="text-xs text-slate-500 truncate">{member.email}</p>}
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    {isProjectRoleMember ? (
+                      <span className="inline-block text-xs font-medium bg-slate-900 text-white px-3 py-1 rounded-lg">{member.role}</span>
+                    ) : member.department && member.position ? (
+                      <div className="text-sm text-slate-600">
+                        <span className="font-medium text-slate-900">{member.position}</span>
+                        <span className="text-slate-400"> · </span>
+                        <span>{member.department}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">Sin asignar</span>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Usuario</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Rol / Departamento</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Nivel de acceso</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase w-32">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredMembers.map((member) => {
-                      const isProjectRoleMember = PROJECT_ROLES.includes(member.role || "");
 
-                      return (
-                        <tr key={member.userId} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg ${isProjectRoleMember ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"} flex items-center justify-center text-xs font-semibold`}>
-                                {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-medium text-slate-900">{member.name || member.email}</p>
-                                  {isProjectRoleMember && <Shield size={12} className="text-slate-600" />}
-                                </div>
-                                {member.email && member.name && <p className="text-xs text-slate-500">{member.email}</p>}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            {isProjectRoleMember ? (
-                              <span className="text-sm font-medium text-slate-900">{member.role}</span>
+                  <div className="mb-4">{getAccessLevelBadge(member.accountingAccessLevel)}</div>
+
+                  {member.userId !== userId && isProjectRoleMember && (
+                    <div className="flex gap-2 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => { setEditingMember(member); setShowEditAccessModal(true); }}
+                        className="flex-1 flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 py-2 rounded-lg"
+                      >
+                        <Edit size={14} />
+                        Cambiar
+                      </button>
+                      <button
+                        onClick={() => handleRemoveAccountingAccess(member.userId)}
+                        disabled={saving}
+                        className="flex-1 flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        Quitar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left py-3 px-6 text-xs font-semibold text-slate-500 uppercase">Usuario</th>
+                  <th className="text-left py-3 px-6 text-xs font-semibold text-slate-500 uppercase">Rol</th>
+                  <th className="text-left py-3 px-6 text-xs font-semibold text-slate-500 uppercase">Nivel de acceso</th>
+                  <th className="text-right py-3 px-6 text-xs font-semibold text-slate-500 uppercase w-20"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((member) => {
+                  const isProjectRoleMember = PROJECT_ROLES.includes(member.role || "");
+
+                  return (
+                    <tr key={member.userId} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg ${isProjectRoleMember ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"} flex items-center justify-center text-sm font-semibold`}>
+                            {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{member.name || member.email}</p>
+                            {member.email && member.name && <p className="text-xs text-slate-500">{member.email}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        {isProjectRoleMember ? (
+                          <span className="text-sm font-medium text-slate-900">{member.role}</span>
+                        ) : (
+                          <div className="text-sm text-slate-600">
+                            {member.department && member.position ? (
+                              <>{member.position} · {member.department}</>
                             ) : (
-                              <div className="text-sm text-slate-600">
-                                {member.department && member.position ? (
-                                  <>
-                                    <span className="font-medium text-slate-900">{member.position}</span>
-                                    <span className="text-slate-400"> · </span>
-                                    <span>{member.department}</span>
-                                  </>
-                                ) : (
-                                  <span className="text-slate-400">Sin asignar</span>
-                                )}
-                              </div>
+                              <span className="text-slate-400">Sin asignar</span>
                             )}
-                          </td>
-                          <td className="py-3 px-4">{getAccessLevelBadge(member.accountingAccessLevel)}</td>
-                          <td className="py-3 px-4 text-right">
-                            {member.userId !== userId && isProjectRoleMember && (
-                              <div className="flex items-center justify-end gap-1">
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-4 px-6">{getAccessLevelBadge(member.accountingAccessLevel)}</td>
+                      <td className="py-4 px-6">
+                        {member.userId !== userId && isProjectRoleMember && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === member.userId ? null : member.userId); }}
+                              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
+                            >
+                              <MoreHorizontal size={18} />
+                            </button>
+
+                            {openMenuId === member.userId && (
+                              <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1">
                                 <button
-                                  onClick={() => {
-                                    setEditingMember(member);
-                                    setShowEditAccessModal(true);
-                                  }}
-                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                                  onClick={() => { setEditingMember(member); setShowEditAccessModal(true); setOpenMenuId(null); }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                 >
-                                  <Edit size={16} />
+                                  <Edit size={14} /> Cambiar nivel
                                 </button>
-                                <button onClick={() => handleRemoveAccountingAccess(member.userId)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                  <Trash2 size={16} />
+                                <button
+                                  onClick={() => handleRemoveAccountingAccess(member.userId)}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <Trash2 size={14} /> Quitar acceso
                                 </button>
                               </div>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </main>
 
       {/* Edit Access Modal */}
       {showEditAccessModal && editingMember && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">Cambiar nivel de acceso</h3>
-              <button onClick={() => { setShowEditAccessModal(false); setEditingMember(null); }} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowEditAccessModal(false); setEditingMember(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Cambiar nivel de acceso</h3>
+              <button onClick={() => { setShowEditAccessModal(false); setEditingMember(null); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
               </button>
             </div>
 
@@ -903,9 +834,7 @@ export default function AccountingUsersPage() {
                 {Object.entries(ACCOUNTING_ACCESS_LEVELS).map(([key, value]) => (
                   <label
                     key={key}
-                    className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
-                      editingMember.accountingAccessLevel === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"
-                    }`}
+                    className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all ${editingMember.accountingAccessLevel === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
                   >
                     <input
                       type="radio"
@@ -924,10 +853,10 @@ export default function AccountingUsersPage() {
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => { setShowEditAccessModal(false); setEditingMember(null); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors">
+                <button onClick={() => { setShowEditAccessModal(false); setEditingMember(null); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
                   Cancelar
                 </button>
-                <button onClick={handleUpdateAccessLevel} disabled={saving} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50">
+                <button onClick={handleUpdateAccessLevel} disabled={saving} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50">
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
@@ -938,12 +867,12 @@ export default function AccountingUsersPage() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Dar acceso a contabilidad</h3>
-              <button onClick={() => { setShowInviteModal(false); resetForm(); }} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowInviteModal(false); resetForm(); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Dar acceso a contabilidad</h3>
+              <button onClick={() => { setShowInviteModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
               </button>
             </div>
 
@@ -951,10 +880,7 @@ export default function AccountingUsersPage() {
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <div className="flex gap-2">
                   <Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Acceso a contabilidad</p>
-                    <p className="text-xs text-blue-700">Selecciona el nivel de acceso que tendrá el usuario.</p>
-                  </div>
+                  <p className="text-sm text-blue-700">Selecciona el nivel de acceso que tendrá el usuario.</p>
                 </div>
               </div>
 
@@ -966,7 +892,7 @@ export default function AccountingUsersPage() {
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                     placeholder="usuario@ejemplo.com"
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
                   />
 
                   {userExists === true && foundUser && (
@@ -984,21 +910,21 @@ export default function AccountingUsersPage() {
                       <UserX size={18} className="text-amber-600 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-amber-900">Usuario no registrado</p>
-                        <p className="text-xs text-amber-700">Se enviará invitación para crear cuenta</p>
+                        <p className="text-xs text-amber-700">Se enviará invitación</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del usuario</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Nombre</label>
                   <input
                     type="text"
                     value={inviteForm.name}
                     onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
                     placeholder="Nombre completo"
                     disabled={userExists === true}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50 disabled:bg-slate-100"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 disabled:bg-slate-100"
                   />
                 </div>
 
@@ -1008,9 +934,7 @@ export default function AccountingUsersPage() {
                     {Object.entries(ACCOUNTING_ACCESS_LEVELS).map(([key, value]) => (
                       <label
                         key={key}
-                        className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all ${
-                          inviteForm.accountingAccessLevel === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"
-                        }`}
+                        className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-all ${inviteForm.accountingAccessLevel === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
                       >
                         <input
                           type="radio"
@@ -1034,7 +958,7 @@ export default function AccountingUsersPage() {
                   <select
                     value={inviteForm.roleType}
                     onChange={(e) => setInviteForm({ ...inviteForm, roleType: e.target.value as "project" | "department" })}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
                   >
                     <option value="project">Rol de proyecto</option>
                     <option value="department">Rol de departamento</option>
@@ -1047,13 +971,11 @@ export default function AccountingUsersPage() {
                     <select
                       value={inviteForm.role}
                       onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
                     >
                       <option value="">Seleccionar</option>
                       {PROJECT_ROLES.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
+                        <option key={role} value={role}>{role}</option>
                       ))}
                     </select>
                   </div>
@@ -1064,13 +986,11 @@ export default function AccountingUsersPage() {
                       <select
                         value={inviteForm.department}
                         onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
                       >
                         <option value="">Seleccionar</option>
                         {departments.map((dept) => (
-                          <option key={dept.name} value={dept.name}>
-                            {dept.name}
-                          </option>
+                          <option key={dept.name} value={dept.name}>{dept.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1079,13 +999,11 @@ export default function AccountingUsersPage() {
                       <select
                         value={inviteForm.position}
                         onChange={(e) => setInviteForm({ ...inviteForm, position: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
                       >
                         <option value="">Seleccionar</option>
                         {DEPARTMENT_POSITIONS.map((pos) => (
-                          <option key={pos} value={pos}>
-                            {pos}
-                          </option>
+                          <option key={pos} value={pos}>{pos}</option>
                         ))}
                       </select>
                     </div>
@@ -1095,7 +1013,7 @@ export default function AccountingUsersPage() {
                 <button
                   onClick={handleSendInvitation}
                   disabled={saving}
-                  className="w-full mt-4 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="w-full mt-4 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50"
                 >
                   {saving ? "Enviando..." : "Dar acceso a contabilidad"}
                 </button>
@@ -1107,4 +1025,3 @@ export default function AccountingUsersPage() {
     </div>
   );
 }
-
