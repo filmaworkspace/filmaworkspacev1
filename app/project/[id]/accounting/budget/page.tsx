@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -17,7 +17,6 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import {
-  Folder,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -27,20 +26,16 @@ import {
   Search,
   Download,
   Upload,
-  TrendingUp,
   AlertCircle,
   CheckCircle,
   FileSpreadsheet,
   Eye,
   EyeOff,
-  RefreshCw,
   Wallet,
-  PiggyBank,
-  Receipt,
+  ArrowLeft,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 interface SubAccount {
   id: string;
@@ -71,7 +66,6 @@ interface BudgetSummary {
 export default function BudgetPage() {
   const params = useParams();
   const id = params?.id as string;
-  const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -101,17 +95,13 @@ export default function BudgetPage() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setUserId(user.uid);
-      }
+      if (user) setUserId(user.uid);
     });
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (userId && id) {
-      loadData();
-    }
+    if (userId && id) loadData();
   }, [userId, id]);
 
   useEffect(() => {
@@ -122,12 +112,6 @@ export default function BudgetPage() {
     try {
       setLoading(true);
       setErrorMessage("");
-
-      const projectDoc = await getDoc(doc(db, "projects", id));
-      if (!projectDoc.exists()) {
-        throw new Error("El proyecto no existe");
-      }
-      setProjectName(projectDoc.data().name || "Proyecto");
 
       const accountsRef = collection(db, `projects/${id}/accounts`);
       const accountsQuery = query(accountsRef, orderBy("code", "asc"));
@@ -216,14 +200,12 @@ export default function BudgetPage() {
     setErrorMessage("");
 
     try {
-      const accountData = {
+      await addDoc(collection(db, `projects/${id}/accounts`), {
         code: formData.code.padStart(2, "0"),
         description: formData.description.trim(),
         createdAt: Timestamp.now(),
         createdBy: userId || "",
-      };
-
-      await addDoc(collection(db, `projects/${id}/accounts`), accountData);
+      });
 
       setSuccessMessage("Cuenta creada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -253,7 +235,7 @@ export default function BudgetPage() {
     setErrorMessage("");
 
     try {
-      const subAccountData = {
+      await addDoc(collection(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`), {
         code: formData.code,
         description: formData.description.trim(),
         budgeted: formData.budgeted || 0,
@@ -262,12 +244,7 @@ export default function BudgetPage() {
         accountId: selectedAccount.id,
         createdAt: Timestamp.now(),
         createdBy: userId || "",
-      };
-
-      await addDoc(
-        collection(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`),
-        subAccountData
-      );
+      });
 
       setSuccessMessage("Subcuenta creada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -292,13 +269,10 @@ export default function BudgetPage() {
     setErrorMessage("");
 
     try {
-      await updateDoc(
-        doc(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`, selectedSubAccount.id),
-        {
-          description: formData.description.trim(),
-          budgeted: formData.budgeted || 0,
-        }
-      );
+      await updateDoc(doc(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`, selectedSubAccount.id), {
+        description: formData.description.trim(),
+        budgeted: formData.budgeted || 0,
+      });
 
       setSuccessMessage("Subcuenta actualizada correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -385,19 +359,13 @@ export default function BudgetPage() {
       ["CÓDIGO", "DESCRIPCIÓN", "TIPO", "PRESUPUESTADO"],
       ["01", "GUION Y MÚSICA", "CUENTA", ""],
       ["01-01-01", "Derechos de autor", "SUBCUENTA", "5000"],
-      ["01-01-02", "Revisiones de guion", "SUBCUENTA", "2000"],
-      ["02", "PREPRODUCCIÓN", "CUENTA", ""],
-      ["02-01-01", "Casting", "SUBCUENTA", "3000"],
     ];
-
     const csvContent = template.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.setAttribute("href", URL.createObjectURL(blob));
     link.setAttribute("download", "plantilla_presupuesto.csv");
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   };
 
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -419,7 +387,6 @@ export default function BudgetPage() {
 
         for (const line of lines) {
           const [code, description, type, budgeted] = line.split(",").map((s) => s.trim());
-
           if (!code || !description || !type) continue;
 
           if (type.toUpperCase() === "CUENTA") {
@@ -482,19 +449,15 @@ export default function BudgetPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.setAttribute("href", URL.createObjectURL(blob));
-    link.setAttribute("download", `presupuesto_${projectName}_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
+    link.setAttribute("download", `presupuesto_${new Date().toISOString().split("T")[0]}.csv`);
     link.click();
-    document.body.removeChild(link);
   };
 
   const filteredAccounts = accounts.filter((account) => {
     if (!searchTerm) return true;
-
     const searchLower = searchTerm.toLowerCase();
     const accountMatch = account.code.toLowerCase().includes(searchLower) || account.description.toLowerCase().includes(searchLower);
     const subAccountMatch = account.subAccounts.some((sub) => sub.code.toLowerCase().includes(searchLower) || sub.description.toLowerCase().includes(searchLower));
-
     return accountMatch || subAccountMatch;
   });
 
@@ -509,300 +472,245 @@ export default function BudgetPage() {
     return "text-emerald-600";
   };
 
+  const budgetedPercent = summary.totalBudgeted > 0 ? ((summary.totalCommitted + summary.totalActual) / summary.totalBudgeted) * 100 : 0;
+
   if (loading) {
     return (
-      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600 text-sm font-medium">Cargando...</p>
-          </div>
-        </main>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  const budgetedPercent = summary.totalBudgeted > 0 ? ((summary.totalCommitted + summary.totalActual) / summary.totalBudgeted) * 100 : 0;
-
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Hero Header */}
-      <div className="mt-[4rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex items-center justify-between mb-2">
-            <Link href={`/project/${id}/accounting`} className="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">
-              <Folder size={14} />
-              {projectName}
-              <ChevronRight size={14} />
-              <span>Contabilidad</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
-              >
-                <Upload size={14} />
-                Importar
-              </button>
-              <button
-                onClick={loadData}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          </div>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
-                <Wallet size={24} className="text-white" />
+              <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
+                <Wallet size={24} className="text-amber-600" />
               </div>
               <div>
-                <h1 className={`text-3xl font-semibold tracking-tight ${spaceGrotesk.className}`}>Presupuesto</h1>
-                <p className="text-slate-400 text-sm">Control financiero del proyecto</p>
+                <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
+                <p className="text-slate-500 text-sm">{accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}</p>
               </div>
             </div>
-            <button
-              onClick={openCreateAccountModal}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 rounded-xl font-medium transition-all hover:bg-slate-100 shadow-lg"
-            >
-              <Plus size={18} />
-              Nueva cuenta
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                <Upload size={16} />
+                Importar
+              </button>
+              <button onClick={openCreateAccountModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+                <Plus size={18} />
+                Nueva cuenta
+              </button>
+            </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <PiggyBank size={18} className="text-blue-400" />
-                <span className="text-xl font-bold">{(summary.totalBudgeted || 0).toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Presupuestado</p>
+          {/* Summary Stats */}
+          <div className="grid grid-cols-4 gap-4 mt-6">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p className="text-xs text-slate-500 mb-1">Presupuestado</p>
+              <p className="text-lg font-bold text-slate-900">{(summary.totalBudgeted || 0).toLocaleString()} €</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <AlertCircle size={18} className="text-amber-400" />
-                <span className="text-xl font-bold">{(summary.totalCommitted || 0).toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Comprometido</p>
-              <div className="mt-2 text-xs text-amber-400">
-                {summary.totalBudgeted > 0 ? `${((summary.totalCommitted / summary.totalBudgeted) * 100).toFixed(1)}%` : "0%"}
-              </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p className="text-xs text-slate-500 mb-1">Comprometido</p>
+              <p className="text-lg font-bold text-amber-600">{(summary.totalCommitted || 0).toLocaleString()} €</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Receipt size={18} className="text-emerald-400" />
-                <span className="text-xl font-bold">{(summary.totalActual || 0).toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Realizado</p>
-              <div className="mt-2 text-xs text-emerald-400">
-                {summary.totalBudgeted > 0 ? `${((summary.totalActual / summary.totalBudgeted) * 100).toFixed(1)}%` : "0%"}
-              </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p className="text-xs text-slate-500 mb-1">Realizado</p>
+              <p className="text-lg font-bold text-emerald-600">{(summary.totalActual || 0).toLocaleString()} €</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <TrendingUp size={18} className="text-purple-400" />
-                <span className="text-xl font-bold">{(summary.totalAvailable || 0).toLocaleString()} €</span>
-              </div>
-              <p className="text-sm text-slate-400">Disponible</p>
-              <div className="mt-2 text-xs text-purple-400">
-                {summary.totalBudgeted > 0 ? `${((summary.totalAvailable / summary.totalBudgeted) * 100).toFixed(1)}%` : "0%"}
-              </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p className="text-xs text-slate-500 mb-1">Disponible</p>
+              <p className="text-lg font-bold text-blue-600">{(summary.totalAvailable || 0).toLocaleString()} €</p>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span>Ejecución del presupuesto</span>
               <span>{budgetedPercent.toFixed(1)}%</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all"
-                style={{ width: `${Math.min(budgetedPercent, 100)}%` }}
-              />
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(budgetedPercent, 100)}%` }} />
             </div>
           </div>
         </div>
       </div>
 
-      <main className="pb-16 px-6 md:px-12 flex-grow -mt-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Messages */}
-          {errorMessage && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-              <AlertCircle size={20} />
-              <span className="flex-1">{errorMessage}</span>
-              <button onClick={() => setErrorMessage("")}><X size={16} /></button>
-            </div>
-          )}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Messages */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+            <AlertCircle size={20} />
+            <span className="flex-1">{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")}><X size={16} /></button>
+          </div>
+        )}
 
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
-              <CheckCircle size={20} />
-              <span>{successMessage}</span>
-            </div>
-          )}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
+            <CheckCircle size={20} />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
-          {/* Filters */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 relative w-full">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por código o descripción..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={expandAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-                  <Eye size={14} />
-                  Expandir
-                </button>
-                <button onClick={collapseAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-                  <EyeOff size={14} />
-                  Colapsar
-                </button>
-                <button onClick={exportBudget} className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium">
-                  <Download size={16} />
-                  Exportar
-                </button>
-              </div>
-            </div>
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div className="flex-1 relative w-full">
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por código o descripción..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+            />
           </div>
 
-          {/* Budget Table */}
-          {filteredAccounts.length === 0 ? (
-            <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FileSpreadsheet size={32} className="text-slate-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                {searchTerm ? "No se encontraron cuentas" : "No hay cuentas presupuestarias"}
-              </h3>
-              <p className="text-slate-500 mb-6">
-                {searchTerm ? "Intenta ajustar la búsqueda" : "Crea tu primera cuenta o importa un presupuesto"}
-              </p>
-              {!searchTerm && (
-                <div className="flex gap-3 justify-center">
-                  <button onClick={openCreateAccountModal} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors">
-                    <Plus size={18} />
-                    Crear cuenta
-                  </button>
-                  <button onClick={() => setShowImportModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors">
-                    <Upload size={18} />
-                    Importar
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-10"></th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Código</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Descripción</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Presupuestado</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Comprometido</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Realizado</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Disponible</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredAccounts.map((account) => {
-                      const totals = getAccountTotals(account);
-                      const isExpanded = expandedAccounts.has(account.id);
+          <div className="flex gap-2">
+            <button onClick={expandAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+              <Eye size={14} />
+              Expandir
+            </button>
+            <button onClick={collapseAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+              <EyeOff size={14} />
+              Colapsar
+            </button>
+            <button onClick={exportBudget} className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium">
+              <Download size={16} />
+              Exportar
+            </button>
+          </div>
+        </div>
 
-                      return (
-                        <>
-                          {/* Account row */}
-                          <tr key={account.id} className="bg-slate-50 hover:bg-slate-100 transition-colors font-medium">
-                            <td className="px-4 py-3">
-                              <button onClick={() => toggleAccount(account.id)} className="text-slate-600 hover:text-slate-900 transition-colors">
-                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                              </button>
+        {/* Budget Table */}
+        {filteredAccounts.length === 0 ? (
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
+            <FileSpreadsheet size={32} className="text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+              {searchTerm ? "No se encontraron cuentas" : "No hay cuentas presupuestarias"}
+            </h3>
+            <p className="text-slate-500 text-sm mb-4">
+              {searchTerm ? "Intenta ajustar la búsqueda" : "Crea tu primera cuenta o importa un presupuesto"}
+            </p>
+            {!searchTerm && (
+              <div className="flex gap-3 justify-center">
+                <button onClick={openCreateAccountModal} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+                  <Plus size={16} />
+                  Crear cuenta
+                </button>
+                <button onClick={() => setShowImportModal(true)} className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
+                  <Upload size={16} />
+                  Importar
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-10"></th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Código</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Descripción</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Presupuestado</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Comprometido</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Realizado</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Disponible</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-24"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredAccounts.map((account) => {
+                  const totals = getAccountTotals(account);
+                  const isExpanded = expandedAccounts.has(account.id);
+
+                  return (
+                    <>
+                      <tr key={account.id} className="bg-slate-50 hover:bg-slate-100 transition-colors font-medium">
+                        <td className="px-4 py-3">
+                          <button onClick={() => toggleAccount(account.id)} className="text-slate-600 hover:text-slate-900">
+                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{account.code}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{account.description}</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-900">{(totals.budgeted || 0).toLocaleString()} €</td>
+                        <td className="px-4 py-3 text-right font-bold text-amber-600">{(totals.committed || 0).toLocaleString()} €</td>
+                        <td className="px-4 py-3 text-right font-bold text-emerald-600">{(totals.actual || 0).toLocaleString()} €</td>
+                        <td className={`px-4 py-3 text-right font-bold ${getAvailableColor(totals.available || 0, totals.budgeted || 0)}`}>
+                          {(totals.available || 0).toLocaleString()} €
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openCreateSubAccountModal(account)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg" title="Añadir subcuenta">
+                              <Plus size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteAccount(account.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {isExpanded && account.subAccounts.map((subAccount) => {
+                        const available = subAccount.budgeted - subAccount.committed - subAccount.actual;
+
+                        return (
+                          <tr key={subAccount.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-2.5"></td>
+                            <td className="px-4 py-2.5 pl-10 text-slate-600">{subAccount.code}</td>
+                            <td className="px-4 py-2.5 text-slate-700">{subAccount.description}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-900">{(subAccount.budgeted || 0).toLocaleString()} €</td>
+                            <td className="px-4 py-2.5 text-right text-amber-600">{(subAccount.committed || 0).toLocaleString()} €</td>
+                            <td className="px-4 py-2.5 text-right text-emerald-600">{(subAccount.actual || 0).toLocaleString()} €</td>
+                            <td className={`px-4 py-2.5 text-right ${getAvailableColor(available || 0, subAccount.budgeted || 0)}`}>
+                              {(available || 0).toLocaleString()} €
                             </td>
-                            <td className="px-4 py-3 font-semibold text-slate-900">{account.code}</td>
-                            <td className="px-4 py-3 font-semibold text-slate-900">{account.description}</td>
-                            <td className="px-4 py-3 text-right font-bold text-slate-900">{(totals.budgeted || 0).toLocaleString()} €</td>
-                            <td className="px-4 py-3 text-right font-bold text-amber-600">{(totals.committed || 0).toLocaleString()} €</td>
-                            <td className="px-4 py-3 text-right font-bold text-emerald-600">{(totals.actual || 0).toLocaleString()} €</td>
-                            <td className={`px-4 py-3 text-right font-bold ${getAvailableColor(totals.available || 0, totals.budgeted || 0)}`}>
-                              {(totals.available || 0).toLocaleString()} €
-                            </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-2.5">
                               <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => openCreateSubAccountModal(account)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors" title="Añadir subcuenta">
-                                  <Plus size={14} />
+                                <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
+                                  <Edit size={14} />
                                 </button>
-                                <button onClick={() => handleDeleteAccount(account.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                <button onClick={() => handleDeleteSubAccount(account.id, subAccount.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
                             </td>
                           </tr>
-
-                          {/* Subaccount rows */}
-                          {isExpanded &&
-                            account.subAccounts.map((subAccount) => {
-                              const available = subAccount.budgeted - subAccount.committed - subAccount.actual;
-
-                              return (
-                                <tr key={subAccount.id} className="hover:bg-slate-50 transition-colors">
-                                  <td className="px-4 py-2.5"></td>
-                                  <td className="px-4 py-2.5 pl-10 text-slate-600">{subAccount.code}</td>
-                                  <td className="px-4 py-2.5 text-slate-700">{subAccount.description}</td>
-                                  <td className="px-4 py-2.5 text-right text-slate-900">{(subAccount.budgeted || 0).toLocaleString()} €</td>
-                                  <td className="px-4 py-2.5 text-right text-amber-600">{(subAccount.committed || 0).toLocaleString()} €</td>
-                                  <td className="px-4 py-2.5 text-right text-emerald-600">{(subAccount.actual || 0).toLocaleString()} €</td>
-                                  <td className={`px-4 py-2.5 text-right ${getAvailableColor(available || 0, subAccount.budgeted || 0)}`}>
-                                    {(available || 0).toLocaleString()} €
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <div className="flex items-center justify-end gap-1">
-                                      <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
-                                        <Edit size={14} />
-                                      </button>
-                                      <button onClick={() => handleDeleteSubAccount(account.id, subAccount.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+                        );
+                      })}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </main>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-xl font-semibold text-white">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {modalMode === "account" ? "Nueva cuenta" : selectedSubAccount ? "Editar subcuenta" : "Nueva subcuenta"}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={20} />
+              <button onClick={() => setShowModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
               </button>
             </div>
 
@@ -822,8 +730,7 @@ export default function BudgetPage() {
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     disabled={modalMode === "subaccount" && !selectedSubAccount}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                    placeholder={modalMode === "account" ? "01" : "01-01-01"}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                   />
                 </div>
 
@@ -833,8 +740,7 @@ export default function BudgetPage() {
                     type="text"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
-                    placeholder={modalMode === "account" ? "GUION Y MÚSICA" : "Derechos de autor"}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
 
@@ -845,34 +751,25 @@ export default function BudgetPage() {
                       type="number"
                       value={formData.budgeted}
                       onChange={(e) => setFormData({ ...formData, budgeted: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
-                      placeholder="5000"
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
                       min="0"
                       step="0.01"
                     />
                   </div>
                 )}
-
-                {modalMode === "account" && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p className="text-sm text-slate-600">
-                      <strong>Nota:</strong> El presupuesto de una cuenta se calcula automáticamente como la suma de sus subcuentas.
-                    </p>
-                  </div>
-                )}
               </div>
 
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
-                <button onClick={() => setShowModal(false)} className="px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
                   Cancelar
                 </button>
                 <button
                   onClick={modalMode === "account" ? handleCreateAccount : selectedSubAccount ? handleUpdateSubAccount : handleCreateSubAccount}
                   disabled={saving}
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50 flex items-center gap-2"
                 >
-                  {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                  {modalMode === "account" ? "Crear cuenta" : selectedSubAccount ? "Guardar cambios" : "Crear subcuenta"}
+                  {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {modalMode === "account" ? "Crear cuenta" : selectedSubAccount ? "Guardar" : "Crear subcuenta"}
                 </button>
               </div>
             </div>
@@ -882,60 +779,47 @@ export default function BudgetPage() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8 max-h-[90vh] flex flex-col">
-            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
-              <h2 className="text-xl font-semibold text-white">Importar presupuesto</h2>
-              <button onClick={() => setShowImportModal(false)} className="text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowImportModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Importar presupuesto</h2>
+              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3">Paso 1: Descarga la plantilla</h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Descarga nuestra plantilla CSV y complétala con tu presupuesto.
-                  </p>
-                  <button onClick={downloadTemplate} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors">
-                    <Download size={18} />
-                    Descargar plantilla
-                  </button>
-                </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="font-medium text-slate-900 mb-2">1. Descarga la plantilla</h3>
+                <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+                  <Download size={16} />
+                  Descargar plantilla
+                </button>
+              </div>
 
-                <div className="border-t border-slate-200 pt-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3">Paso 2: Sube tu archivo</h3>
-                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-slate-400 transition-colors">
-                    <FileSpreadsheet size={48} className="text-slate-400 mx-auto mb-3" />
-                    <label className="cursor-pointer">
-                      <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors">
-                        <Upload size={18} />
-                        {saving ? "Importando..." : "Seleccionar archivo"}
-                      </span>
-                      <input type="file" accept=".csv" onChange={handleImportCSV} disabled={saving} className="hidden" />
-                    </label>
-                  </div>
+              <div>
+                <h3 className="font-medium text-slate-900 mb-2">2. Sube tu archivo</h3>
+                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+                  <FileSpreadsheet size={32} className="text-slate-400 mx-auto mb-2" />
+                  <label className="cursor-pointer">
+                    <span className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+                      <Upload size={16} />
+                      {saving ? "Importando..." : "Seleccionar archivo"}
+                    </span>
+                    <input type="file" accept=".csv" onChange={handleImportCSV} disabled={saving} className="hidden" />
+                  </label>
                 </div>
+              </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <div className="flex gap-3">
-                    <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-900 mb-1">Importante</p>
-                      <ul className="text-sm text-amber-800 space-y-1">
-                        <li>• Las cuentas deben crearse antes que sus subcuentas</li>
-                        <li>• El código de subcuenta debe derivar de su cuenta</li>
-                        <li>• Solo las subcuentas tienen presupuesto</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Nota:</strong> Las cuentas deben crearse antes que sus subcuentas en el archivo.
+                </p>
               </div>
             </div>
 
-            <div className="px-6 pb-6 border-t border-slate-200 pt-4 flex-shrink-0">
-              <button onClick={() => setShowImportModal(false)} className="w-full px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors">
+            <div className="px-6 pb-6">
+              <button onClick={() => setShowImportModal(false)} className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
                 Cerrar
               </button>
             </div>
@@ -945,5 +829,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
-
