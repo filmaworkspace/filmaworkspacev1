@@ -508,8 +508,8 @@ export default function SuppliersPage() {
 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center">
-                <Building2 size={24} className="text-violet-600" />
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <Building2 size={24} className="text-indigo-600" />
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
@@ -921,6 +921,7 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
 
 
 
