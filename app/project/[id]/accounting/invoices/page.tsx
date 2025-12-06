@@ -279,7 +279,7 @@ export default function InvoicesPage() {
         <div className="max-w-5xl mx-auto px-6 py-8">
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
-            Volver al dashboard
+            Volver al Panel
           </Link>
 
           <div className="flex items-start justify-between">
