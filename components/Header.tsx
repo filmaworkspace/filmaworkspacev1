@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  DollarSign,
+  Wallet,
   BarChart3,
   List,
   Clock,
@@ -215,7 +215,7 @@ export default function Header() {
               )}
               {accountingAccess.budget && (
                 <NavLink href={`/project/${projectId}/accounting/budget`} isActive={accountingPage === "budget"}>
-                  <DollarSign size={15} />
+                  <Wallet size={15} />
                   <span>Presupuesto</span>
                 </NavLink>
               )}
@@ -374,7 +374,7 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
                   >
-                    <DollarSign size={16} />
+                    <Wallet size={16} />
                     Presupuesto
                   </Link>
                 )}
