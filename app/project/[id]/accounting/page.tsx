@@ -166,7 +166,7 @@ export default function AccountingPage() {
         <div className="max-w-5xl mx-auto px-6 py-8">
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
-            Volver al dashboard
+            Volver al Dashboard
           </Link>
 
           <div className="flex items-start justify-between">
@@ -339,3 +339,4 @@ export default function AccountingPage() {
     </div>
   );
 }
+
