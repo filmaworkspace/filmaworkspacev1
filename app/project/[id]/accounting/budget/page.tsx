@@ -489,17 +489,17 @@ export default function BudgetPage() {
         <div className="max-w-5xl mx-auto px-6 py-8">
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
-            Volver al dashboard
+            Volver al Panel
           </Link>
 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
-                <Wallet size={24} className="text-amber-600" />
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <Wallet size={24} className="text-indigo-600" />
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
-                <p className="text-slate-500 text-sm">{accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}</p>
+                <p className="text-slate-500 text-sm">{projectName}</p>
               </div>
             </div>
 
@@ -829,3 +829,4 @@ export default function BudgetPage() {
     </div>
   );
 }
+
