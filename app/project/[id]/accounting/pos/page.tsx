@@ -2,7 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   doc,
@@ -33,6 +33,8 @@ import {
   MoreHorizontal,
   CheckCircle,
   XCircle,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -41,6 +43,7 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 type POStatus = "draft" | "pending" | "approved" | "closed" | "cancelled";
 
 interface POItem {
+  id?: string;
   description: string;
   budgetAccount?: string;
   subAccountId?: string;
@@ -54,6 +57,11 @@ interface POItem {
   irpfRate?: number;
   irpfAmount?: number;
   totalAmount: number;
+}
+
+interface POItemWithInvoiced extends POItem {
+  invoicedAmount: number;
+  pendingAmount: number;
 }
 
 interface ModificationRecord {
@@ -71,6 +79,7 @@ interface LinkedInvoice {
   baseAmount: number;
   status: string;
   createdAt: Date;
+  items?: any[];
 }
 
 interface PO {
@@ -121,10 +130,13 @@ export default function POsPage() {
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
   const [pos, setPos] = useState<PO[]>([]);
   const [filteredPOs, setFilteredPOs] = useState<PO[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | POStatus>("all");
+
+  // Modals
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PO | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -132,13 +144,22 @@ export default function POsPage() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [modificationReason, setModificationReason] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  // Linked invoices and item tracking
   const [linkedInvoices, setLinkedInvoices] = useState<LinkedInvoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [itemsWithInvoiced, setItemsWithInvoiced] = useState<POItemWithInvoiced[]>([]);
+
+  // Context menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) setUserId(user.uid);
+      if (user) {
+        setUserId(user.uid);
+        setUserName(user.displayName || user.email || "Usuario");
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -152,9 +173,13 @@ export default function POsPage() {
   }, [searchTerm, statusFilter, pos]);
 
   useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const loadData = async () => {
@@ -165,7 +190,9 @@ export default function POsPage() {
         setProjectName(projectDoc.data().name || "Proyecto");
       }
 
-      const posSnapshot = await getDocs(query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc")));
+      const posSnapshot = await getDocs(
+        query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc"))
+      );
 
       const posData = posSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -178,6 +205,10 @@ export default function POsPage() {
         committedAmount: doc.data().committedAmount || 0,
         invoicedAmount: doc.data().invoicedAmount || 0,
         remainingAmount: doc.data().remainingAmount || 0,
+        items: (doc.data().items || []).map((item: any, idx: number) => ({
+          ...item,
+          id: item.id || `item-${idx}`,
+        })),
         modificationHistory: (doc.data().modificationHistory || []).map((m: any) => ({
           ...m,
           date: m.date?.toDate() || new Date(),
@@ -192,10 +223,13 @@ export default function POsPage() {
     }
   };
 
-  const loadLinkedInvoices = async (poId: string) => {
+  const loadLinkedInvoicesAndItemTracking = async (po: PO) => {
     setLoadingInvoices(true);
     try {
-      const invoicesQuery = query(collection(db, `projects/${id}/invoices`), where("poId", "==", poId));
+      const invoicesQuery = query(
+        collection(db, `projects/${id}/invoices`),
+        where("poId", "==", po.id)
+      );
       const invoicesSnap = await getDocs(invoicesQuery);
 
       const invoices = invoicesSnap.docs.map((doc) => ({
@@ -205,12 +239,43 @@ export default function POsPage() {
         baseAmount: doc.data().baseAmount || doc.data().totalAmount || 0,
         status: doc.data().status,
         createdAt: doc.data().createdAt?.toDate() || new Date(),
+        items: doc.data().items || [],
       }));
 
       setLinkedInvoices(invoices);
+
+      // Calculate invoiced amount per PO item
+      const invoicedByItem: Record<string, number> = {};
+
+      invoices.forEach((invoice) => {
+        if (["pending", "pending_approval", "approved", "paid", "overdue"].includes(invoice.status)) {
+          (invoice.items || []).forEach((invItem: any) => {
+            const key = invItem.poItemId || (invItem.poItemIndex !== undefined ? `index-${invItem.poItemIndex}` : null);
+            if (key) {
+              invoicedByItem[key] = (invoicedByItem[key] || 0) + (invItem.totalAmount || 0);
+            }
+          });
+        }
+      });
+
+      // Create items with invoiced tracking
+      const itemsTracking: POItemWithInvoiced[] = po.items.map((item, idx) => {
+        const key = item.id || `index-${idx}`;
+        const invoicedAmount = invoicedByItem[key] || 0;
+        const itemTotal = item.totalAmount || item.baseAmount || item.quantity * item.unitPrice || 0;
+        return {
+          ...item,
+          id: item.id || `item-${idx}`,
+          invoicedAmount,
+          pendingAmount: itemTotal - invoicedAmount,
+        };
+      });
+
+      setItemsWithInvoiced(itemsTracking);
     } catch (error) {
       console.error("Error cargando facturas:", error);
       setLinkedInvoices([]);
+      setItemsWithInvoiced([]);
     } finally {
       setLoadingInvoices(false);
     }
@@ -224,7 +289,9 @@ export default function POsPage() {
         (po) =>
           po.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
           po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (po.generalDescription || po.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+          (po.generalDescription || po.description || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
       );
     }
 
@@ -236,17 +303,255 @@ export default function POsPage() {
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+    return new Intl.NumberFormat("es-ES", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount || 0);
   };
 
   const formatDate = (date: Date) => {
     if (!date) return "-";
-    return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
   };
 
   const formatDateTime = (date: Date) => {
     if (!date) return "-";
-    return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
+  const getStatusBadge = (status: POStatus) => {
+    const config: Record<POStatus, { bg: string; text: string; label: string }> = {
+      draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador" },
+      pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
+      approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
+      closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada" },
+      cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada" },
+    };
+    const c = config[status];
+    return (
+      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>
+        {c.label}
+      </span>
+    );
+  };
+
+  const getInvoiceStatusBadge = (status: string) => {
+    const config: Record<string, { bg: string; text: string; label: string }> = {
+      pending_approval: { bg: "bg-amber-50", text: "text-amber-700", label: "Pte. aprobación" },
+      pending: { bg: "bg-blue-50", text: "text-blue-700", label: "Pte. pago" },
+      paid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Pagada" },
+      cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada" },
+      overdue: { bg: "bg-red-50", text: "text-red-700", label: "Vencida" },
+    };
+    const c = config[status] || { bg: "bg-slate-100", text: "text-slate-700", label: status };
+    return (
+      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>
+        {c.label}
+      </span>
+    );
+  };
+
+  // Actions
+  const openDetailModal = async (po: PO) => {
+    setSelectedPO(po);
+    setShowDetailModal(true);
+    setOpenMenuId(null);
+    await loadLinkedInvoicesAndItemTracking(po);
+  };
+
+  const handleEditDraft = (po: PO) => {
+    setOpenMenuId(null);
+    router.push(`/project/${id}/accounting/pos/${po.id}/edit`);
+  };
+
+  const handleCreateInvoice = (po: PO) => {
+    setOpenMenuId(null);
+    router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`);
+  };
+
+  const handleClosePO = async (po: PO) => {
+    if (po.status !== "approved") return;
+    setOpenMenuId(null);
+
+    const pendingBase = (po.baseAmount || po.totalAmount) - po.invoicedAmount;
+    if (
+      pendingBase > 0 &&
+      !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla igualmente?`)
+    )
+      return;
+
+    setProcessing(true);
+    try {
+      await updateDoc(doc(db, `projects/${id}/pos`, po.id), {
+        status: "closed",
+        closedAt: Timestamp.now(),
+        closedBy: userId,
+        closedByName: userName,
+      });
+      await loadData();
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReopenPO = async (po: PO) => {
+    if (po.status !== "closed") return;
+    setOpenMenuId(null);
+
+    if (!confirm(`¿Reabrir la PO-${po.number}?`)) return;
+
+    setProcessing(true);
+    try {
+      await updateDoc(doc(db, `projects/${id}/pos`, po.id), {
+        status: "approved",
+        closedAt: null,
+        closedBy: null,
+        closedByName: null,
+      });
+      await loadData();
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCancelPO = (po: PO) => {
+    if ((po.status !== "approved" && po.status !== "draft") || po.invoicedAmount > 0) return;
+    setSelectedPO(po);
+    setShowCancelModal(true);
+    setOpenMenuId(null);
+  };
+
+  const confirmCancelPO = async () => {
+    if (!selectedPO || !cancellationReason.trim()) return;
+
+    setProcessing(true);
+    try {
+      // Release committed budget if was approved
+      if (selectedPO.status === "approved") {
+        for (const item of selectedPO.items) {
+          if (item.subAccountId) {
+            const itemBaseAmount = item.baseAmount || item.quantity * item.unitPrice || 0;
+            const accountsSnap = await getDocs(collection(db, `projects/${id}/accounts`));
+
+            for (const accountDoc of accountsSnap.docs) {
+              try {
+                const subAccountRef = doc(
+                  db,
+                  `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
+                  item.subAccountId
+                );
+                const subAccountSnap = await getDoc(subAccountRef);
+
+                if (subAccountSnap.exists()) {
+                  await updateDoc(subAccountRef, {
+                    committed: Math.max(0, (subAccountSnap.data().committed || 0) - itemBaseAmount),
+                  });
+                  break;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+          }
+        }
+      }
+
+      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
+        status: "cancelled",
+        cancelledAt: Timestamp.now(),
+        cancelledBy: userId,
+        cancelledByName: userName,
+        cancellationReason: cancellationReason.trim(),
+        committedAmount: 0,
+      });
+
+      await loadData();
+      setShowCancelModal(false);
+      setSelectedPO(null);
+      setCancellationReason("");
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleModifyPO = (po: PO) => {
+    if (po.status !== "approved") return;
+    setSelectedPO(po);
+    setModificationReason("");
+    setShowModifyModal(true);
+    setOpenMenuId(null);
+  };
+
+  const confirmModifyPO = async () => {
+    if (!selectedPO || !modificationReason.trim()) return;
+
+    setProcessing(true);
+    try {
+      const newVersion = (selectedPO.version || 1) + 1;
+      const existingHistory = (selectedPO.modificationHistory || []).map((m) => ({
+        ...m,
+        date: Timestamp.fromDate(m.date),
+      }));
+
+      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
+        version: newVersion,
+        status: "draft",
+        modificationHistory: [
+          ...existingHistory,
+          {
+            date: Timestamp.now(),
+            userId: userId || "",
+            userName: userName,
+            reason: modificationReason.trim(),
+            previousVersion: selectedPO.version || 1,
+          },
+        ],
+        approvedAt: null,
+        approvedBy: null,
+        approvedByName: null,
+        approvalSteps: null,
+        currentApprovalStep: null,
+      });
+
+      router.push(`/project/${id}/accounting/pos/${selectedPO.id}/edit`);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeleteDraft = async (po: PO) => {
+    if (po.status !== "draft") return;
+    setOpenMenuId(null);
+
+    if (!confirm(`¿Eliminar el borrador PO-${po.number}? Esta acción no se puede deshacer.`)) return;
+
+    setProcessing(true);
+    try {
+      await deleteDoc(doc(db, `projects/${id}/pos`, po.id));
+      await loadData();
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const generatePDF = (po: PO) => {
@@ -262,11 +567,19 @@ export default function POsPage() {
     const successColor: [number, number, number] = [16, 185, 129];
     const warningColor: [number, number, number] = [245, 158, 11];
 
-    const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, color: [number, number, number]) => {
+    const drawRoundedRect = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      r: number,
+      color: [number, number, number]
+    ) => {
       pdf.setFillColor(...color);
       pdf.roundedRect(x, y, w, h, r, r, "F");
     };
 
+    // Header
     drawRoundedRect(0, 0, pageWidth, 45, 0, primaryColor);
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(24);
@@ -280,9 +593,27 @@ export default function POsPage() {
       pdf.text(`V${String(po.version).padStart(2, "0")}`, margin + pdf.getTextWidth(`PO-${po.number}`) + 5, 35);
     }
 
-    const statusText = po.status === "draft" ? "BORRADOR" : po.status === "pending" ? "PENDIENTE" : po.status === "approved" ? "APROBADA" : po.status === "closed" ? "CERRADA" : po.status === "cancelled" ? "ANULADA" : po.status.toUpperCase();
+    const statusText =
+      po.status === "draft"
+        ? "BORRADOR"
+        : po.status === "pending"
+        ? "PENDIENTE"
+        : po.status === "approved"
+        ? "APROBADA"
+        : po.status === "closed"
+        ? "CERRADA"
+        : po.status === "cancelled"
+        ? "ANULADA"
+        : po.status.toUpperCase();
 
-    const statusColor: [number, number, number] = po.status === "approved" ? successColor : po.status === "pending" ? warningColor : po.status === "draft" ? secondaryColor : [239, 68, 68];
+    const statusColor: [number, number, number] =
+      po.status === "approved"
+        ? successColor
+        : po.status === "pending"
+        ? warningColor
+        : po.status === "draft"
+        ? secondaryColor
+        : [239, 68, 68];
 
     pdf.setFillColor(...statusColor);
     const statusWidth = pdf.getTextWidth(statusText) + 16;
@@ -295,6 +626,7 @@ export default function POsPage() {
     y = 55;
     const boxWidth = (pageWidth - margin * 2 - 10) / 2;
 
+    // Supplier box
     drawRoundedRect(margin, y, boxWidth, 35, 3, lightBg);
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(8);
@@ -304,6 +636,7 @@ export default function POsPage() {
     pdf.setFontSize(12);
     pdf.text(po.supplier, margin + 5, y + 18);
 
+    // Amount box
     drawRoundedRect(margin + boxWidth + 10, y, boxWidth, 35, 3, lightBg);
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(8);
@@ -320,6 +653,7 @@ export default function POsPage() {
     y += 45;
     const dateBoxWidth = (pageWidth - margin * 2 - 20) / 3;
 
+    // Date boxes
     drawRoundedRect(margin, y, dateBoxWidth, 22, 3, lightBg);
     pdf.setTextColor(...secondaryColor);
     pdf.setFontSize(8);
@@ -351,6 +685,7 @@ export default function POsPage() {
 
     y += 32;
 
+    // Description
     if (po.generalDescription || po.description) {
       pdf.setTextColor(...primaryColor);
       pdf.setFontSize(10);
@@ -367,6 +702,7 @@ export default function POsPage() {
       y += 28;
     }
 
+    // Items header
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
@@ -383,6 +719,7 @@ export default function POsPage() {
     pdf.text("BASE", pageWidth - margin - 25, y + 7);
     y += 12;
 
+    // Items
     const items = po.items || [];
     items.forEach((item, index) => {
       if (y > pageHeight - 50) {
@@ -397,7 +734,9 @@ export default function POsPage() {
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
 
-      const descText = (item.description || "").substring(0, 40) + ((item.description || "").length > 40 ? "..." : "");
+      const descText =
+        (item.description || "").substring(0, 40) +
+        ((item.description || "").length > 40 ? "..." : "");
       pdf.text(descText, margin + 5, y + 8);
 
       pdf.setFontSize(8);
@@ -415,6 +754,7 @@ export default function POsPage() {
       y += 12;
     });
 
+    // Totals
     y += 5;
     const totalsX = pageWidth - margin - 70;
     drawRoundedRect(totalsX - 10, y, 80, 45, 3, lightBg);
@@ -453,6 +793,7 @@ export default function POsPage() {
     pdf.text("TOTAL:", totalsX - 5, y + 40);
     pdf.text(`${formatCurrency(po.totalAmount)} €`, totalsX + 45, y + 40);
 
+    // Footer
     const footerY = pageHeight - 15;
     pdf.setDrawColor(226, 232, 240);
     pdf.setLineWidth(0.3);
@@ -463,177 +804,121 @@ export default function POsPage() {
     pdf.setFont("helvetica", "normal");
     pdf.text(`Generado el ${formatDateTime(new Date())}`, margin, footerY);
 
-    pdf.setTextColor(...primaryColor);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("workspace", pageWidth - margin - pdf.getTextWidth("workspace"), footerY);
-
-    pdf.save(`PO-${po.number}${po.version > 1 ? `-V${String(po.version).padStart(2, "0")}` : ""}.pdf`);
+    pdf.save(
+      `PO-${po.number}${po.version > 1 ? `-V${String(po.version).padStart(2, "0")}` : ""}.pdf`
+    );
   };
 
-  const getStatusBadge = (status: POStatus) => {
-    const config: Record<POStatus, { bg: string; text: string; label: string }> = {
-      draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador" },
-      pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
-      approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
-      closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada" },
-      cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada" },
-    };
-    const c = config[status];
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
-  };
+  // Render context menu for a PO
+  const renderContextMenu = (po: PO) => {
+    if (openMenuId !== po.id) return null;
 
-  const getInvoiceStatusBadge = (status: string) => {
-    const config: Record<string, { bg: string; text: string; label: string }> = {
-      pending_approval: { bg: "bg-amber-50", text: "text-amber-700", label: "Pte. aprobación" },
-      pending: { bg: "bg-blue-50", text: "text-blue-700", label: "Pte. pago" },
-      paid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Pagada" },
-      cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada" },
-    };
-    const c = config[status] || { bg: "bg-slate-100", text: "text-slate-700", label: status };
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
-  };
+    return (
+      <div
+        ref={menuRef}
+        className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 overflow-hidden"
+      >
+        {/* Always show View and Download */}
+        <button
+          onClick={() => openDetailModal(po)}
+          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+        >
+          <Eye size={15} className="text-slate-400" />
+          Ver detalles
+        </button>
+        <button
+          onClick={() => {
+            generatePDF(po);
+            setOpenMenuId(null);
+          }}
+          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+        >
+          <Download size={15} className="text-slate-400" />
+          Descargar PDF
+        </button>
 
-  const handleClosePO = async (poId: string) => {
-    const po = pos.find((p) => p.id === poId);
-    if (!po || po.status !== "approved") return;
+        {/* Draft actions */}
+        {po.status === "draft" && (
+          <>
+            <div className="border-t border-slate-100 my-1" />
+            <button
+              onClick={() => handleEditDraft(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+            >
+              <Edit size={15} className="text-slate-400" />
+              Editar borrador
+            </button>
+            <button
+              onClick={() => handleDeleteDraft(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+            >
+              <Trash2 size={15} />
+              Eliminar
+            </button>
+          </>
+        )}
 
-    const pendingBase = (po.baseAmount || po.totalAmount) - po.invoicedAmount;
-    if (pendingBase > 0 && !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla?`)) return;
+        {/* Approved actions */}
+        {po.status === "approved" && (
+          <>
+            <div className="border-t border-slate-100 my-1" />
+            <button
+              onClick={() => handleCreateInvoice(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+            >
+              <Receipt size={15} className="text-slate-400" />
+              Crear factura
+            </button>
+            <button
+              onClick={() => handleModifyPO(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+            >
+              <FileEdit size={15} className="text-slate-400" />
+              Modificar PO
+            </button>
+            <button
+              onClick={() => handleClosePO(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+            >
+              <Lock size={15} className="text-slate-400" />
+              Cerrar PO
+            </button>
+            {po.invoicedAmount === 0 && (
+              <button
+                onClick={() => handleCancelPO(po)}
+                className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+              >
+                <XCircle size={15} />
+                Anular
+              </button>
+            )}
+          </>
+        )}
 
-    setProcessing(true);
-    try {
-      await updateDoc(doc(db, `projects/${id}/pos`, poId), {
-        status: "closed",
-        closedAt: Timestamp.now(),
-        closedBy: userId,
-        closedByName: auth.currentUser?.displayName || auth.currentUser?.email || "Usuario",
-      });
-      await loadData();
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setProcessing(false);
-      setOpenMenuId(null);
-    }
-  };
-
-  const handleCancelPO = (po: PO) => {
-    if ((po.status !== "approved" && po.status !== "draft") || po.invoicedAmount > 0) return;
-    setSelectedPO(po);
-    setShowCancelModal(true);
-    setOpenMenuId(null);
-  };
-
-  const confirmCancelPO = async () => {
-    if (!selectedPO || !cancellationReason.trim()) return;
-
-    setProcessing(true);
-    try {
-      if (selectedPO.status === "approved") {
-        for (const item of selectedPO.items) {
-          if (item.subAccountId) {
-            const itemBaseAmount = item.baseAmount || item.quantity * item.unitPrice || 0;
-            const accountsSnap = await getDocs(collection(db, `projects/${id}/accounts`));
-
-            for (const accountDoc of accountsSnap.docs) {
-              try {
-                const subAccountRef = doc(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`, item.subAccountId);
-                const subAccountSnap = await getDoc(subAccountRef);
-
-                if (subAccountSnap.exists()) {
-                  await updateDoc(subAccountRef, { committed: Math.max(0, (subAccountSnap.data().committed || 0) - itemBaseAmount) });
-                  break;
-                }
-              } catch (e) {
-                continue;
-              }
-            }
-          }
-        }
-      }
-
-      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
-        status: "cancelled",
-        cancelledAt: Timestamp.now(),
-        cancelledBy: userId,
-        cancelledByName: auth.currentUser?.displayName || auth.currentUser?.email || "Usuario",
-        cancellationReason: cancellationReason.trim(),
-        committedAmount: 0,
-      });
-
-      await loadData();
-      setShowCancelModal(false);
-      setSelectedPO(null);
-      setCancellationReason("");
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleModifyPO = (po: PO) => {
-    if (po.status !== "approved") return;
-    setSelectedPO(po);
-    setModificationReason("");
-    setShowModifyModal(true);
-    setOpenMenuId(null);
-  };
-
-  const confirmModifyPO = async () => {
-    if (!selectedPO || !modificationReason.trim()) return;
-
-    setProcessing(true);
-    try {
-      const newVersion = (selectedPO.version || 1) + 1;
-      const existingHistory = (selectedPO.modificationHistory || []).map((m) => ({ ...m, date: Timestamp.fromDate(m.date) }));
-
-      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
-        version: newVersion,
-        status: "draft",
-        modificationHistory: [...existingHistory, { date: Timestamp.now(), userId: userId || "", userName: auth.currentUser?.displayName || "Usuario", reason: modificationReason.trim(), previousVersion: selectedPO.version || 1 }],
-        approvedAt: null,
-        approvedBy: null,
-        approvedByName: null,
-        approvalSteps: null,
-        currentApprovalStep: null,
-      });
-
-      router.push(`/project/${id}/accounting/pos/${selectedPO.id}/edit`);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleDeleteDraft = async (poId: string) => {
-    const po = pos.find((p) => p.id === poId);
-    if (!po || po.status !== "draft" || !confirm(`¿Eliminar PO-${po.number}?`)) return;
-
-    setProcessing(true);
-    try {
-      await deleteDoc(doc(db, `projects/${id}/pos`, poId));
-      await loadData();
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setProcessing(false);
-      setOpenMenuId(null);
-    }
-  };
-
-  const openDetailModal = async (po: PO) => {
-    setSelectedPO(po);
-    setShowDetailModal(true);
-    setOpenMenuId(null);
-    await loadLinkedInvoices(po.id);
+        {/* Closed actions */}
+        {po.status === "closed" && (
+          <>
+            <div className="border-t border-slate-100 my-1" />
+            <button
+              onClick={() => handleReopenPO(po)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+            >
+              <Unlock size={15} className="text-slate-400" />
+              Reabrir PO
+            </button>
+          </>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500 text-sm">Cargando órdenes de compra...</p>
+        </div>
       </div>
     );
   }
@@ -641,49 +926,60 @@ export default function POsPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
-            <ArrowLeft size={16} />
-            Volver al Panel
+      <div className="mt-16 border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-6">
+          <Link
+            href={`/project/${id}/accounting`}
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
+          >
+            <ArrowLeft size={14} />
+            Volver al dashboard
           </Link>
 
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FileText size={24} className="text-indigo-600" />
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <FileText size={20} className="text-indigo-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
-                <p className="text-slate-500 text-sm">{pos.length} {pos.length === 1 ? "orden" : "órdenes"}</p>
+                <h1 className="text-xl font-semibold text-slate-900">Órdenes de compra</h1>
+                <p className="text-sm text-slate-500">
+                  {pos.length} {pos.length === 1 ? "orden" : "órdenes"}
+                </p>
               </div>
             </div>
 
-            <Link href={`/project/${id}/accounting/pos/new`} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
-              <Plus size={18} />
+            <Link
+              href={`/project/${id}/accounting/pos/new`}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+            >
+              <Plus size={16} />
               Nueva PO
             </Link>
           </div>
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-6">
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-3 mb-6">
           <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+            />
             <input
               type="text"
               placeholder="Buscar por número, proveedor..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+            className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm bg-white"
           >
             <option value="all">Todos los estados</option>
             <option value="draft">Borradores</option>
@@ -694,105 +990,100 @@ export default function POsPage() {
           </select>
         </div>
 
-        {/* Table */}
+        {/* Table / Empty State */}
         {filteredPOs.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-            <FileText size={32} className="text-slate-300 mx-auto mb-3" />
+          <div className="border-2 border-dashed border-slate-200 rounded-xl p-12 text-center">
+            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <FileText size={24} className="text-indigo-600" />
+            </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-1">
-              {searchTerm || statusFilter !== "all" ? "No se encontraron POs" : "No hay órdenes de compra"}
+              {searchTerm || statusFilter !== "all"
+                ? "No se encontraron POs"
+                : "No hay órdenes de compra"}
             </h3>
             <p className="text-slate-500 text-sm mb-4">
-              {searchTerm || statusFilter !== "all" ? "Intenta ajustar los filtros" : "Comienza creando tu primera orden de compra"}
+              {searchTerm || statusFilter !== "all"
+                ? "Intenta ajustar los filtros"
+                : "Comienza creando tu primera orden de compra"}
             </p>
             {!searchTerm && statusFilter === "all" && (
-              <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+              <Link
+                href={`/project/${id}/accounting/pos/new`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800"
+              >
                 <Plus size={16} />
                 Crear primera PO
               </Link>
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Número</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Proveedor</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Base</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Estado</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase w-20"></th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                    Número
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                    Proveedor
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                    Base
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                    Estado
+                  </th>
+                  <th className="w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPOs.map((po) => (
                   <tr key={po.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <button onClick={() => openDetailModal(po)} className="text-left hover:text-indigo-600 transition-colors">
-                        <p className="font-semibold text-slate-900">
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openDetailModal(po)}
+                        className="text-left hover:text-indigo-600 transition-colors"
+                      >
+                        <p className="font-medium text-slate-900">
                           PO-{po.number}
-                          {po.version > 1 && <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">V{String(po.version).padStart(2, "0")}</span>}
+                          {po.version > 1 && (
+                            <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                              V{String(po.version).padStart(2, "0")}
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-slate-500">{formatDate(po.createdAt)}</p>
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <p className="text-sm text-slate-900">{po.supplier}</p>
-                      <p className="text-xs text-slate-500 line-clamp-1">{po.generalDescription || po.description}</p>
+                      <p className="text-xs text-slate-500 line-clamp-1">
+                        {po.generalDescription || po.description}
+                      </p>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <p className="text-sm font-bold text-slate-900">{formatCurrency(po.baseAmount || po.totalAmount)} €</p>
+                    <td className="px-4 py-3 text-right">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {formatCurrency(po.baseAmount || po.totalAmount)} €
+                      </p>
                       {po.status === "approved" && po.invoicedAmount > 0 && (
-                        <p className="text-xs text-emerald-600">Facturado: {formatCurrency(po.invoicedAmount)} €</p>
+                        <p className="text-xs text-emerald-600">
+                          Fact: {formatCurrency(po.invoicedAmount)} €
+                        </p>
                       )}
                     </td>
-                    <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">{getStatusBadge(po.status)}</td>
+                    <td className="px-4 py-3">
                       <div className="relative">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === po.id ? null : po.id); }}
-                          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === po.id ? null : po.id);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                         >
-                          <MoreHorizontal size={18} />
+                          <MoreHorizontal size={16} />
                         </button>
-
-                        {openMenuId === po.id && (
-                          <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1">
-                            <button onClick={() => openDetailModal(po)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                              <Eye size={14} /> Ver detalles
-                            </button>
-                            <button onClick={() => generatePDF(po)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                              <Download size={14} /> Descargar PDF
-                            </button>
-                            {po.status === "draft" && (
-                              <button onClick={() => { router.push(`/project/${id}/accounting/pos/${po.id}/edit`); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                <Edit size={14} /> Editar
-                              </button>
-                            )}
-                            {po.status === "approved" && (
-                              <>
-                                <button onClick={() => { router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                  <Receipt size={14} /> Crear factura
-                                </button>
-                                <button onClick={() => handleModifyPO(po)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                  <FileEdit size={14} /> Modificar
-                                </button>
-                                <button onClick={() => handleClosePO(po.id)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                  <CheckCircle size={14} /> Cerrar PO
-                                </button>
-                              </>
-                            )}
-                            {(po.status === "approved" || po.status === "draft") && po.invoicedAmount === 0 && (
-                              <button onClick={() => handleCancelPO(po)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                <XCircle size={14} /> Anular
-                              </button>
-                            )}
-                            {po.status === "draft" && (
-                              <button onClick={() => handleDeleteDraft(po.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                <Trash2 size={14} /> Eliminar
-                              </button>
-                            )}
-                          </div>
-                        )}
+                        {renderContextMenu(po)}
                       </div>
                     </td>
                   </tr>
@@ -805,97 +1096,214 @@ export default function POsPage() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedPO && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowDetailModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
                   PO-{selectedPO.number}
-                  {selectedPO.version > 1 && <span className="ml-2 text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded">V{String(selectedPO.version).padStart(2, "0")}</span>}
+                  {selectedPO.version > 1 && (
+                    <span className="ml-2 text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded">
+                      V{String(selectedPO.version).padStart(2, "0")}
+                    </span>
+                  )}
                 </h2>
                 <p className="text-sm text-slate-500">{selectedPO.supplier}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => generatePDF(selectedPO)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                <button
+                  onClick={() => generatePDF(selectedPO)}
+                  className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
                   <Download size={18} />
                 </button>
-                <button onClick={() => setShowDetailModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                >
                   <X size={18} />
                 </button>
               </div>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              {/* Summary */}
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-xl p-4">
+                <div className="bg-slate-50 rounded-lg p-4">
                   <p className="text-xs text-slate-500 mb-1">Base imponible</p>
-                  <p className="text-lg font-bold text-slate-900">{formatCurrency(selectedPO.baseAmount || selectedPO.totalAmount)} €</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {formatCurrency(selectedPO.baseAmount || selectedPO.totalAmount)} €
+                  </p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4">
+                <div className="bg-slate-50 rounded-lg p-4">
                   <p className="text-xs text-slate-500 mb-1">Total</p>
-                  <p className="text-lg font-bold text-slate-900">{formatCurrency(selectedPO.totalAmount)} €</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {formatCurrency(selectedPO.totalAmount)} €
+                  </p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4">
+                <div className="bg-slate-50 rounded-lg p-4">
                   <p className="text-xs text-slate-500 mb-1">Estado</p>
                   <div className="mt-1">{getStatusBadge(selectedPO.status)}</div>
                 </div>
               </div>
 
+              {/* Budget Control */}
               {(selectedPO.status === "approved" || selectedPO.status === "closed") && (
-                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Control presupuestario</p>
+                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                    Control presupuestario
+                  </p>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Comprometido</p>
-                      <p className="text-sm font-bold text-amber-600">{formatCurrency(selectedPO.committedAmount)} €</p>
+                      <p className="text-sm font-bold text-amber-600">
+                        {formatCurrency(selectedPO.committedAmount)} €
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Realizado</p>
-                      <p className="text-sm font-bold text-emerald-600">{formatCurrency(selectedPO.invoicedAmount)} €</p>
+                      <p className="text-xs text-slate-500 mb-1">Facturado</p>
+                      <p className="text-sm font-bold text-emerald-600">
+                        {formatCurrency(selectedPO.invoicedAmount)} €
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Pendiente</p>
-                      <p className="text-sm font-bold text-blue-600">{formatCurrency(selectedPO.remainingAmount)} €</p>
+                      <p className="text-sm font-bold text-blue-600">
+                        {formatCurrency(selectedPO.remainingAmount)} €
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Description */}
               {(selectedPO.generalDescription || selectedPO.description) && (
                 <div className="mb-6">
                   <p className="text-xs text-slate-500 uppercase mb-2">Descripción</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl">{selectedPO.generalDescription || selectedPO.description}</p>
+                  <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
+                    {selectedPO.generalDescription || selectedPO.description}
+                  </p>
                 </div>
               )}
 
+              {/* Items with invoiced tracking */}
               <div className="mb-6">
-                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Items ({selectedPO.items?.length || 0})</p>
-                <div className="space-y-2">
-                  {(selectedPO.items || []).map((item, index) => (
-                    <div key={index} className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-900">{item.description}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {item.subAccountCode || "-"} · {item.quantity} × {formatCurrency(item.unitPrice)} €
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold text-slate-900">{formatCurrency(item.baseAmount || item.quantity * item.unitPrice)} €</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                  Items ({selectedPO.items?.length || 0})
+                </p>
+                {loadingInvoices ? (
+                  <div className="p-4 bg-slate-50 rounded-lg text-center">
+                    <p className="text-sm text-slate-500">Cargando datos de facturación...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(itemsWithInvoiced.length > 0 ? itemsWithInvoiced : selectedPO.items || []).map(
+                      (item, index) => {
+                        const itemTotal =
+                          item.totalAmount || item.baseAmount || item.quantity * item.unitPrice || 0;
+                        const invoicedAmount = (item as POItemWithInvoiced).invoicedAmount || 0;
+                        const pendingAmount = (item as POItemWithInvoiced).pendingAmount ?? itemTotal;
+                        const percentInvoiced = itemTotal > 0 ? (invoicedAmount / itemTotal) * 100 : 0;
+                        const isFullyInvoiced = pendingAmount <= 0;
+                        const isOverInvoiced = pendingAmount < 0;
+
+                        return (
+                          <div
+                            key={item.id || index}
+                            className={`p-4 rounded-lg border ${
+                              isOverInvoiced
+                                ? "bg-red-50 border-red-200"
+                                : isFullyInvoiced
+                                ? "bg-emerald-50 border-emerald-200"
+                                : "bg-slate-50 border-slate-200"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900">
+                                  {item.description}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {item.subAccountCode || "-"} · {item.quantity} ×{" "}
+                                  {formatCurrency(item.unitPrice)} €
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900">
+                                {formatCurrency(itemTotal)} €
+                              </p>
+                            </div>
+
+                            {/* Invoicing progress */}
+                            {(selectedPO.status === "approved" || selectedPO.status === "closed") && (
+                              <div className="mt-3 pt-3 border-t border-slate-200">
+                                <div className="flex items-center justify-between text-xs mb-2">
+                                  <span className="text-slate-500">Facturado</span>
+                                  <span
+                                    className={`font-medium ${
+                                      isOverInvoiced
+                                        ? "text-red-600"
+                                        : isFullyInvoiced
+                                        ? "text-emerald-600"
+                                        : "text-slate-700"
+                                    }`}
+                                  >
+                                    {formatCurrency(invoicedAmount)} € de {formatCurrency(itemTotal)} €
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all ${
+                                      isOverInvoiced
+                                        ? "bg-red-500"
+                                        : percentInvoiced >= 100
+                                        ? "bg-emerald-500"
+                                        : percentInvoiced > 75
+                                        ? "bg-amber-500"
+                                        : "bg-indigo-500"
+                                    }`}
+                                    style={{ width: `${Math.min(percentInvoiced, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-xs mt-1">
+                                  <span className="text-slate-400">
+                                    {percentInvoiced.toFixed(0)}% facturado
+                                  </span>
+                                  <span
+                                    className={`font-medium ${
+                                      isOverInvoiced ? "text-red-600" : "text-slate-600"
+                                    }`}
+                                  >
+                                    {isOverInvoiced ? "Excedido: " : "Pendiente: "}
+                                    {formatCurrency(Math.abs(pendingAmount))} €
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Linked Invoices */}
               <div className="mb-6">
-                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">Facturas vinculadas</p>
+                <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                  Facturas vinculadas
+                </p>
                 {loadingInvoices ? (
-                  <div className="p-4 bg-slate-50 rounded-xl text-center">
+                  <div className="p-4 bg-slate-50 rounded-lg text-center">
                     <p className="text-sm text-slate-500">Cargando...</p>
                   </div>
                 ) : linkedInvoices.length === 0 ? (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-center">
                     <p className="text-sm text-slate-500">No hay facturas vinculadas</p>
                   </div>
                 ) : (
@@ -903,15 +1311,19 @@ export default function POsPage() {
                     {linkedInvoices.map((invoice) => (
                       <div
                         key={invoice.id}
-                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-100 cursor-pointer transition-colors"
-                        onClick={() => router.push(`/project/${id}/accounting/invoices/${invoice.id}`)}
+                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between hover:bg-slate-100 cursor-pointer transition-colors"
+                        onClick={() =>
+                          router.push(`/project/${id}/accounting/invoices/${invoice.id}`)
+                        }
                       >
                         <div>
                           <p className="text-sm font-medium text-slate-900">FAC-{invoice.number}</p>
                           <p className="text-xs text-slate-500">{formatDate(invoice.createdAt)}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <p className="text-sm font-bold text-slate-900">{formatCurrency(invoice.baseAmount)} €</p>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {formatCurrency(invoice.baseAmount)} €
+                          </p>
                           {getInvoiceStatusBadge(invoice.status)}
                         </div>
                       </div>
@@ -923,17 +1335,18 @@ export default function POsPage() {
               {/* Modification History */}
               {selectedPO.modificationHistory && selectedPO.modificationHistory.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3 flex items-center gap-2">
+                  <p className="text-xs font-medium text-slate-700 uppercase mb-3 flex items-center gap-2">
                     <History size={14} />
                     Historial de modificaciones
                   </p>
                   <div className="space-y-2">
                     {selectedPO.modificationHistory.map((mod, index) => (
-                      <div key={index} className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                      <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
                         <div className="flex items-start justify-between">
                           <div>
                             <p className="text-sm font-medium text-purple-900">
-                              V{String(mod.previousVersion).padStart(2, "0")} → V{String(mod.previousVersion + 1).padStart(2, "0")}
+                              V{String(mod.previousVersion).padStart(2, "0")} → V
+                              {String(mod.previousVersion + 1).padStart(2, "0")}
                             </p>
                             <p className="text-xs text-purple-700 mt-1">{mod.reason}</p>
                           </div>
@@ -948,12 +1361,16 @@ export default function POsPage() {
                 </div>
               )}
 
+              {/* Cancellation reason */}
               {selectedPO.status === "cancelled" && selectedPO.cancellationReason && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-xs font-semibold text-red-800 uppercase mb-2">Motivo de anulación</p>
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs font-medium text-red-800 uppercase mb-2">
+                    Motivo de anulación
+                  </p>
                   <p className="text-sm text-red-700">{selectedPO.cancellationReason}</p>
                   <p className="text-xs text-red-600 mt-2">
-                    Anulada por {selectedPO.cancelledByName} el {selectedPO.cancelledAt && formatDate(selectedPO.cancelledAt)}
+                    Anulada por {selectedPO.cancelledByName} el{" "}
+                    {selectedPO.cancelledAt && formatDate(selectedPO.cancelledAt)}
                   </p>
                 </div>
               )}
@@ -964,40 +1381,59 @@ export default function POsPage() {
 
       {/* Cancel Modal */}
       {showCancelModal && selectedPO && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); setSelectedPO(null); setCancellationReason(""); }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setShowCancelModal(false);
+            setSelectedPO(null);
+            setCancellationReason("");
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-4 border-b border-slate-200">
               <h3 className="text-lg font-semibold text-slate-900">Anular PO-{selectedPO.number}</h3>
             </div>
 
             <div className="p-6">
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de anulación</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Motivo de anulación *
+                </label>
                 <textarea
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
                   placeholder="Explica por qué se anula esta PO..."
                   rows={4}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none bg-slate-50"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none text-sm"
                 />
                 {selectedPO.status === "approved" && (
-                  <p className="text-xs text-slate-500 mt-2">Se liberará el presupuesto comprometido ({formatCurrency(selectedPO.committedAmount)} €)</p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Se liberará el presupuesto comprometido (
+                    {formatCurrency(selectedPO.committedAmount)} €)
+                  </p>
                 )}
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowCancelModal(false); setSelectedPO(null); setCancellationReason(""); }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors"
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setSelectedPO(null);
+                    setCancellationReason("");
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmCancelPO}
                   disabled={processing || !cancellationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {processing ? "Anulando..." : "Confirmar"}
+                  {processing ? "Anulando..." : "Confirmar anulación"}
                 </button>
               </div>
             </div>
@@ -1007,47 +1443,69 @@ export default function POsPage() {
 
       {/* Modify Modal */}
       {showModifyModal && selectedPO && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowModifyModal(false); setSelectedPO(null); setModificationReason(""); }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setShowModifyModal(false);
+            setSelectedPO(null);
+            setModificationReason("");
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Modificar PO-{selectedPO.number}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Modificar PO-{selectedPO.number}
+              </h3>
             </div>
 
             <div className="p-6">
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-amber-800">
-                    <p className="font-medium">Pasará a V{String((selectedPO.version || 1) + 1).padStart(2, "0")} en borrador</p>
-                    <p className="text-xs mt-1">Deberás editarla y enviarla nuevamente para aprobación.</p>
+                    <p className="font-medium">
+                      Pasará a V{String((selectedPO.version || 1) + 1).padStart(2, "0")} en borrador
+                    </p>
+                    <p className="text-xs mt-1">
+                      Deberás editarla y enviarla nuevamente para aprobación.
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de la modificación</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Motivo de la modificación *
+                </label>
                 <textarea
                   value={modificationReason}
                   onChange={(e) => setModificationReason(e.target.value)}
                   placeholder="Explica por qué se modifica esta PO..."
                   rows={4}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none bg-slate-50"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none text-sm"
                 />
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowModifyModal(false); setSelectedPO(null); setModificationReason(""); }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors"
+                  onClick={() => {
+                    setShowModifyModal(false);
+                    setSelectedPO(null);
+                    setModificationReason("");
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmModifyPO}
                   disabled={processing || !modificationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {processing ? "Modificando..." : "Modificar"}
+                  {processing ? "Modificando..." : "Modificar PO"}
                 </button>
               </div>
             </div>
