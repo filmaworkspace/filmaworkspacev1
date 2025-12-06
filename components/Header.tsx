@@ -10,7 +10,6 @@ import {
   Settings,
   Folder,
   LayoutDashboard,
-  Users,
   FileText,
   Wallet,
   BarChart3,
