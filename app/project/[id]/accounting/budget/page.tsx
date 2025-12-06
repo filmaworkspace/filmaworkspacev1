@@ -66,6 +66,7 @@ interface BudgetSummary {
 export default function BudgetPage() {
   const params = useParams();
   const id = params?.id as string;
+  const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -829,4 +830,5 @@ export default function BudgetPage() {
     </div>
   );
 }
+
 
