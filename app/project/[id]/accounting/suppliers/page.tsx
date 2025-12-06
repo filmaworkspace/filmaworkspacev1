@@ -97,6 +97,7 @@ const COUNTRIES = [
 export default function SuppliersPage() {
   const params = useParams();
   const id = params?.id as string;
+  const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -920,5 +921,6 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
 
 
