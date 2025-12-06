@@ -98,7 +98,6 @@ interface Department {
 
 export default function AccountingUsersPage() {
   const { id } = useParams();
-  const [projectName, setProjectName] = useState<string>("");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1026,4 +1025,5 @@ export default function AccountingUsersPage() {
     </div>
   );
 }
+
 
