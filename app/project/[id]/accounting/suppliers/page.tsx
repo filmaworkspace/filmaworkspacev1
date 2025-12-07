@@ -36,6 +36,10 @@ import {
   Eye,
   ArrowLeft,
   MoreHorizontal,
+  User,
+  Mail,
+  Phone,
+  ShieldCheck,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -48,11 +52,18 @@ interface Address {
   postalCode: string;
 }
 
+interface Contact {
+  name: string;
+  email: string;
+  phone: string;
+}
+
 interface Certificate {
   url?: string;
   expiryDate?: Date;
   uploaded: boolean;
   fileName?: string;
+  verified?: boolean;
 }
 
 interface Supplier {
@@ -62,6 +73,7 @@ interface Supplier {
   country: string;
   taxId: string;
   address: Address;
+  contact: Contact;
   paymentMethod: string;
   bankAccount: string;
   certificates: {
@@ -118,13 +130,14 @@ export default function SuppliersPage() {
     country: "ES",
     taxId: "",
     address: { street: "", number: "", city: "", province: "", postalCode: "" },
+    contact: { name: "", email: "", phone: "" },
     paymentMethod: "transferencia" as PaymentMethod,
     bankAccount: "",
   });
 
   const [certificates, setCertificates] = useState({
-    bankOwnership: { file: null as File | null, expiryDate: "" },
-    contractorsCertificate: { file: null as File | null, expiryDate: "" },
+    bankOwnership: { file: null as File | null, expiryDate: "", verified: false },
+    contractorsCertificate: { file: null as File | null, expiryDate: "", verified: false },
   });
 
   useEffect(() => {
@@ -143,7 +156,12 @@ export default function SuppliersPage() {
   }, [searchTerm, filterStatus, suppliers]);
 
   useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.menu-container')) {
+        setOpenMenuId(null);
+      }
+    };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
@@ -152,6 +170,12 @@ export default function SuppliersPage() {
     try {
       setLoading(true);
       setErrorMessage("");
+
+      // Cargar nombre del proyecto
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      if (projectDoc.exists()) {
+        setProjectName(projectDoc.data().name || "Proyecto");
+      }
 
       const suppliersRef = collection(db, `projects/${id}/suppliers`);
       const suppliersQuery = query(suppliersRef, orderBy("fiscalName", "asc"));
@@ -166,6 +190,7 @@ export default function SuppliersPage() {
           country: data.country || "ES",
           taxId: data.taxId || "",
           address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
+          contact: data.contact || { name: "", email: "", phone: "" },
           paymentMethod: data.paymentMethod || "transferencia",
           bankAccount: data.bankAccount || "",
           certificates: {
@@ -173,11 +198,13 @@ export default function SuppliersPage() {
               ...data.certificates?.bankOwnership,
               expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(),
               uploaded: data.certificates?.bankOwnership?.uploaded || false,
+              verified: data.certificates?.bankOwnership?.verified || false,
             },
             contractorsCertificate: {
               ...data.certificates?.contractorsCertificate,
               expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(),
               uploaded: data.certificates?.contractorsCertificate?.uploaded || false,
+              verified: data.certificates?.contractorsCertificate?.verified || false,
             },
           },
           createdAt: data.createdAt?.toDate() || new Date(),
@@ -259,6 +286,11 @@ export default function SuppliersPage() {
           province: formData.address.province.trim(),
           postalCode: formData.address.postalCode.trim(),
         },
+        contact: {
+          name: formData.contact.name.trim(),
+          email: formData.contact.email.trim(),
+          phone: formData.contact.phone.trim(),
+        },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.trim(),
         certificates: {
@@ -266,11 +298,13 @@ export default function SuppliersPage() {
             uploaded: !!certificates.bankOwnership.file,
             expiryDate: certificates.bankOwnership.expiryDate ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) : null,
             fileName: certificates.bankOwnership.file?.name || "",
+            verified: certificates.bankOwnership.verified,
           },
           contractorsCertificate: {
             uploaded: !!certificates.contractorsCertificate.file,
             expiryDate: certificates.contractorsCertificate.expiryDate ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) : null,
             fileName: certificates.contractorsCertificate.file?.name || "",
+            verified: certificates.contractorsCertificate.verified,
             aeatVerified: false,
           },
         },
@@ -315,6 +349,11 @@ export default function SuppliersPage() {
           province: formData.address.province.trim(),
           postalCode: formData.address.postalCode.trim(),
         },
+        contact: {
+          name: formData.contact.name.trim(),
+          email: formData.contact.email.trim(),
+          phone: formData.contact.phone.trim(),
+        },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.trim(),
         certificates: {
@@ -322,11 +361,13 @@ export default function SuppliersPage() {
             ...selectedSupplier.certificates.bankOwnership,
             ...(certificates.bankOwnership.file && { uploaded: true, fileName: certificates.bankOwnership.file.name }),
             ...(certificates.bankOwnership.expiryDate && { expiryDate: Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) }),
+            verified: certificates.bankOwnership.verified,
           },
           contractorsCertificate: {
             ...selectedSupplier.certificates.contractorsCertificate,
             ...(certificates.contractorsCertificate.file && { uploaded: true, fileName: certificates.contractorsCertificate.file.name }),
             ...(certificates.contractorsCertificate.expiryDate && { expiryDate: Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) }),
+            verified: certificates.contractorsCertificate.verified,
           },
         },
       };
@@ -346,26 +387,29 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleDeleteSupplier = async (supplierId: string) => {
-    const supplier = suppliers.find((s) => s.id === supplierId);
-
-    if (supplier?.hasAssignedPOs || supplier?.hasAssignedInvoices) {
+  const handleDeleteSupplier = async (supplier: Supplier) => {
+    if (supplier.hasAssignedPOs || supplier.hasAssignedInvoices) {
       setErrorMessage("No se puede eliminar un proveedor con POs o facturas asignadas");
       setTimeout(() => setErrorMessage(""), 5000);
+      setOpenMenuId(null);
       return;
     }
 
-    if (!confirm(`¿Eliminar a ${supplier?.fiscalName}?`)) return;
+    if (!confirm(`¿Eliminar a ${supplier.fiscalName}?`)) {
+      setOpenMenuId(null);
+      return;
+    }
 
     try {
-      await deleteDoc(doc(db, `projects/${id}/suppliers`, supplierId));
+      await deleteDoc(doc(db, `projects/${id}/suppliers`, supplier.id));
       setSuccessMessage("Proveedor eliminado");
       setTimeout(() => setSuccessMessage(""), 3000);
+      setOpenMenuId(null);
       await loadData();
     } catch (error: any) {
       setErrorMessage(`Error eliminando proveedor: ${error.message}`);
+      setOpenMenuId(null);
     }
-    setOpenMenuId(null);
   };
 
   const resetForm = () => {
@@ -375,12 +419,13 @@ export default function SuppliersPage() {
       country: "ES",
       taxId: "",
       address: { street: "", number: "", city: "", province: "", postalCode: "" },
+      contact: { name: "", email: "", phone: "" },
       paymentMethod: "transferencia",
       bankAccount: "",
     });
     setCertificates({
-      bankOwnership: { file: null, expiryDate: "" },
-      contractorsCertificate: { file: null, expiryDate: "" },
+      bankOwnership: { file: null, expiryDate: "", verified: false },
+      contractorsCertificate: { file: null, expiryDate: "", verified: false },
     });
     setSelectedSupplier(null);
     setErrorMessage("");
@@ -400,8 +445,25 @@ export default function SuppliersPage() {
       country: supplier.country,
       taxId: supplier.taxId,
       address: supplier.address,
+      contact: supplier.contact || { name: "", email: "", phone: "" },
       paymentMethod: supplier.paymentMethod as PaymentMethod,
       bankAccount: supplier.bankAccount,
+    });
+    setCertificates({
+      bankOwnership: {
+        file: null,
+        expiryDate: supplier.certificates.bankOwnership.expiryDate
+          ? new Date(supplier.certificates.bankOwnership.expiryDate).toISOString().split('T')[0]
+          : "",
+        verified: supplier.certificates.bankOwnership.verified || false,
+      },
+      contractorsCertificate: {
+        file: null,
+        expiryDate: supplier.certificates.contractorsCertificate.expiryDate
+          ? new Date(supplier.certificates.contractorsCertificate.expiryDate).toISOString().split('T')[0]
+          : "",
+        verified: supplier.certificates.contractorsCertificate.verified || false,
+      },
     });
     setModalMode("edit");
     setShowModal(true);
@@ -421,6 +483,15 @@ export default function SuppliersPage() {
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700">
           <FileX size={12} />
           No subido
+        </span>
+      );
+    }
+
+    if (cert.verified) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+          <ShieldCheck size={12} />
+          Verificado
         </span>
       );
     }
@@ -474,9 +545,19 @@ export default function SuppliersPage() {
   };
 
   const exportSuppliers = () => {
-    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "MÉTODO PAGO", "CUENTA BANCARIA"]];
+    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "CONTACTO", "EMAIL", "TELÉFONO", "MÉTODO PAGO", "CUENTA BANCARIA"]];
     suppliers.forEach((supplier) => {
-      rows.push([supplier.fiscalName, supplier.commercialName, supplier.country, supplier.taxId, supplier.paymentMethod, supplier.bankAccount]);
+      rows.push([
+        supplier.fiscalName,
+        supplier.commercialName,
+        supplier.country,
+        supplier.taxId,
+        supplier.contact?.name || "",
+        supplier.contact?.email || "",
+        supplier.contact?.phone || "",
+        supplier.paymentMethod,
+        supplier.bankAccount
+      ]);
     });
     const csvContent = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -500,7 +581,7 @@ export default function SuppliersPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
             Volver al Panel
@@ -531,7 +612,7 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {/* Messages */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
@@ -596,6 +677,7 @@ export default function SuppliersPage() {
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Proveedor</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">NIF</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Contacto</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Certificados</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Estado</th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase w-20"></th>
@@ -619,6 +701,16 @@ export default function SuppliersPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        {supplier.contact?.name ? (
+                          <div>
+                            <p className="text-sm text-slate-900">{supplier.contact.name}</p>
+                            {supplier.contact.email && <p className="text-xs text-slate-500">{supplier.contact.email}</p>}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Sin contacto</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           {getCertificateBadge(supplier.certificates.bankOwnership)}
                           {getCertificateBadge(supplier.certificates.contractorsCertificate)}
@@ -626,7 +718,7 @@ export default function SuppliersPage() {
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(status)}</td>
                       <td className="px-6 py-4">
-                        <div className="relative">
+                        <div className="relative menu-container">
                           <button
                             onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === supplier.id ? null : supplier.id); }}
                             className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
@@ -643,7 +735,7 @@ export default function SuppliersPage() {
                                 <Edit size={14} /> Editar
                               </button>
                               <button
-                                onClick={() => handleDeleteSupplier(supplier.id)}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteSupplier(supplier); }}
                                 disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices}
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
@@ -735,6 +827,58 @@ export default function SuppliersPage() {
                         disabled={modalMode === "view"}
                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Persona de contacto */}
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <User size={14} />
+                    Persona de contacto
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Nombre</label>
+                      <div className="relative">
+                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={modalMode === "view" ? selectedSupplier?.contact?.name || "" : formData.contact.name}
+                          onChange={(e) => setFormData({ ...formData, contact: { ...formData.contact, name: e.target.value } })}
+                          disabled={modalMode === "view"}
+                          placeholder="Nombre del contacto"
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                      <div className="relative">
+                        <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          value={modalMode === "view" ? selectedSupplier?.contact?.email || "" : formData.contact.email}
+                          onChange={(e) => setFormData({ ...formData, contact: { ...formData.contact, email: e.target.value } })}
+                          disabled={modalMode === "view"}
+                          placeholder="email@ejemplo.com"
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Teléfono</label>
+                      <div className="relative">
+                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="tel"
+                          value={modalMode === "view" ? selectedSupplier?.contact?.phone || "" : formData.contact.phone}
+                          onChange={(e) => setFormData({ ...formData, contact: { ...formData.contact, phone: e.target.value } })}
+                          disabled={modalMode === "view"}
+                          placeholder="+34 600 000 000"
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -841,11 +985,28 @@ export default function SuppliersPage() {
                     </h3>
                     <div className="space-y-4">
                       <div className="border border-slate-200 rounded-xl p-4">
-                        <h4 className="font-medium text-slate-900 mb-3">Certificado de titularidad bancaria</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-slate-900">Certificado de titularidad bancaria</h4>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={certificates.bankOwnership.verified}
+                              onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, verified: e.target.checked } })}
+                              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-sm text-slate-600 flex items-center gap-1">
+                              <ShieldCheck size={14} className="text-emerald-600" />
+                              Verificado
+                            </span>
+                          </label>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs text-slate-600 mb-1">Archivo</label>
                             <input type="file" onChange={(e) => setCertificates({ ...certificates, bankOwnership: { ...certificates.bankOwnership, file: e.target.files?.[0] || null } })} className="w-full text-sm" accept=".pdf,.jpg,.jpeg,.png" />
+                            {modalMode === "edit" && selectedSupplier?.certificates.bankOwnership.fileName && (
+                              <p className="text-xs text-slate-500 mt-1">Actual: {selectedSupplier.certificates.bankOwnership.fileName}</p>
+                            )}
                           </div>
                           <div>
                             <label className="block text-xs text-slate-600 mb-1">Fecha caducidad</label>
@@ -855,11 +1016,28 @@ export default function SuppliersPage() {
                       </div>
 
                       <div className="border border-slate-200 rounded-xl p-4">
-                        <h4 className="font-medium text-slate-900 mb-3">Certificado de contratistas</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-slate-900">Certificado de contratistas</h4>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={certificates.contractorsCertificate.verified}
+                              onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, verified: e.target.checked } })}
+                              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-sm text-slate-600 flex items-center gap-1">
+                              <ShieldCheck size={14} className="text-emerald-600" />
+                              Verificado
+                            </span>
+                          </label>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs text-slate-600 mb-1">Archivo</label>
                             <input type="file" onChange={(e) => setCertificates({ ...certificates, contractorsCertificate: { ...certificates.contractorsCertificate, file: e.target.files?.[0] || null } })} className="w-full text-sm" accept=".pdf,.jpg,.jpeg,.png" />
+                            {modalMode === "edit" && selectedSupplier?.certificates.contractorsCertificate.fileName && (
+                              <p className="text-xs text-slate-500 mt-1">Actual: {selectedSupplier.certificates.contractorsCertificate.fileName}</p>
+                            )}
                           </div>
                           <div>
                             <label className="block text-xs text-slate-600 mb-1">Fecha caducidad</label>
@@ -921,7 +1099,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-
-
-
-
