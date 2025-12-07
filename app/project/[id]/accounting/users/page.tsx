@@ -43,6 +43,12 @@ const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 const DEPARTMENT_POSITIONS = ["HOD", "Coordinator", "Crew"];
 
 const ACCOUNTING_ACCESS_LEVELS = {
+  visitor: {
+    label: "Visitante",
+    description: "Solo lectura del panel principal (POs y Facturas)",
+    permissions: { panel: true, suppliers: false, budget: false, users: false, reports: false },
+    color: "bg-slate-100 text-slate-700",
+  },
   user: {
     label: "Usuario",
     description: "Panel principal y Proveedores",
@@ -71,7 +77,7 @@ interface Member {
   department?: string;
   position?: string;
   permissions: { config: boolean; accounting: boolean; team: boolean };
-  accountingAccessLevel?: "user" | "accounting" | "accounting_extended";
+  accountingAccessLevel?: "visitor" | "user" | "accounting" | "accounting_extended";
   addedAt: any;
   addedBy?: string;
   addedByName?: string;
@@ -89,7 +95,7 @@ interface PendingInvitation {
   createdAt: any;
   invitedBy: string;
   invitedByName: string;
-  accountingAccessLevel?: "user" | "accounting" | "accounting_extended";
+  accountingAccessLevel?: "visitor" | "user" | "accounting" | "accounting_extended";
 }
 
 interface Department {
@@ -129,7 +135,7 @@ export default function AccountingUsersPage() {
     role: "",
     department: "",
     position: "",
-    accountingAccessLevel: "user" as "user" | "accounting" | "accounting_extended",
+    accountingAccessLevel: "user" as "visitor" | "user" | "accounting" | "accounting_extended",
   });
 
   useEffect(() => {
@@ -276,7 +282,12 @@ export default function AccountingUsersPage() {
   }, [inviteForm.email]);
 
   useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.menu-container')) {
+        setOpenMenuId(null);
+      }
+    };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
@@ -479,17 +490,19 @@ export default function AccountingUsersPage() {
     }
   };
 
-  const handleRemoveAccountingAccess = async (memberId: string) => {
-    const member = accountingMembers.find((m) => m.userId === memberId);
-    if (!confirm(`¿Quitar acceso a contabilidad de ${member?.name || member?.email}?`)) return;
+  const handleRemoveAccountingAccess = async (member: Member) => {
+    if (!confirm(`¿Quitar acceso a contabilidad de ${member.name || member.email}?`)) {
+      setOpenMenuId(null);
+      return;
+    }
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, `projects/${id}/members`, memberId), { "permissions.accounting": false, accountingAccessLevel: null });
-      await updateDoc(doc(db, `userProjects/${memberId}/projects`, id as string), { "permissions.accounting": false, accountingAccessLevel: null });
+      await updateDoc(doc(db, `projects/${id}/members`, member.userId), { "permissions.accounting": false, accountingAccessLevel: null });
+      await updateDoc(doc(db, `userProjects/${member.userId}/projects`, id as string), { "permissions.accounting": false, accountingAccessLevel: null });
 
-      setAccountingMembers(accountingMembers.filter((m) => m.userId !== memberId));
-      setMembers(members.map((m) => (m.userId === memberId ? { ...m, permissions: { ...m.permissions, accounting: false }, accountingAccessLevel: undefined } : m)));
+      setAccountingMembers(accountingMembers.filter((m) => m.userId !== member.userId));
+      setMembers(members.map((m) => (m.userId === member.userId ? { ...m, permissions: { ...m.permissions, accounting: false }, accountingAccessLevel: undefined } : m)));
 
       setSuccessMessage("Acceso eliminado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -550,7 +563,7 @@ export default function AccountingUsersPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
             Volver al Panel
@@ -575,7 +588,7 @@ export default function AccountingUsersPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {/* Messages */}
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
@@ -718,7 +731,7 @@ export default function AccountingUsersPage() {
                         Cambiar
                       </button>
                       <button
-                        onClick={() => handleRemoveAccountingAccess(member.userId)}
+                        onClick={() => handleRemoveAccountingAccess(member)}
                         disabled={saving}
                         className="flex-1 flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 py-2 rounded-lg disabled:opacity-50"
                       >
@@ -732,7 +745,8 @@ export default function AccountingUsersPage() {
             })}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-visible mb-4">
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -775,7 +789,7 @@ export default function AccountingUsersPage() {
                       <td className="py-4 px-6">{getAccessLevelBadge(member.accountingAccessLevel)}</td>
                       <td className="py-4 px-6">
                         {member.userId !== userId && isProjectRoleMember && (
-                          <div className="relative">
+                          <div className="relative menu-container">
                             <button
                               onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === member.userId ? null : member.userId); }}
                               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
@@ -784,7 +798,7 @@ export default function AccountingUsersPage() {
                             </button>
 
                             {openMenuId === member.userId && (
-                              <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1">
+                              <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
                                 <button
                                   onClick={() => { setEditingMember(member); setShowEditAccessModal(true); setOpenMenuId(null); }}
                                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
@@ -792,7 +806,7 @@ export default function AccountingUsersPage() {
                                   <Edit size={14} /> Cambiar nivel
                                 </button>
                                 <button
-                                  onClick={() => handleRemoveAccountingAccess(member.userId)}
+                                  onClick={(e) => { e.stopPropagation(); handleRemoveAccountingAccess(member); }}
                                   className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                                 >
                                   <Trash2 size={14} /> Quitar acceso
@@ -807,6 +821,7 @@ export default function AccountingUsersPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </main>
@@ -1025,5 +1040,3 @@ export default function AccountingUsersPage() {
     </div>
   );
 }
-
-
