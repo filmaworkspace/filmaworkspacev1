@@ -21,7 +21,6 @@ import {
   Download,
   Edit,
   Trash2,
-  X,
   FileEdit,
   Receipt,
   History,
@@ -243,7 +242,6 @@ export default function PODetailPage() {
 
       setLinkedInvoices(invoices);
 
-      // Calculate invoiced amount per PO item
       const invoicedByItem: Record<string, number> = {};
       invoices.forEach((invoice) => {
         if (["pending", "pending_approval", "approved", "paid", "overdue"].includes(invoice.status)) {
@@ -316,10 +314,8 @@ export default function PODetailPage() {
       rejected: { bg: "bg-red-50", text: "text-red-700", label: "Rechazada" },
     };
     const c = config[status] || { bg: "bg-slate-100", text: "text-slate-700", label: status };
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
+    return <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
   };
-
-  // === ACTIONS ===
 
   const handleEditDraft = () => {
     router.push(`/project/${projectId}/accounting/pos/${poId}/edit`);
@@ -517,7 +513,6 @@ export default function PODetailPage() {
       pdf.roundedRect(x, y, w, h, r, r, "F");
     };
 
-    // Header
     drawRoundedRect(0, 0, pageWidth, 45, 0, primaryColor);
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(24);
@@ -554,7 +549,6 @@ export default function PODetailPage() {
     y = 55;
     const boxWidth = (pageWidth - margin * 2 - 10) / 2;
 
-    // Supplier & Base
     drawRoundedRect(margin, y, boxWidth, 35, 3, lightBg);
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(8);
@@ -579,7 +573,6 @@ export default function PODetailPage() {
 
     y += 45;
 
-    // Date boxes
     const dateBoxWidth = (pageWidth - margin * 2 - 20) / 3;
     drawRoundedRect(margin, y, dateBoxWidth, 22, 3, lightBg);
     pdf.setTextColor(...secondaryColor);
@@ -612,7 +605,6 @@ export default function PODetailPage() {
 
     y += 32;
 
-    // Description
     if (po.generalDescription || po.description) {
       pdf.setTextColor(...primaryColor);
       pdf.setFontSize(10);
@@ -629,7 +621,6 @@ export default function PODetailPage() {
       y += 28;
     }
 
-    // Items table
     pdf.setTextColor(...primaryColor);
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
@@ -671,7 +662,6 @@ export default function PODetailPage() {
       y += 12;
     });
 
-    // Totals
     y += 5;
     const totalsX = pageWidth - margin - 70;
     drawRoundedRect(totalsX - 10, y, 80, 45, 3, lightBg);
@@ -707,7 +697,6 @@ export default function PODetailPage() {
     pdf.text("TOTAL:", totalsX - 5, y + 40);
     pdf.text(`${formatCurrency(po.totalAmount)} €`, totalsX + 45, y + 40);
 
-    // Footer
     const footerY = pageHeight - 15;
     pdf.setDrawColor(226, 232, 240);
     pdf.setLineWidth(0.3);
@@ -722,20 +711,19 @@ export default function PODetailPage() {
 
   if (loading) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Cargando orden de compra...</p>
-        </div>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!po) {
     return (
-      <div className={`min-h-screen bg-slate-50 flex items-center justify-center ${inter.className}`}>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center">
-          <AlertCircle size={48} className="text-slate-300 mx-auto mb-4" />
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={28} className="text-slate-400" />
+          </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">PO no encontrada</h2>
           <Link href={`/project/${projectId}/accounting/pos`} className="text-indigo-600 hover:underline text-sm">
             Volver a órdenes de compra
@@ -749,28 +737,28 @@ export default function PODetailPage() {
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className={`min-h-screen bg-slate-50 ${inter.className}`}>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-16 border-b border-slate-200 bg-white">
-        <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link
             href={`/project/${projectId}/accounting/pos`}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft size={16} />
             Volver a órdenes de compra
           </Link>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <FileText size={24} className="text-indigo-600" />
               </div>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-semibold text-slate-900">PO-{po.number}</h1>
                   {po.version > 1 && (
-                    <span className="text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-medium">
+                    <span className="text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg font-medium">
                       V{String(po.version).padStart(2, "0")}
                     </span>
                   )}
@@ -779,34 +767,33 @@ export default function PODetailPage() {
                     {statusConfig.label}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5">{po.supplier}</p>
+                <p className="text-slate-500 text-sm mt-0.5">{po.supplier}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={generatePDF}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
               >
                 <Download size={16} />
                 PDF
               </button>
 
-              {/* Actions dropdown */}
               <div className="relative">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpenMenu(!openMenu);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-medium transition-colors"
                 >
                   Acciones
                   <MoreHorizontal size={16} />
                 </button>
 
                 {openMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
                     {po.status === "draft" && (
                       <>
                         <button
@@ -882,17 +869,17 @@ export default function PODetailPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Cancelled Warning */}
             {po.status === "cancelled" && po.cancellationReason && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
                 <div className="flex items-start gap-3">
-                  <XCircle size={18} className="text-red-600 mt-0.5" />
+                  <XCircle size={20} className="text-red-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-red-800">PO Anulada</p>
+                    <p className="text-sm font-semibold text-red-800">PO Anulada</p>
                     <p className="text-sm text-red-700 mt-1">{po.cancellationReason}</p>
                     <p className="text-xs text-red-600 mt-2">
                       Anulada por {po.cancelledByName} el {formatDate(po.cancelledAt!)}
@@ -904,8 +891,8 @@ export default function PODetailPage() {
 
             {/* Description */}
             {(po.generalDescription || po.description) && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Descripción</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">Descripción</p>
                 <p className="text-sm text-slate-700 leading-relaxed">
                   {po.generalDescription || po.description}
                 </p>
@@ -914,24 +901,23 @@ export default function PODetailPage() {
 
             {/* Budget Control */}
             {(po.status === "approved" || po.status === "closed") && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">Control presupuestario</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4">Control presupuestario</p>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-amber-50 rounded-lg p-4">
+                  <div className="bg-amber-50 rounded-xl p-4">
                     <p className="text-xs text-amber-600 mb-1">Comprometido</p>
                     <p className="text-lg font-bold text-amber-700">{formatCurrency(po.committedAmount)} €</p>
                   </div>
-                  <div className="bg-emerald-50 rounded-lg p-4">
+                  <div className="bg-emerald-50 rounded-xl p-4">
                     <p className="text-xs text-emerald-600 mb-1">Facturado</p>
                     <p className="text-lg font-bold text-emerald-700">{formatCurrency(po.invoicedAmount)} €</p>
                   </div>
-                  <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="bg-blue-50 rounded-xl p-4">
                     <p className="text-xs text-blue-600 mb-1">Pendiente</p>
                     <p className="text-lg font-bold text-blue-700">{formatCurrency(po.remainingAmount)} €</p>
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
                     <span>Progreso de facturación</span>
@@ -948,8 +934,8 @@ export default function PODetailPage() {
             )}
 
             {/* Items */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4">
                 Items ({po.items?.length || 0})
               </p>
 
@@ -965,13 +951,13 @@ export default function PODetailPage() {
                     const isOverInvoiced = item.invoicedAmount > itemTotal;
 
                     return (
-                      <div key={item.id || index} className="border border-slate-200 rounded-lg p-4">
+                      <div key={item.id || index} className="border border-slate-200 rounded-xl p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
                             <p className="font-medium text-slate-900">{item.description}</p>
                             <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                               {item.subAccountCode && (
-                                <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                                <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded-lg">
                                   {item.subAccountCode}
                                 </span>
                               )}
@@ -986,7 +972,6 @@ export default function PODetailPage() {
                           </div>
                         </div>
 
-                        {/* Invoice tracking per item */}
                         {(po.status === "approved" || po.status === "closed") && (
                           <div className="pt-3 border-t border-slate-100">
                             <div className="flex items-center justify-between text-xs mb-2">
@@ -1019,9 +1004,9 @@ export default function PODetailPage() {
             </div>
 
             {/* Linked Invoices */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
                   Facturas vinculadas ({linkedInvoices.length})
                 </p>
                 {po.status === "approved" && (
@@ -1037,7 +1022,7 @@ export default function PODetailPage() {
               {loadingInvoices ? (
                 <div className="text-center py-8 text-slate-500 text-sm">Cargando...</div>
               ) : linkedInvoices.length === 0 ? (
-                <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center">
+                <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
                   <Receipt size={32} className="text-slate-300 mx-auto mb-3" />
                   <p className="text-sm text-slate-500 mb-3">No hay facturas vinculadas</p>
                   {po.status === "approved" && (
@@ -1055,11 +1040,11 @@ export default function PODetailPage() {
                     <Link
                       key={invoice.id}
                       href={`/project/${projectId}/accounting/invoices/${invoice.id}`}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors group"
+                      className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                          <Receipt size={16} className="text-emerald-600" />
+                        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                          <Receipt size={18} className="text-emerald-600" />
                         </div>
                         <div>
                           <p className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors">
@@ -1081,14 +1066,14 @@ export default function PODetailPage() {
 
             {/* Modification History */}
             {po.modificationHistory && po.modificationHistory.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4 flex items-center gap-2">
                   <History size={14} />
                   Historial de modificaciones
                 </p>
                 <div className="space-y-3">
                   {po.modificationHistory.map((mod, index) => (
-                    <div key={index} className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div key={index} className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium text-purple-900">
@@ -1111,8 +1096,8 @@ export default function PODetailPage() {
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             {/* Totals */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">Resumen</p>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4">Resumen</p>
 
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between items-center">
@@ -1142,8 +1127,8 @@ export default function PODetailPage() {
             </div>
 
             {/* Details */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">Detalles</p>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4">Detalles</p>
 
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -1228,13 +1213,13 @@ export default function PODetailPage() {
 
             {/* Attachment */}
             {po.attachmentUrl && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">Adjunto</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-4">Adjunto</p>
                 <a
                   href={po.attachmentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                  className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors"
                 >
                   <FileUp size={20} className="text-slate-500" />
                   <div className="flex-1 min-w-0">
@@ -1250,8 +1235,8 @@ export default function PODetailPage() {
 
             {/* Notes */}
             {po.notes && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Notas internas</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">Notas internas</p>
                 <p className="text-sm text-slate-700">{po.notes}</p>
               </div>
             )}
@@ -1268,7 +1253,7 @@ export default function PODetailPage() {
             setCancellationReason("");
           }}
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200">
               <h3 className="text-lg font-semibold text-slate-900">Anular PO-{po.number}</h3>
             </div>
@@ -1280,7 +1265,7 @@ export default function PODetailPage() {
                   onChange={(e) => setCancellationReason(e.target.value)}
                   placeholder="Explica por qué se anula esta PO..."
                   rows={4}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none bg-white text-sm"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm"
                 />
                 {po.status === "approved" && (
                   <p className="text-xs text-slate-500 mt-2">
@@ -1294,14 +1279,14 @@ export default function PODetailPage() {
                     setShowCancelModal(false);
                     setCancellationReason("");
                   }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmCancelPO}
                   disabled={processing || !cancellationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {processing ? "Anulando..." : "Confirmar anulación"}
                 </button>
@@ -1320,14 +1305,14 @@ export default function PODetailPage() {
             setModificationReason("");
           }}
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200">
               <h3 className="text-lg font-semibold text-slate-900">Modificar PO-{po.number}</h3>
             </div>
             <div className="p-6">
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-amber-800">
                     <p className="font-medium">
                       Pasará a V{String((po.version || 1) + 1).padStart(2, "0")} en borrador
@@ -1347,7 +1332,7 @@ export default function PODetailPage() {
                   onChange={(e) => setModificationReason(e.target.value)}
                   placeholder="Explica por qué se modifica esta PO..."
                   rows={4}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none bg-white text-sm"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm"
                 />
               </div>
               <div className="flex gap-3">
@@ -1356,14 +1341,14 @@ export default function PODetailPage() {
                     setShowModifyModal(false);
                     setModificationReason("");
                   }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmModifyPO}
                   disabled={processing || !modificationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {processing ? "Modificando..." : "Modificar"}
                 </button>
