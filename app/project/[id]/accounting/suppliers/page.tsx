@@ -671,8 +671,8 @@ export default function SuppliersPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-visible mb-4">
-            <div className="overflow-x-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl">
+            <div className="overflow-x-auto rounded-2xl">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -685,8 +685,9 @@ export default function SuppliersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredSuppliers.map((supplier) => {
+                {filteredSuppliers.map((supplier, index) => {
                   const status = getCertificateStatus(supplier);
+                  const isLastRows = index >= filteredSuppliers.length - 2;
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
@@ -728,7 +729,7 @@ export default function SuppliersPage() {
                           </button>
 
                           {openMenuId === supplier.id && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                            <div className={`absolute right-0 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] py-1 ${isLastRows ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                               <button onClick={() => openViewModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                                 <Eye size={14} /> Ver detalles
                               </button>
