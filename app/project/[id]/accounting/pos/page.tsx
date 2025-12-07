@@ -962,7 +962,7 @@ export default function POsPage() {
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
           >
             <ArrowLeft size={14} />
-            Volver al dashboard
+            Volver al Panel
           </Link>
 
           <div className="flex items-center justify-between">
