@@ -151,6 +151,7 @@ export default function POsPage() {
 
   // Menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // ============ EFFECTS ============
@@ -177,6 +178,7 @@ export default function POsPage() {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
+        setMenuPosition(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -373,22 +375,26 @@ export default function POsPage() {
     setSelectedPO(po);
     setShowDetailModal(true);
     setOpenMenuId(null);
+    setMenuPosition(null);
     await loadLinkedInvoicesAndItems(po);
   };
 
   const handleEditDraft = (po: PO) => {
     setOpenMenuId(null);
+    setMenuPosition(null);
     router.push(`/project/${id}/accounting/pos/${po.id}/edit`);
   };
 
   const handleCreateInvoice = (po: PO) => {
     setOpenMenuId(null);
+    setMenuPosition(null);
     router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`);
   };
 
   const handleClosePO = async (po: PO) => {
     if (po.status !== "approved") return;
     setOpenMenuId(null);
+    setMenuPosition(null);
 
     const pendingBase = (po.baseAmount || po.totalAmount) - po.invoicedAmount;
     if (pendingBase > 0 && !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla igualmente?`)) {
@@ -418,6 +424,7 @@ export default function POsPage() {
   const handleReopenPO = async (po: PO) => {
     if (po.status !== "closed") return;
     setOpenMenuId(null);
+    setMenuPosition(null);
 
     if (!confirm("¿Reabrir esta PO? Volverá al estado 'Aprobada'.")) return;
 
@@ -446,6 +453,7 @@ export default function POsPage() {
     setSelectedPO(po);
     setShowCancelModal(true);
     setOpenMenuId(null);
+    setMenuPosition(null);
   };
 
   const confirmCancelPO = async () => {
@@ -511,6 +519,7 @@ export default function POsPage() {
     setModificationReason("");
     setShowModifyModal(true);
     setOpenMenuId(null);
+    setMenuPosition(null);
   };
 
   const confirmModifyPO = async () => {
@@ -558,6 +567,7 @@ export default function POsPage() {
   const handleDeleteDraft = async (po: PO) => {
     if (po.status !== "draft") return;
     setOpenMenuId(null);
+    setMenuPosition(null);
 
     if (!confirm(`¿Eliminar PO-${po.number}? Esta acción no se puede deshacer.`)) return;
 
@@ -835,15 +845,33 @@ export default function POsPage() {
     );
   };
 
+  // Menu position state
+
   // ============ CONTEXT MENU ============
 
+  const handleMenuClick = (e: React.MouseEvent, poId: string) => {
+    e.stopPropagation();
+    if (openMenuId === poId) {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: rect.right - 192, // 192px = w-48
+      });
+      setOpenMenuId(poId);
+    }
+  };
+
   const renderContextMenu = (po: PO) => {
-    if (openMenuId !== po.id) return null;
+    if (openMenuId !== po.id || !menuPosition) return null;
 
     return (
       <div
         ref={menuRef}
-        className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 overflow-hidden"
+        className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden"
+        style={{ top: menuPosition.top, left: menuPosition.left }}
       >
         {/* Always show: View & Download */}
         <button
@@ -857,6 +885,7 @@ export default function POsPage() {
           onClick={() => {
             generatePDF(po);
             setOpenMenuId(null);
+            setMenuPosition(null);
           }}
           className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
         >
@@ -962,7 +991,7 @@ export default function POsPage() {
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
           >
             <ArrowLeft size={14} />
-            Volver al Panel
+            Volver al dashboard
           </Link>
 
           <div className="flex items-center justify-between">
@@ -1046,7 +1075,7 @@ export default function POsPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl overflow-visible">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -1067,7 +1096,7 @@ export default function POsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPOs.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={po.id} className="hover:bg-slate-50 transition-colors relative">
                     <td className="px-6 py-4">
                       <button
                         onClick={() => openDetailModal(po)}
@@ -1104,10 +1133,7 @@ export default function POsPage() {
                     <td className="px-6 py-4">
                       <div className="relative">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === po.id ? null : po.id);
-                          }}
+                          onClick={(e) => handleMenuClick(e, po.id)}
                           className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                         >
                           <MoreHorizontal size={18} />
