@@ -123,6 +123,7 @@ export default function SuppliersPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   const [formData, setFormData] = useState({
     fiscalName: "",
@@ -160,6 +161,7 @@ export default function SuppliersPage() {
       const target = e.target as HTMLElement;
       if (!target.closest('.menu-container')) {
         setOpenMenuId(null);
+        setMenuPosition(null);
       }
     };
     document.addEventListener("click", handleClickOutside);
@@ -685,9 +687,8 @@ export default function SuppliersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredSuppliers.map((supplier, index) => {
+                {filteredSuppliers.map((supplier) => {
                   const status = getCertificateStatus(supplier);
-                  const isLastRows = index >= filteredSuppliers.length - 2;
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
@@ -722,29 +723,28 @@ export default function SuppliersPage() {
                       <td className="px-6 py-4">
                         <div className="relative menu-container">
                           <button
-                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === supplier.id ? null : supplier.id); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openMenuId === supplier.id) {
+                                setOpenMenuId(null);
+                                setMenuPosition(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const menuHeight = 120;
+                                const spaceBelow = window.innerHeight - rect.bottom;
+                                const showAbove = spaceBelow < menuHeight;
+                                
+                                setMenuPosition({
+                                  top: showAbove ? rect.top - menuHeight : rect.bottom + 4,
+                                  left: rect.right - 192
+                                });
+                                setOpenMenuId(supplier.id);
+                              }
+                            }}
                             className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                           >
                             <MoreHorizontal size={18} />
                           </button>
-
-                          {openMenuId === supplier.id && (
-                            <div className={`absolute right-0 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] py-1 ${isLastRows ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-                              <button onClick={() => openViewModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                <Eye size={14} /> Ver detalles
-                              </button>
-                              <button onClick={() => openEditModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                <Edit size={14} /> Editar
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDeleteSupplier(supplier); }}
-                                disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices}
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <Trash2 size={14} /> Eliminar
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -753,6 +753,43 @@ export default function SuppliersPage() {
               </tbody>
             </table>
             </div>
+          </div>
+        )}
+
+        {/* Menu flotante */}
+        {openMenuId && menuPosition && (
+          <div 
+            className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+          >
+            <button 
+              onClick={() => {
+                const supplier = filteredSuppliers.find(s => s.id === openMenuId);
+                if (supplier) openViewModal(supplier);
+              }} 
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Eye size={14} /> Ver detalles
+            </button>
+            <button 
+              onClick={() => {
+                const supplier = filteredSuppliers.find(s => s.id === openMenuId);
+                if (supplier) openEditModal(supplier);
+              }} 
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Edit size={14} /> Editar
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const supplier = filteredSuppliers.find(s => s.id === openMenuId);
+                if (supplier) handleDeleteSupplier(supplier);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <Trash2 size={14} /> Eliminar
+            </button>
           </div>
         )}
       </main>
