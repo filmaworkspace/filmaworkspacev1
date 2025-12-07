@@ -152,7 +152,6 @@ export default function POsPage() {
   // Menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // ============ EFFECTS ============
 
@@ -175,14 +174,15 @@ export default function POsPage() {
   }, [searchTerm, statusFilter, pos]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.menu-container')) {
         setOpenMenuId(null);
         setMenuPosition(null);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   // ============ DATA LOADING ============
@@ -347,7 +347,7 @@ export default function POsPage() {
     };
     const c = config[status];
     return (
-      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>
+      <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>
         {c.label}
       </span>
     );
@@ -363,7 +363,7 @@ export default function POsPage() {
     };
     const c = config[status] || { bg: "bg-slate-100", text: "text-slate-700", label: status };
     return (
-      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>
+      <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>
         {c.label}
       </span>
     );
@@ -845,138 +845,12 @@ export default function POsPage() {
     );
   };
 
-  // Menu position state
-
-  // ============ CONTEXT MENU ============
-
-  const handleMenuClick = (e: React.MouseEvent, poId: string) => {
-    e.stopPropagation();
-    if (openMenuId === poId) {
-      setOpenMenuId(null);
-      setMenuPosition(null);
-    } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + 4,
-        left: rect.right - 192, // 192px = w-48
-      });
-      setOpenMenuId(poId);
-    }
-  };
-
-  const renderContextMenu = (po: PO) => {
-    if (openMenuId !== po.id || !menuPosition) return null;
-
-    return (
-      <div
-        ref={menuRef}
-        className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden"
-        style={{ top: menuPosition.top, left: menuPosition.left }}
-      >
-        {/* Always show: View & Download */}
-        <button
-          onClick={() => openDetailModal(po)}
-          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-        >
-          <Eye size={15} className="text-slate-400" />
-          Ver detalles
-        </button>
-        <button
-          onClick={() => {
-            generatePDF(po);
-            setOpenMenuId(null);
-            setMenuPosition(null);
-          }}
-          className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-        >
-          <Download size={15} className="text-slate-400" />
-          Descargar PDF
-        </button>
-
-        {/* Draft actions */}
-        {po.status === "draft" && (
-          <>
-            <div className="border-t border-slate-100 my-1" />
-            <button
-              onClick={() => handleEditDraft(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-            >
-              <Edit size={15} className="text-slate-400" />
-              Editar borrador
-            </button>
-            <button
-              onClick={() => handleDeleteDraft(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-            >
-              <Trash2 size={15} />
-              Eliminar
-            </button>
-          </>
-        )}
-
-        {/* Approved actions */}
-        {po.status === "approved" && (
-          <>
-            <div className="border-t border-slate-100 my-1" />
-            <button
-              onClick={() => handleCreateInvoice(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-            >
-              <Receipt size={15} className="text-slate-400" />
-              Crear factura
-            </button>
-            <button
-              onClick={() => handleModifyPO(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-            >
-              <FileEdit size={15} className="text-slate-400" />
-              Modificar PO
-            </button>
-            <button
-              onClick={() => handleClosePO(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-            >
-              <Lock size={15} className="text-slate-400" />
-              Cerrar PO
-            </button>
-            {po.invoicedAmount === 0 && (
-              <button
-                onClick={() => handleCancelPO(po)}
-                className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-              >
-                <XCircle size={15} />
-                Anular PO
-              </button>
-            )}
-          </>
-        )}
-
-        {/* Closed actions */}
-        {po.status === "closed" && (
-          <>
-            <div className="border-t border-slate-100 my-1" />
-            <button
-              onClick={() => handleReopenPO(po)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-            >
-              <Unlock size={15} className="text-slate-400" />
-              Reabrir PO
-            </button>
-          </>
-        )}
-      </div>
-    );
-  };
-
   // ============ RENDER ============
 
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Cargando órdenes de compra...</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
@@ -984,60 +858,58 @@ export default function POsPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-16 border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link
             href={`/project/${id}/accounting`}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft size={16} />
             Volver al Panel
           </Link>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <FileText size={20} className="text-indigo-600" />
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <FileText size={24} className="text-indigo-600" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-slate-900">Órdenes de compra</h1>
-                <p className="text-sm text-slate-500">
-                  {pos.length} {pos.length === 1 ? "orden" : "órdenes"}
-                </p>
+                <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
+                <p className="text-slate-500 text-sm">{projectName}</p>
               </div>
             </div>
 
             <Link
               href={`/project/${id}/accounting/pos/new`}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
             >
-              <Plus size={16} />
+              <Plus size={18} />
               Nueva PO
             </Link>
           </div>
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search
-              size={16}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+              size={18}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"
             />
             <input
               type="text"
-              placeholder="Buscar por número, proveedor..."
+              placeholder="Buscar por número, proveedor o descripción..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white text-sm"
+              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white text-sm"
+            className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm min-w-[180px]"
           >
             <option value="all">Todos los estados</option>
             <option value="draft">Borradores</option>
@@ -1050,101 +922,223 @@ export default function POsPage() {
 
         {/* Table or Empty State */}
         {filteredPOs.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-xl p-12 text-center">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText size={24} className="text-indigo-600" />
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <FileText size={28} className="text-slate-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
               {searchTerm || statusFilter !== "all"
-                ? "No se encontraron POs"
-                : "No hay órdenes de compra"}
+                ? "No se encontraron resultados"
+                : "Sin órdenes de compra"}
             </h3>
-            <p className="text-slate-500 text-sm mb-4">
+            <p className="text-slate-500 text-sm mb-6">
               {searchTerm || statusFilter !== "all"
-                ? "Intenta ajustar los filtros"
-                : "Comienza creando tu primera orden de compra"}
+                ? "Prueba a ajustar los filtros de búsqueda"
+                : "Crea tu primera orden de compra para empezar"}
             </p>
             {!searchTerm && statusFilter === "all" && (
               <Link
                 href={`/project/${id}/accounting/pos/new`}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
               >
-                <Plus size={16} />
-                Crear primera PO
+                <Plus size={18} />
+                Nueva PO
               </Link>
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-visible">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
-                    Número
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
-                    Proveedor
-                  </th>
-                  <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase">
-                    Base
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
-                    Estado
-                  </th>
-                  <th className="w-16"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredPOs.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50 transition-colors relative">
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => openDetailModal(po)}
-                        className="text-left hover:text-indigo-600 transition-colors"
-                      >
-                        <p className="font-medium text-slate-900">
-                          PO-{po.number}
-                          {po.version > 1 && (
-                            <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
-                              V{String(po.version).padStart(2, "0")}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-500">{formatDate(po.createdAt)}</p>
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-slate-900">{po.supplier}</p>
-                      <p className="text-xs text-slate-500 line-clamp-1">
-                        {po.generalDescription || po.description}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {formatCurrency(po.baseAmount || po.totalAmount)} €
-                      </p>
-                      {po.status === "approved" && po.invoicedAmount > 0 && (
-                        <p className="text-xs text-emerald-600">
-                          Fact: {formatCurrency(po.invoicedAmount)} €
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
-                    <td className="px-6 py-4">
-                      <div className="relative">
-                        <button
-                          onClick={(e) => handleMenuClick(e, po.id)}
-                          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                        {renderContextMenu(po)}
-                      </div>
-                    </td>
+          <div className="bg-white border border-slate-200 rounded-2xl">
+            <div className="overflow-x-auto rounded-2xl">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Número
+                    </th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Proveedor
+                    </th>
+                    <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Base
+                    </th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="w-16"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredPOs.map((po) => (
+                    <tr key={po.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => openDetailModal(po)}
+                          className="text-left hover:text-indigo-600 transition-colors"
+                        >
+                          <p className="font-semibold text-slate-900">
+                            PO-{po.number}
+                            {po.version > 1 && (
+                              <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">
+                                V{String(po.version).padStart(2, "0")}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">{formatDate(po.createdAt)}</p>
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-slate-900 font-medium">{po.supplier}</p>
+                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                          {po.generalDescription || po.description}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatCurrency(po.baseAmount || po.totalAmount)} €
+                        </p>
+                        {po.status === "approved" && po.invoicedAmount > 0 && (
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            Fact: {formatCurrency(po.invoicedAmount)} €
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
+                      <td className="px-6 py-4">
+                        <div className="relative menu-container">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openMenuId === po.id) {
+                                setOpenMenuId(null);
+                                setMenuPosition(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const menuHeight = 200;
+                                const spaceBelow = window.innerHeight - rect.bottom;
+                                const showAbove = spaceBelow < menuHeight;
+                                
+                                setMenuPosition({
+                                  top: showAbove ? rect.top - menuHeight : rect.bottom + 4,
+                                  left: rect.right - 192
+                                });
+                                setOpenMenuId(po.id);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <MoreHorizontal size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Menu flotante */}
+        {openMenuId && menuPosition && (
+          <div 
+            className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1"
+            style={{ top: menuPosition.top, left: menuPosition.left }}
+          >
+            {(() => {
+              const po = filteredPOs.find(p => p.id === openMenuId);
+              if (!po) return null;
+              return (
+                <>
+                  <button
+                    onClick={() => openDetailModal(po)}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                  >
+                    <Eye size={15} className="text-slate-400" />
+                    Ver detalles
+                  </button>
+                  <button
+                    onClick={() => {
+                      generatePDF(po);
+                      setOpenMenuId(null);
+                      setMenuPosition(null);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                  >
+                    <Download size={15} className="text-slate-400" />
+                    Descargar PDF
+                  </button>
+
+                  {po.status === "draft" && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <button
+                        onClick={() => handleEditDraft(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <Edit size={15} className="text-slate-400" />
+                        Editar borrador
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDraft(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                      >
+                        <Trash2 size={15} />
+                        Eliminar
+                      </button>
+                    </>
+                  )}
+
+                  {po.status === "approved" && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <button
+                        onClick={() => handleCreateInvoice(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <Receipt size={15} className="text-slate-400" />
+                        Crear factura
+                      </button>
+                      <button
+                        onClick={() => handleModifyPO(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <FileEdit size={15} className="text-slate-400" />
+                        Modificar PO
+                      </button>
+                      <button
+                        onClick={() => handleClosePO(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <Lock size={15} className="text-slate-400" />
+                        Cerrar PO
+                      </button>
+                      {po.invoicedAmount === 0 && (
+                        <button
+                          onClick={() => handleCancelPO(po)}
+                          className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                        >
+                          <XCircle size={15} />
+                          Anular PO
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {po.status === "closed" && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <button
+                        onClick={() => handleReopenPO(po)}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <Unlock size={15} className="text-slate-400" />
+                        Reabrir PO
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </main>
@@ -1156,7 +1150,7 @@ export default function POsPage() {
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1165,7 +1159,7 @@ export default function POsPage() {
                 <h2 className="text-lg font-semibold text-slate-900">
                   PO-{selectedPO.number}
                   {selectedPO.version > 1 && (
-                    <span className="ml-2 text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded">
+                    <span className="ml-2 text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg">
                       V{String(selectedPO.version).padStart(2, "0")}
                     </span>
                   )}
@@ -1193,19 +1187,19 @@ export default function POsPage() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-lg p-4">
+                <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 mb-1">Base imponible</p>
                   <p className="text-lg font-bold text-slate-900">
                     {formatCurrency(selectedPO.baseAmount || selectedPO.totalAmount)} €
                   </p>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-4">
+                <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 mb-1">Total</p>
                   <p className="text-lg font-bold text-slate-900">
                     {formatCurrency(selectedPO.totalAmount)} €
                   </p>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-4">
+                <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 mb-1">Estado</p>
                   <div className="mt-1">{getStatusBadge(selectedPO.status)}</div>
                 </div>
@@ -1213,8 +1207,8 @@ export default function POsPage() {
 
               {/* Budget Control (for approved/closed) */}
               {(selectedPO.status === "approved" || selectedPO.status === "closed") && (
-                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3">
                     Control presupuestario
                   </p>
                   <div className="grid grid-cols-3 gap-4">
@@ -1244,7 +1238,7 @@ export default function POsPage() {
               {(selectedPO.generalDescription || selectedPO.description) && (
                 <div className="mb-6">
                   <p className="text-xs text-slate-500 uppercase mb-2">Descripción</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
+                  <p className="text-sm text-slate-700 bg-slate-50 p-4 rounded-xl">
                     {selectedPO.generalDescription || selectedPO.description}
                   </p>
                 </div>
@@ -1252,7 +1246,7 @@ export default function POsPage() {
 
               {/* Items with tracking */}
               <div className="mb-6">
-                <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">
                   Items ({selectedPO.items?.length || 0})
                 </p>
                 {loadingInvoices ? (
@@ -1271,7 +1265,7 @@ export default function POsPage() {
                       return (
                         <div
                           key={item.id || index}
-                          className="p-4 bg-slate-50 rounded-lg border border-slate-200"
+                          className="p-4 bg-slate-50 rounded-xl border border-slate-200"
                         >
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
@@ -1336,15 +1330,15 @@ export default function POsPage() {
 
               {/* Linked Invoices */}
               <div className="mb-6">
-                <p className="text-xs font-medium text-slate-700 uppercase mb-3">
+                <p className="text-xs font-semibold text-slate-700 uppercase mb-3">
                   Facturas vinculadas
                 </p>
                 {loadingInvoices ? (
-                  <div className="p-4 bg-slate-50 rounded-lg text-center">
+                  <div className="p-4 bg-slate-50 rounded-xl text-center">
                     <p className="text-sm text-slate-500">Cargando...</p>
                   </div>
                 ) : linkedInvoices.length === 0 ? (
-                  <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-center">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center">
                     <p className="text-sm text-slate-500">No hay facturas vinculadas</p>
                   </div>
                 ) : (
@@ -1352,7 +1346,7 @@ export default function POsPage() {
                     {linkedInvoices.map((invoice) => (
                       <div
                         key={invoice.id}
-                        className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between hover:bg-slate-100 cursor-pointer transition-colors"
+                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-100 cursor-pointer transition-colors"
                         onClick={() =>
                           router.push(`/project/${id}/accounting/invoices/${invoice.id}`)
                         }
@@ -1378,7 +1372,7 @@ export default function POsPage() {
               {/* Modification History */}
               {selectedPO.modificationHistory && selectedPO.modificationHistory.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-xs font-medium text-slate-700 uppercase mb-3 flex items-center gap-2">
+                  <p className="text-xs font-semibold text-slate-700 uppercase mb-3 flex items-center gap-2">
                     <History size={14} />
                     Historial de modificaciones
                   </p>
@@ -1386,7 +1380,7 @@ export default function POsPage() {
                     {selectedPO.modificationHistory.map((mod, index) => (
                       <div
                         key={index}
-                        className="p-3 bg-purple-50 rounded-lg border border-purple-200"
+                        className="p-3 bg-purple-50 rounded-xl border border-purple-200"
                       >
                         <div className="flex items-start justify-between">
                           <div>
@@ -1409,8 +1403,8 @@ export default function POsPage() {
 
               {/* Cancellation info */}
               {selectedPO.status === "cancelled" && selectedPO.cancellationReason && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs font-medium text-red-800 uppercase mb-2">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-xs font-semibold text-red-800 uppercase mb-2">
                     Motivo de anulación
                   </p>
                   <p className="text-sm text-red-700">{selectedPO.cancellationReason}</p>
@@ -1492,7 +1486,7 @@ export default function POsPage() {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-slate-200">
@@ -1510,7 +1504,7 @@ export default function POsPage() {
                   onChange={(e) => setCancellationReason(e.target.value)}
                   placeholder="Explica por qué se anula esta PO..."
                   rows={4}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none bg-white text-sm"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm"
                 />
                 {selectedPO.status === "approved" && (
                   <p className="text-xs text-slate-500 mt-2">
@@ -1526,14 +1520,14 @@ export default function POsPage() {
                     setSelectedPO(null);
                     setCancellationReason("");
                   }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmCancelPO}
                   disabled={processing || !cancellationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {processing ? "Anulando..." : "Confirmar anulación"}
                 </button>
@@ -1554,7 +1548,7 @@ export default function POsPage() {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-slate-200">
@@ -1563,9 +1557,9 @@ export default function POsPage() {
               </h3>
             </div>
             <div className="p-6">
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-amber-800">
                     <p className="font-medium">
                       Pasará a V{String((selectedPO.version || 1) + 1).padStart(2, "0")} en borrador
@@ -1585,7 +1579,7 @@ export default function POsPage() {
                   onChange={(e) => setModificationReason(e.target.value)}
                   placeholder="Explica por qué se modifica esta PO..."
                   rows={4}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none bg-white text-sm"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm"
                 />
               </div>
               <div className="flex gap-3">
@@ -1595,14 +1589,14 @@ export default function POsPage() {
                     setSelectedPO(null);
                     setModificationReason("");
                   }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmModifyPO}
                   disabled={processing || !modificationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {processing ? "Modificando..." : "Modificar"}
                 </button>
