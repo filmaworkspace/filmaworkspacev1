@@ -671,7 +671,8 @@ export default function SuppliersPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-visible mb-4">
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -727,7 +728,7 @@ export default function SuppliersPage() {
                           </button>
 
                           {openMenuId === supplier.id && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-10 py-1">
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
                               <button onClick={() => openViewModal(supplier)} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                                 <Eye size={14} /> Ver detalles
                               </button>
@@ -750,6 +751,7 @@ export default function SuppliersPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </main>
