@@ -73,6 +73,7 @@ export default function BudgetPage() {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<"account" | "subaccount">("account");
+  const [editMode, setEditMode] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedSubAccount, setSelectedSubAccount] = useState<SubAccount | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,6 +114,12 @@ export default function BudgetPage() {
     try {
       setLoading(true);
       setErrorMessage("");
+
+      // Cargar nombre del proyecto
+      const projectDoc = await getDoc(doc(db, "projects", id));
+      if (projectDoc.exists()) {
+        setProjectName(projectDoc.data().name || "Proyecto");
+      }
 
       const accountsRef = collection(db, `projects/${id}/accounts`);
       const accountsQuery = query(accountsRef, orderBy("code", "asc"));
@@ -202,7 +209,7 @@ export default function BudgetPage() {
 
     try {
       await addDoc(collection(db, `projects/${id}/accounts`), {
-        code: formData.code.padStart(2, "0"),
+        code: formData.code.trim(),
         description: formData.description.trim(),
         createdAt: Timestamp.now(),
         createdBy: userId || "",
@@ -216,6 +223,36 @@ export default function BudgetPage() {
       await loadData();
     } catch (error: any) {
       setErrorMessage(`Error creando cuenta: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateAccount = async () => {
+    if (!selectedAccount) return;
+    
+    if (!formData.code.trim() || !formData.description.trim()) {
+      setErrorMessage("El código y la descripción son obligatorios");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+
+    try {
+      await updateDoc(doc(db, `projects/${id}/accounts`, selectedAccount.id), {
+        code: formData.code.trim(),
+        description: formData.description.trim(),
+      });
+
+      setSuccessMessage("Cuenta actualizada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+
+      resetForm();
+      setShowModal(false);
+      await loadData();
+    } catch (error: any) {
+      setErrorMessage(`Error actualizando cuenta: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -237,7 +274,7 @@ export default function BudgetPage() {
 
     try {
       await addDoc(collection(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`), {
-        code: formData.code,
+        code: formData.code.trim(),
         description: formData.description.trim(),
         budgeted: formData.budgeted || 0,
         committed: 0,
@@ -271,6 +308,7 @@ export default function BudgetPage() {
 
     try {
       await updateDoc(doc(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`, selectedSubAccount.id), {
+        code: formData.code.trim(),
         description: formData.description.trim(),
         budgeted: formData.budgeted || 0,
       });
@@ -325,21 +363,35 @@ export default function BudgetPage() {
     setFormData({ code: "", description: "", budgeted: 0 });
     setSelectedAccount(null);
     setSelectedSubAccount(null);
+    setEditMode(false);
+    setErrorMessage("");
   };
 
   const openCreateAccountModal = () => {
     resetForm();
     setModalMode("account");
+    setEditMode(false);
+    setShowModal(true);
+  };
+
+  const openEditAccountModal = (account: Account) => {
+    setSelectedAccount(account);
+    setFormData({
+      code: account.code,
+      description: account.description,
+      budgeted: 0,
+    });
+    setModalMode("account");
+    setEditMode(true);
     setShowModal(true);
   };
 
   const openCreateSubAccountModal = (account: Account) => {
     resetForm();
     setSelectedAccount(account);
-    const subCount = account.subAccounts.length;
-    const nextCode = `${account.code}-${String(subCount + 1).padStart(2, "0")}-01`;
-    setFormData({ ...formData, code: nextCode });
+    setFormData({ code: "", description: "", budgeted: 0 });
     setModalMode("subaccount");
+    setEditMode(false);
     setShowModal(true);
   };
 
@@ -352,6 +404,7 @@ export default function BudgetPage() {
       budgeted: subAccount.budgeted,
     });
     setModalMode("subaccount");
+    setEditMode(true);
     setShowModal(true);
   };
 
@@ -359,7 +412,10 @@ export default function BudgetPage() {
     const template = [
       ["CÓDIGO", "DESCRIPCIÓN", "TIPO", "PRESUPUESTADO"],
       ["01", "GUION Y MÚSICA", "CUENTA", ""],
-      ["01-01-01", "Derechos de autor", "SUBCUENTA", "5000"],
+      ["01.01", "Derechos de autor", "SUBCUENTA", "5000"],
+      ["01.02", "Música original", "SUBCUENTA", "3000"],
+      ["02", "PRODUCCIÓN", "CUENTA", ""],
+      ["02.01", "Equipo técnico", "SUBCUENTA", "10000"],
     ];
     const csvContent = template.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -392,7 +448,7 @@ export default function BudgetPage() {
 
           if (type.toUpperCase() === "CUENTA") {
             const accountRef = await addDoc(collection(db, `projects/${id}/accounts`), {
-              code: code.padStart(2, "0"),
+              code: code.trim(),
               description,
               createdAt: Timestamp.now(),
               createdBy: userId || "",
@@ -400,12 +456,21 @@ export default function BudgetPage() {
             accountsMap.set(code, accountRef.id);
             accountsCreated++;
           } else if (type.toUpperCase() === "SUBCUENTA") {
-            const accountCode = code.split("-")[0];
-            const accountId = accountsMap.get(accountCode);
+            // Buscar la cuenta padre por el código base (antes del primer punto o guión)
+            const accountCode = code.split(/[.\-]/)[0];
+            let accountId = accountsMap.get(accountCode);
+
+            // Si no está en el mapa, buscar en las cuentas existentes
+            if (!accountId) {
+              const existingAccount = accounts.find(a => a.code === accountCode);
+              if (existingAccount) {
+                accountId = existingAccount.id;
+              }
+            }
 
             if (accountId) {
               await addDoc(collection(db, `projects/${id}/accounts/${accountId}/subaccounts`), {
-                code,
+                code: code.trim(),
                 description,
                 budgeted: parseFloat(budgeted) || 0,
                 committed: 0,
@@ -487,7 +552,7 @@ export default function BudgetPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
             Volver al Panel
@@ -549,7 +614,7 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {/* Messages */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
@@ -630,7 +695,7 @@ export default function BudgetPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Comprometido</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Realizado</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Disponible</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-24"></th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-28"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -658,6 +723,9 @@ export default function BudgetPage() {
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => openCreateSubAccountModal(account)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg" title="Añadir subcuenta">
                               <Plus size={14} />
+                            </button>
+                            <button onClick={() => openEditAccountModal(account)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
+                              <Edit size={14} />
                             </button>
                             <button onClick={() => handleDeleteAccount(account.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
                               <Trash2 size={14} />
@@ -704,13 +772,16 @@ export default function BudgetPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); resetForm(); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">
-                {modalMode === "account" ? "Nueva cuenta" : selectedSubAccount ? "Editar subcuenta" : "Nueva subcuenta"}
+                {modalMode === "account" 
+                  ? (editMode ? "Editar cuenta" : "Nueva cuenta")
+                  : (editMode ? "Editar subcuenta" : "Nueva subcuenta")
+                }
               </h2>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
                 <X size={18} />
               </button>
             </div>
@@ -723,6 +794,13 @@ export default function BudgetPage() {
                 </div>
               )}
 
+              {modalMode === "subaccount" && selectedAccount && (
+                <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-xs text-slate-500">Cuenta padre</p>
+                  <p className="text-sm font-medium text-slate-900">{selectedAccount.code} - {selectedAccount.description}</p>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Código</label>
@@ -730,9 +808,10 @@ export default function BudgetPage() {
                     type="text"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    disabled={modalMode === "subaccount" && !selectedSubAccount}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-slate-50"
+                    placeholder={modalMode === "account" ? "Ej: 01, 02, A1..." : "Ej: 01.01, 02-A, 1.1.1..."}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
+                  <p className="text-xs text-slate-500 mt-1">Puedes usar cualquier formato de código</p>
                 </div>
 
                 <div>
@@ -741,6 +820,7 @@ export default function BudgetPage() {
                     type="text"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Nombre de la cuenta o subcuenta"
                     className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
@@ -761,16 +841,20 @@ export default function BudgetPage() {
               </div>
 
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
-                <button onClick={() => setShowModal(false)} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
+                <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
                   Cancelar
                 </button>
                 <button
-                  onClick={modalMode === "account" ? handleCreateAccount : selectedSubAccount ? handleUpdateSubAccount : handleCreateSubAccount}
+                  onClick={
+                    modalMode === "account"
+                      ? (editMode ? handleUpdateAccount : handleCreateAccount)
+                      : (editMode ? handleUpdateSubAccount : handleCreateSubAccount)
+                  }
                   disabled={saving}
                   className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  {modalMode === "account" ? "Crear cuenta" : selectedSubAccount ? "Guardar" : "Crear subcuenta"}
+                  {editMode ? "Guardar cambios" : (modalMode === "account" ? "Crear cuenta" : "Crear subcuenta")}
                 </button>
               </div>
             </div>
@@ -792,6 +876,7 @@ export default function BudgetPage() {
             <div className="p-6 space-y-6">
               <div>
                 <h3 className="font-medium text-slate-900 mb-2">1. Descarga la plantilla</h3>
+                <p className="text-sm text-slate-500 mb-3">La plantilla incluye ejemplos de formato. Puedes usar cualquier sistema de códigos.</p>
                 <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
                   <Download size={16} />
                   Descargar plantilla
@@ -812,9 +897,9 @@ export default function BudgetPage() {
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-800">
-                  <strong>Nota:</strong> Las cuentas deben crearse antes que sus subcuentas en el archivo.
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Formato libre:</strong> Puedes usar códigos como 01, 01.01, 01-01-01, A1, etc. El sistema detectará automáticamente la cuenta padre basándose en el primer segmento del código.
                 </p>
               </div>
             </div>
@@ -830,5 +915,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
-
