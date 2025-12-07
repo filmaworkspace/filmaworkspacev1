@@ -28,7 +28,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs, Timestamp } from "firebase/firestore";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 interface Member {
   userId: string;
@@ -297,20 +297,20 @@ export default function ConfigApprovals() {
     return (
       <div
         key={step.id}
-        className={`border rounded-xl overflow-hidden transition-all ${
+        className={`border rounded-2xl overflow-hidden transition-all ${
           isExpanded ? "border-slate-300 bg-white shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
         }`}
       >
         {/* Header colapsado */}
         <div
-          className="flex items-center gap-3 px-4 py-3 cursor-pointer"
+          className="flex items-center gap-3 px-5 py-4 cursor-pointer"
           onClick={() => toggleExpanded(step.id)}
         >
           <button className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
             {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
           </button>
 
-          <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
             {step.order}
           </div>
 
@@ -351,7 +351,7 @@ export default function ConfigApprovals() {
 
         {/* Contenido expandido */}
         {isExpanded && (
-          <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-4">
+          <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
             {/* Tipo de aprobador */}
             <div>
               <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
@@ -422,14 +422,14 @@ export default function ConfigApprovals() {
                   })}
                 </div>
                 {step.roles && step.roles.length > 0 && (
-                  <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
+                  <div className="mt-3 bg-slate-50 rounded-xl p-4 border border-slate-200">
                     <p className="text-xs text-slate-500 mb-2">Usuarios que podrán aprobar:</p>
                     <div className="flex flex-wrap gap-1.5">
                       {step.roles.flatMap((r) =>
                         getMembersByRole(r).map((m) => (
                           <span
                             key={m.userId}
-                            className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded-md"
+                            className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded-lg"
                           >
                             {m.name} ({r})
                           </span>
@@ -454,7 +454,7 @@ export default function ConfigApprovals() {
                     members.map((m) => (
                       <label
                         key={m.userId}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
+                        className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
                           step.approvers?.includes(m.userId)
                             ? "bg-white border border-slate-200"
                             : "hover:bg-white"
@@ -488,7 +488,7 @@ export default function ConfigApprovals() {
                 <select
                   value={step.department || ""}
                   onChange={(e) => updateStep(type, step.id, "department", e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 bg-slate-50 text-sm"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm"
                 >
                   <option value="">Departamento del solicitante</option>
                   {departments.map((d) => (
@@ -507,7 +507,7 @@ export default function ConfigApprovals() {
 
             {/* Require All */}
             {(step.approverType === "fixed" || step.approverType === "role") && (
-              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+              <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={step.requireAll}
@@ -533,10 +533,7 @@ export default function ConfigApprovals() {
   if (loading)
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500 text-sm">Cargando configuración...</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
 
@@ -544,53 +541,53 @@ export default function ConfigApprovals() {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center max-w-md">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={24} className="text-red-600" />
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={28} className="text-red-600" />
           </div>
-          <p className="text-slate-700 mb-4">{errorMessage}</p>
+          <p className="text-slate-700 mb-6">{errorMessage}</p>
           <Link
             href={`/project/${id}/accounting`}
-            className="text-slate-600 hover:text-slate-900 font-medium inline-flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft size={16} />
-            Volver a contabilidad
+            Volver al Panel
           </Link>
         </div>
       </div>
     );
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      {/* Header simple */}
-      <div className="mt-16 border-b border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto px-6 py-6">
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link
             href={`/project/${id}/accounting`}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4"
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
-            <ArrowLeft size={14} />
-            Volver a contabilidad
+            <ArrowLeft size={16} />
+            Volver al Panel
           </Link>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Settings size={20} className="text-amber-600" />
+              <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
+                <Settings size={24} className="text-amber-600" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-slate-900">Configuración de aprobaciones</h1>
-                <p className="text-sm text-slate-500">{projectName}</p>
+                <h1 className="text-2xl font-semibold text-slate-900">Configuración de aprobaciones</h1>
+                <p className="text-slate-500 text-sm">{projectName}</p>
               </div>
             </div>
 
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
             >
               {saving ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Guardando...
                 </>
               ) : (
@@ -604,117 +601,115 @@ export default function ConfigApprovals() {
         </div>
       </div>
 
-      <main className="flex-1 py-6 px-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Mensajes */}
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
-              <CheckCircle2 size={18} className="text-emerald-600" />
-              <span className="text-sm text-emerald-700 font-medium">{successMessage}</span>
-            </div>
-          )}
-
-          {errorMessage && hasAccess && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-              <AlertCircle size={18} className="text-red-600" />
-              <span className="text-sm text-red-700">{errorMessage}</span>
-              <button onClick={() => setErrorMessage("")} className="ml-auto text-red-400 hover:text-red-600">
-                <X size={16} />
-              </button>
-            </div>
-          )}
-
-          {/* Info box */}
-          <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="flex gap-3">
-              <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-slate-600">
-                <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
-                <p className="text-slate-500">
-                  Las aprobaciones se procesan en orden secuencial. Si no hay niveles configurados, los documentos se aprueban automáticamente.
-                </p>
-              </div>
-            </div>
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+        {/* Mensajes */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
+            <CheckCircle2 size={18} className="text-emerald-600" />
+            <span className="text-sm text-emerald-700 font-medium">{successMessage}</span>
           </div>
+        )}
 
-          {/* Tabs */}
-          <div className="flex gap-1 mb-6 border-b border-slate-200">
-            <button
-              onClick={() => setActiveTab("po")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "po"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <FileText size={16} />
-              Órdenes de compra
-              {poApprovals.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-xs bg-slate-100 text-slate-600">
-                  {poApprovals.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("invoice")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "invoice"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <Receipt size={16} />
-              Facturas
-              {invoiceApprovals.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-xs bg-slate-100 text-slate-600">
-                  {invoiceApprovals.length}
-                </span>
-              )}
+        {errorMessage && hasAccess && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+            <AlertCircle size={18} className="text-red-600" />
+            <span className="text-sm text-red-700">{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")} className="ml-auto text-red-400 hover:text-red-600">
+              <X size={16} />
             </button>
           </div>
+        )}
 
-          {/* Content */}
-          <div className="space-y-3">
-            {activeTab === "po" ? (
-              <>
-                {poApprovals.length === 0 ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                    <AlertCircle size={24} className="text-amber-600 mx-auto mb-2" />
-                    <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
-                    <p className="text-amber-700 text-sm">Las POs se aprobarán automáticamente</p>
-                  </div>
-                ) : (
-                  poApprovals.map((step, i) => renderApprovalStep(step, "po", i))
-                )}
-                <button
-                  onClick={() => addApprovalStep("po")}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 rounded-xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-                >
-                  <Plus size={16} />
-                  Añadir nivel de aprobación
-                </button>
-              </>
-            ) : (
-              <>
-                {invoiceApprovals.length === 0 ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                    <AlertCircle size={24} className="text-amber-600 mx-auto mb-2" />
-                    <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
-                    <p className="text-amber-700 text-sm">Las facturas se aprobarán automáticamente</p>
-                  </div>
-                ) : (
-                  invoiceApprovals.map((step, i) => renderApprovalStep(step, "invoice", i))
-                )}
-                <button
-                  onClick={() => addApprovalStep("invoice")}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 rounded-xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-                >
-                  <Plus size={16} />
-                  Añadir nivel de aprobación
-                </button>
-              </>
+        {/* Info box */}
+        <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex gap-3">
+            <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-slate-600">
+              <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
+              <p className="text-slate-500">
+                Las aprobaciones se procesan en orden secuencial. Si no hay niveles configurados, los documentos se aprueban automáticamente.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab("po")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "po"
+                ? "border-slate-900 text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <FileText size={16} />
+            Órdenes de compra
+            {poApprovals.length > 0 && (
+              <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+                {poApprovals.length}
+              </span>
             )}
-          </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("invoice")}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "invoice"
+                ? "border-slate-900 text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Receipt size={16} />
+            Facturas
+            {invoiceApprovals.length > 0 && (
+              <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+                {invoiceApprovals.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="space-y-3">
+          {activeTab === "po" ? (
+            <>
+              {poApprovals.length === 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+                  <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
+                  <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
+                  <p className="text-amber-700 text-sm mt-1">Las POs se aprobarán automáticamente</p>
+                </div>
+              ) : (
+                poApprovals.map((step, i) => renderApprovalStep(step, "po", i))
+              )}
+              <button
+                onClick={() => addApprovalStep("po")}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+              >
+                <Plus size={18} />
+                Añadir nivel de aprobación
+              </button>
+            </>
+          ) : (
+            <>
+              {invoiceApprovals.length === 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+                  <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
+                  <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
+                  <p className="text-amber-700 text-sm mt-1">Las facturas se aprobarán automáticamente</p>
+                </div>
+              ) : (
+                invoiceApprovals.map((step, i) => renderApprovalStep(step, "invoice", i))
+              )}
+              <button
+                onClick={() => addApprovalStep("invoice")}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+              >
+                <Plus size={18} />
+                Añadir nivel de aprobación
+              </button>
+            </>
+          )}
         </div>
       </main>
     </div>
