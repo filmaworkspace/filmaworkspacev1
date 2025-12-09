@@ -404,12 +404,6 @@ export default function Dashboard() {
               <h1 className={`text-3xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
                 {userName.split(' ')[0]}
               </h1>
-              <p className="text-slate-600 text-sm mt-2">
-                {projects.length === 0 
-                  ? "No tienes proyectos asignados aún"
-                  : `${projects.length} ${projects.length === 1 ? "proyecto activo" : "proyectos activos"}`
-                }
-              </p>
             </div>
             
             {/* Quick stats */}
