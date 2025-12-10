@@ -279,7 +279,7 @@ export default function Header() {
               )}
               {accountingAccess.users && (
                 <NavLink href={`/project/${projectId}/accounting/users`} isActive={accountingPage === "users"}>
-                  <Users size={15} />
+                  <UserCog size={15} />
                   <span>Usuarios</span>
                 </NavLink>
               )}
