@@ -16,9 +16,6 @@ import {
   BarChart3,
   Plus,
   Upload,
-  Users,
-  BookOpen,
-  TrendingUp,
   Clock,
   AlertCircle,
 } from "lucide-react";
@@ -153,22 +150,6 @@ export default function AccountingPage() {
     return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
   };
 
-  const quickLinks = [
-    { href: `/project/${id}/accounting/pos`, icon: FileText, label: "Órdenes de compra", color: "indigo" },
-    { href: `/project/${id}/accounting/invoices`, icon: Receipt, label: "Facturas", color: "emerald" },
-    { href: `/project/${id}/accounting/budget`, icon: BookOpen, label: "Presupuesto", color: "blue" },
-    { href: `/project/${id}/accounting/suppliers`, icon: Users, label: "Proveedores", color: "violet" },
-    { href: `/project/${id}/accounting/reports`, icon: TrendingUp, label: "Informes", color: "amber" },
-  ];
-
-  const colorStyles: Record<string, { bg: string; iconBg: string; iconColor: string; hoverBorder: string }> = {
-    indigo: { bg: "bg-indigo-50", iconBg: "bg-indigo-100 group-hover:bg-indigo-500", iconColor: "text-indigo-600 group-hover:text-white", hoverBorder: "hover:border-indigo-300" },
-    emerald: { bg: "bg-emerald-50", iconBg: "bg-emerald-100 group-hover:bg-emerald-500", iconColor: "text-emerald-600 group-hover:text-white", hoverBorder: "hover:border-emerald-300" },
-    blue: { bg: "bg-blue-50", iconBg: "bg-blue-100 group-hover:bg-blue-500", iconColor: "text-blue-600 group-hover:text-white", hoverBorder: "hover:border-blue-300" },
-    violet: { bg: "bg-violet-50", iconBg: "bg-violet-100 group-hover:bg-violet-500", iconColor: "text-violet-600 group-hover:text-white", hoverBorder: "hover:border-violet-300" },
-    amber: { bg: "bg-amber-50", iconBg: "bg-amber-100 group-hover:bg-amber-500", iconColor: "text-amber-600 group-hover:text-white", hoverBorder: "hover:border-amber-300" },
-  };
-
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -184,7 +165,7 @@ export default function AccountingPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
-            Volver a Proyectos
+            Volver al dashboard
           </Link>
 
           <div className="flex items-start justify-between">
@@ -237,24 +218,6 @@ export default function AccountingPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-          {quickLinks.map((link) => {
-            const style = colorStyles[link.color];
-            const Icon = link.icon;
-            return (
-              <Link key={link.href} href={link.href}>
-                <div className={`group bg-white border border-slate-200 ${style.hoverBorder} rounded-xl p-4 transition-all hover:shadow-md cursor-pointer`}>
-                  <div className={`w-10 h-10 ${style.iconBg} rounded-lg flex items-center justify-center mb-3 transition-colors`}>
-                    <Icon size={20} className={`${style.iconColor} transition-colors`} />
-                  </div>
-                  <p className="text-sm font-medium text-slate-900">{link.label}</p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
         {/* Pending Approvals Alert */}
         {pendingApprovalsCount > 0 && (
           <Link href={`/project/${id}/accounting/approvals`}>
@@ -391,4 +354,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
