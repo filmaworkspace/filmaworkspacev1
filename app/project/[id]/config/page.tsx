@@ -202,7 +202,7 @@ export default function ConfigGeneral() {
           <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft size={16} />
             Volver al dashboard
@@ -226,7 +226,7 @@ export default function ConfigGeneral() {
 
       {/* Delete Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
             <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar proyecto?</h3>
             <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Se eliminarán todos los datos del proyecto.</p>
@@ -250,7 +250,7 @@ export default function ConfigGeneral() {
 
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
@@ -266,14 +266,14 @@ export default function ConfigGeneral() {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-900">{project?.name}</h1>
+                  <h1 className="text-2xl font-semibold text-slate-900">Configuración general</h1>
                   {project?.archived && (
-                    <span className="text-xs font-medium px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
+                    <span className="text-xs font-medium px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
                       Archivado
                     </span>
                   )}
                 </div>
-                <p className="text-slate-500 text-sm mt-1">Configuración general</p>
+                <p className="text-slate-500 text-sm mt-0.5">{project?.name}</p>
               </div>
             </div>
 
@@ -288,7 +288,7 @@ export default function ConfigGeneral() {
               {showActions && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-20">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
                     <button onClick={copyProjectId} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
                       <Copy size={15} className="text-slate-400" /> Copiar ID
                     </button>
@@ -308,7 +308,7 @@ export default function ConfigGeneral() {
       </div>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         <div className="space-y-6">
           {/* Project Info Card */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -317,7 +317,7 @@ export default function ConfigGeneral() {
               {!editingProject && (
                 <button
                   onClick={() => setEditingProject(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
                 >
                   <Edit2 size={14} />
                   Editar
@@ -368,7 +368,7 @@ export default function ConfigGeneral() {
                       type="text"
                       value={projectForm.name}
                       onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -381,7 +381,7 @@ export default function ConfigGeneral() {
                           <button
                             key={phase}
                             onClick={() => setProjectForm({ ...projectForm, phase })}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
                               isSelected
                                 ? `${style.bg} ${style.text} ${style.border}`
                                 : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
@@ -399,7 +399,7 @@ export default function ConfigGeneral() {
                       value={projectForm.description}
                       onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                       rows={3}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm resize-none bg-slate-50"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm resize-none"
                     />
                   </div>
                   <div className="flex gap-3 pt-2">
@@ -476,4 +476,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
