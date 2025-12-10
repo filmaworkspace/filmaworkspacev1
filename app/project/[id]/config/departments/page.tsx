@@ -119,7 +119,7 @@ export default function ConfigDepartments() {
         <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
         <Link href="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
           <ArrowLeft size={16} />
-          Volver al dashboard
+          Volver a Proyectos
         </Link>
       </div>
     </div>
