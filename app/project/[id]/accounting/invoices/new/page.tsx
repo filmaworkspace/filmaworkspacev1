@@ -738,7 +738,7 @@ export default function NewInvoicePage() {
             className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
             <ArrowLeft size={16} />
-            Volver a facturas
+            Volver a Facturas
           </Link>
 
           <div className="flex items-start justify-between">
