@@ -228,58 +228,93 @@ export default function ConfigUsers() {
   const projectMembers = filteredMembers.filter((m) => PROJECT_ROLES.includes(m.role || ""));
   const deptMembers = filteredMembers.filter((m) => !PROJECT_ROLES.includes(m.role || "") && m.department);
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+    </div>
+  );
 
   if (!hasConfigAccess) return (
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
       <div className="text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertCircle size={28} className="text-slate-400" /></div>
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertCircle size={28} className="text-slate-400" />
+        </div>
         <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
-        <Link href="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><ArrowLeft size={16} />Volver al dashboard</Link>
+        <Link href="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+          <ArrowLeft size={16} />
+          Volver al dashboard
+        </Link>
       </div>
     </div>
   );
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      {toast && <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>{toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}{toast.message}</div>}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
+          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {toast.message}
+        </div>
+      )}
 
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"><ArrowLeft size={16} />Volver al dashboard</Link>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><UserCog size={24} className="text-slate-600" /></div>
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <UserCog size={24} className="text-slate-600" />
+              </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
-                <p className="text-slate-500 text-sm mt-1">Usuarios del proyecto · {members.length} usuario{members.length !== 1 ? "s" : ""}</p>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-slate-900">Usuarios del proyecto</h1>
+                  <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                    {members.length} usuario{members.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p className="text-slate-500 text-sm mt-0.5">{projectName}</p>
               </div>
             </div>
-            <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><UserPlus size={16} />Invitar</button>
+            <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <UserPlus size={16} />
+              Invitar
+            </button>
           </div>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center"><Mail size={18} className="text-white" /></div>
-              <h2 className="text-base font-semibold text-white">{pendingInvitations.length} invitación{pendingInvitations.length !== 1 ? "es" : ""} pendiente{pendingInvitations.length !== 1 ? "s" : ""}</h2>
+              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+                <Mail size={18} className="text-white" />
+              </div>
+              <h2 className="text-base font-semibold text-white">
+                {pendingInvitations.length} invitación{pendingInvitations.length !== 1 ? "es" : ""} pendiente{pendingInvitations.length !== 1 ? "s" : ""}
+              </h2>
             </div>
             <div className="grid gap-2">
               {pendingInvitations.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between bg-white rounded-xl p-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">{inv.invitedName?.[0]?.toUpperCase()}</div>
+                    <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                      {inv.invitedName?.[0]?.toUpperCase()}
+                    </div>
                     <div>
                       <p className="text-sm font-medium text-slate-900">{inv.invitedName}</p>
                       <p className="text-xs text-slate-500">{inv.roleType === "project" ? inv.role : `${inv.position} · ${inv.department}`}</p>
                     </div>
                   </div>
-                  <button onClick={() => handleCancelInvitation(inv.id)} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
+                  <button onClick={() => handleCancelInvitation(inv.id)} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    Cancelar
+                  </button>
                 </div>
               ))}
             </div>
@@ -290,7 +325,13 @@ export default function ConfigUsers() {
         {members.length > 0 && (
           <div className="relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar miembro..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50" />
+            <input
+              type="text"
+              placeholder="Buscar miembro..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+            />
           </div>
         )}
 
@@ -308,7 +349,9 @@ export default function ConfigUsers() {
                 return (
                   <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">{m.name?.[0]?.toUpperCase()}</div>
+                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                        {m.name?.[0]?.toUpperCase()}
+                      </div>
                       <div>
                         <div className="flex items-center gap-2 relative">
                           <p className="font-medium text-slate-900">{m.name}</p>
@@ -318,18 +361,22 @@ export default function ConfigUsers() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${roleStyle.bg} ${roleStyle.text} border ${roleStyle.border}`}>{m.role}</span>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${roleStyle.bg} ${roleStyle.text} border ${roleStyle.border}`}>
+                        {m.role}
+                      </span>
                       {m.userId !== userId && (
                         <div className="relative">
-                          <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><MoreHorizontal size={16} /></button>
+                          <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                            <MoreHorizontal size={16} />
+                          </button>
                           {activeMenu === m.userId && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                              <div
-                                className="absolute z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-36"
-                                style={{ right: 0, top: "100%", marginTop: "4px" }}
-                              >
-                                <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} />Eliminar</button>
+                              <div className="absolute z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-36" style={{ right: 0, top: "100%", marginTop: "4px" }}>
+                                <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                  <Trash2 size={14} />
+                                  Eliminar
+                                </button>
                               </div>
                             </>
                           )}
@@ -355,7 +402,9 @@ export default function ConfigUsers() {
               {deptMembers.map((m) => (
                 <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">{m.name?.[0]?.toUpperCase()}</div>
+                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">
+                      {m.name?.[0]?.toUpperCase()}
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-slate-900">{m.name}</p>
@@ -366,17 +415,22 @@ export default function ConfigUsers() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex gap-1.5">
-                      {m.permissions.accounting && <span className="px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded border border-indigo-100">ACC</span>}
-                      {m.permissions.team && <span className="px-2 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 rounded border border-amber-100">TEAM</span>}
+                      {m.permissions.accounting && <span className="px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg border border-indigo-100">ACC</span>}
+                      {m.permissions.team && <span className="px-2 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg border border-amber-100">TEAM</span>}
                     </div>
                     {m.userId !== userId && (
                       <div className="relative">
-                        <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><MoreHorizontal size={16} /></button>
+                        <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                          <MoreHorizontal size={16} />
+                        </button>
                         {activeMenu === m.userId && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
-                              <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} />Eliminar</button>
+                            <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-20">
+                              <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <Trash2 size={14} />
+                                Eliminar
+                              </button>
                             </div>
                           </>
                         )}
@@ -391,39 +445,63 @@ export default function ConfigUsers() {
 
         {/* Empty State */}
         {filteredMembers.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-            <Users size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-600 text-sm font-medium mb-1">{searchTerm ? "Sin resultados" : "Sin miembros"}</p>
-            <p className="text-slate-400 text-xs mb-4">{searchTerm ? "Prueba con otro término" : "Invita al primer miembro del equipo"}</p>
-            {!searchTerm && <button onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><UserPlus size={14} />Invitar</button>}
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Users size={28} className="text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm ? "Sin resultados" : "Sin miembros"}</h3>
+            <p className="text-slate-500 text-sm mb-6">{searchTerm ? "Prueba con otro término" : "Invita al primer miembro del equipo"}</p>
+            {!searchTerm && (
+              <button onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+                <UserPlus size={16} />
+                Invitar
+              </button>
+            )}
           </div>
         )}
       </main>
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">Invitar usuario</h3>
-              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"><X size={18} /></button>
+              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
+                <X size={18} />
+              </button>
             </div>
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Email</label>
-                <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50" />
+                <input
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                />
                 {userExists === true && <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1"><CheckCircle size={12} />Usuario registrado</p>}
                 {userExists === false && inviteForm.email.length > 3 && <p className="mt-2 text-xs text-amber-600 flex items-center gap-1"><Clock size={12} />Se enviará invitación para registrarse</p>}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Nombre</label>
-                <input type="text" value={inviteForm.name} onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })} disabled={userExists === true} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500" />
+                <input
+                  type="text"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                  disabled={userExists === true}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Tipo</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setInviteForm({ ...inviteForm, roleType: "project", department: "", position: "" })} className={`p-3 rounded-xl border text-sm font-medium transition-all ${inviteForm.roleType === "project" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>Proyecto</button>
-                  <button onClick={() => setInviteForm({ ...inviteForm, roleType: "department", role: "" })} className={`p-3 rounded-xl border text-sm font-medium transition-all ${inviteForm.roleType === "department" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>Departamento</button>
+                  <button onClick={() => setInviteForm({ ...inviteForm, roleType: "project", department: "", position: "" })} className={`p-3 rounded-xl border text-sm font-medium transition-all ${inviteForm.roleType === "project" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                    Proyecto
+                  </button>
+                  <button onClick={() => setInviteForm({ ...inviteForm, roleType: "department", role: "" })} className={`p-3 rounded-xl border text-sm font-medium transition-all ${inviteForm.roleType === "department" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                    Departamento
+                  </button>
                 </div>
               </div>
               {inviteForm.roleType === "project" && (
@@ -433,7 +511,11 @@ export default function ConfigUsers() {
                     {PROJECT_ROLES.map((r) => {
                       const style = roleColors[r];
                       const isSelected = inviteForm.role === r;
-                      return <button key={r} onClick={() => setInviteForm({ ...inviteForm, role: r })} className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${isSelected ? `${style.border} ${style.bg} ${style.text}` : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>{r}</button>;
+                      return (
+                        <button key={r} onClick={() => setInviteForm({ ...inviteForm, role: r })} className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${isSelected ? `${style.border} ${style.bg} ${style.text}` : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                          {r}
+                        </button>
+                      );
                     })}
                   </div>
                 </div>
@@ -442,7 +524,7 @@ export default function ConfigUsers() {
                 <>
                   <div>
                     <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Departamento</label>
-                    <select value={inviteForm.department} onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50">
+                    <select value={inviteForm.department} onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm">
                       <option value="">Seleccionar...</option>
                       {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
                     </select>
@@ -450,7 +532,11 @@ export default function ConfigUsers() {
                   <div>
                     <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Posición</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {DEPARTMENT_POSITIONS.map((p) => <button key={p} onClick={() => setInviteForm({ ...inviteForm, position: p })} className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${inviteForm.position === p ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>{p}</button>)}
+                      {DEPARTMENT_POSITIONS.map((p) => (
+                        <button key={p} onClick={() => setInviteForm({ ...inviteForm, position: p })} className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${inviteForm.position === p ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                          {p}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </>
@@ -470,8 +556,12 @@ export default function ConfigUsers() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50">
-              <button onClick={closeModal} className="flex-1 py-2.5 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
-              <button onClick={handleSendInvitation} disabled={saving} className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">{saving ? "Enviando..." : "Enviar invitación"}</button>
+              <button onClick={closeModal} className="flex-1 py-2.5 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSendInvitation} disabled={saving} className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                {saving ? "Enviando..." : "Enviar invitación"}
+              </button>
             </div>
           </div>
         </div>
