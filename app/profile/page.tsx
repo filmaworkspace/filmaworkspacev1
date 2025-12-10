@@ -193,7 +193,7 @@ export default function ProfilePage() {
             className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
             <ArrowLeft size={16} />
-            Volver al dashboard
+            Volver a Proyectos
           </button>
 
           <div className="flex items-start justify-between">
@@ -487,3 +487,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
