@@ -15,6 +15,12 @@ import {
   ChevronRight,
   BarChart3,
   Plus,
+  Upload,
+  Users,
+  BookOpen,
+  TrendingUp,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -24,7 +30,7 @@ interface PO {
   number: string;
   supplier: string;
   totalAmount: number;
-  status: "draft" | "pending" | "approved" | "rejected";
+  status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled";
   createdAt: Date | null;
 }
 
@@ -48,8 +54,6 @@ export default function AccountingPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState("");
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-  const [poCount, setPoCount] = useState(0);
-  const [invoiceCount, setInvoiceCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -108,10 +112,6 @@ export default function AccountingPage() {
           return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
         }));
 
-        // PO Count
-        const allPosSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
-        setPoCount(allPosSnapshot.size);
-
         // Recent Invoices
         const invoicesRecentQuery = query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc"), limit(5));
         const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
@@ -119,10 +119,6 @@ export default function AccountingPage() {
           const data = doc.data();
           return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
         }));
-
-        // Invoice Count
-        const allInvoicesSnapshot = await getDocs(collection(db, `projects/${id}/invoices`));
-        setInvoiceCount(allInvoicesSnapshot.size);
 
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -140,16 +136,38 @@ export default function AccountingPage() {
       pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
       approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
       rejected: { bg: "bg-red-50", text: "text-red-700", label: "Rechazada" },
+      closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada" },
+      cancelled: { bg: "bg-slate-100", text: "text-slate-600", label: "Anulada" },
       pending_approval: { bg: "bg-purple-50", text: "text-purple-700", label: "Pend. aprob." },
       paid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Pagada" },
       overdue: { bg: "bg-red-50", text: "text-red-700", label: "Vencida" },
-      cancelled: { bg: "bg-slate-100", text: "text-slate-600", label: "Cancelada" },
     };
     const c = config[status] || config.pending;
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
+    return <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
   };
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return "";
+    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
+  };
+
+  const quickLinks = [
+    { href: `/project/${id}/accounting/pos`, icon: FileText, label: "Órdenes de compra", color: "indigo" },
+    { href: `/project/${id}/accounting/invoices`, icon: Receipt, label: "Facturas", color: "emerald" },
+    { href: `/project/${id}/accounting/budget`, icon: BookOpen, label: "Presupuesto", color: "blue" },
+    { href: `/project/${id}/accounting/suppliers`, icon: Users, label: "Proveedores", color: "violet" },
+    { href: `/project/${id}/accounting/reports`, icon: TrendingUp, label: "Informes", color: "amber" },
+  ];
+
+  const colorStyles: Record<string, { bg: string; iconBg: string; iconColor: string; hoverBorder: string }> = {
+    indigo: { bg: "bg-indigo-50", iconBg: "bg-indigo-100 group-hover:bg-indigo-500", iconColor: "text-indigo-600 group-hover:text-white", hoverBorder: "hover:border-indigo-300" },
+    emerald: { bg: "bg-emerald-50", iconBg: "bg-emerald-100 group-hover:bg-emerald-500", iconColor: "text-emerald-600 group-hover:text-white", hoverBorder: "hover:border-emerald-300" },
+    blue: { bg: "bg-blue-50", iconBg: "bg-blue-100 group-hover:bg-blue-500", iconColor: "text-blue-600 group-hover:text-white", hoverBorder: "hover:border-blue-300" },
+    violet: { bg: "bg-violet-50", iconBg: "bg-violet-100 group-hover:bg-violet-500", iconColor: "text-violet-600 group-hover:text-white", hoverBorder: "hover:border-violet-300" },
+    amber: { bg: "bg-amber-50", iconBg: "bg-amber-100 group-hover:bg-amber-500", iconColor: "text-amber-600 group-hover:text-white", hoverBorder: "hover:border-amber-300" },
+  };
 
   if (loading) {
     return (
@@ -166,7 +184,7 @@ export default function AccountingPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
             <ArrowLeft size={16} />
-            Volver a Proyectos
+            Volver al dashboard
           </Link>
 
           <div className="flex items-start justify-between">
@@ -174,16 +192,35 @@ export default function AccountingPage() {
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <BarChart3 size={24} className="text-indigo-600" />
               </div>
-              <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">Panel de contabilidad</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{projectName}</p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Quick create buttons */}
+              <Link href={`/project/${id}/accounting/pos/new`}>
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
+                  <Plus size={16} />
+                  Nueva PO
+                </button>
+              </Link>
+              <Link href={`/project/${id}/accounting/invoices/new`}>
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
+                  <Upload size={16} />
+                  Subir factura
+                </button>
+              </Link>
+
+              {/* Approvals & Settings */}
               {pendingApprovalsCount > 0 && (
                 <Link href={`/project/${id}/accounting/approvals`}>
-                  <button className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium hover:bg-amber-100 transition-colors border border-amber-200">
-                    <Bell size={16} />
-                    Aprobaciones
-                    <span className="w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{pendingApprovalsCount}</span>
+                  <button className="relative p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200">
+                    <Bell size={18} />
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {pendingApprovalsCount}
+                    </span>
                   </button>
                 </Link>
               )}
@@ -200,65 +237,71 @@ export default function AccountingPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Link href={`/project/${id}/accounting/pos`}>
-            <div className="group bg-white border border-slate-200 hover:border-indigo-300 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-500 transition-colors">
-                    <FileText size={24} className="text-indigo-600 group-hover:text-white transition-colors" />
+        {/* Quick Links */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+          {quickLinks.map((link) => {
+            const style = colorStyles[link.color];
+            const Icon = link.icon;
+            return (
+              <Link key={link.href} href={link.href}>
+                <div className={`group bg-white border border-slate-200 ${style.hoverBorder} rounded-xl p-4 transition-all hover:shadow-md cursor-pointer`}>
+                  <div className={`w-10 h-10 ${style.iconBg} rounded-lg flex items-center justify-center mb-3 transition-colors`}>
+                    <Icon size={20} className={`${style.iconColor} transition-colors`} />
                   </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Órdenes de compra</h2>
-                    <p className="text-sm text-slate-500">{poCount} {poCount === 1 ? "orden" : "órdenes"}</p>
-                  </div>
+                  <p className="text-sm font-medium text-slate-900">{link.label}</p>
                 </div>
-                <div className="w-10 h-10 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center transition-colors">
-                  <ArrowRight size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                </div>
-              </div>
-            </div>
-          </Link>
-
-          <Link href={`/project/${id}/accounting/invoices`}>
-            <div className="group bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl p-6 transition-all hover:shadow-lg cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                    <Receipt size={24} className="text-emerald-600 group-hover:text-white transition-colors" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Facturas</h2>
-                    <p className="text-sm text-slate-500">{invoiceCount} {invoiceCount === 1 ? "factura" : "facturas"}</p>
-                  </div>
-                </div>
-                <div className="w-10 h-10 bg-slate-100 group-hover:bg-emerald-100 rounded-full flex items-center justify-center transition-colors">
-                  <ArrowRight size={18} className="text-slate-400 group-hover:text-emerald-600 transition-colors" />
-                </div>
-              </div>
-            </div>
-          </Link>
+              </Link>
+            );
+          })}
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
-            {/* Recent POs */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900">POs recientes</h3>
-                <Link href={`/project/${id}/accounting/pos`} className="text-sm text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1">
-                  Ver todas <ChevronRight size={14} />
-                </Link>
+        {/* Pending Approvals Alert */}
+        {pendingApprovalsCount > 0 && (
+          <Link href={`/project/${id}/accounting/approvals`}>
+            <div className="mb-8 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 cursor-pointer hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                    <Clock size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      {pendingApprovalsCount} {pendingApprovalsCount === 1 ? "documento pendiente" : "documentos pendientes"} de tu aprobación
+                    </h3>
+                    <p className="text-white/80 text-sm">Revisa y aprueba para continuar el flujo</p>
+                  </div>
+                </div>
+                <ArrowRight size={24} className="text-white/80" />
               </div>
+            </div>
+          </Link>
+        )}
 
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent POs */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <FileText size={16} className="text-indigo-600" />
+                </div>
+                <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+              </div>
+              <Link href={`/project/${id}/accounting/pos`} className="text-sm text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1">
+                Ver todas <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            <div className="p-4">
               {recentPOs.length === 0 ? (
                 <div className="text-center py-10">
-                  <FileText size={24} className="text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 mb-2">Sin órdenes de compra</p>
-                  <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-1 text-sm text-indigo-600 font-medium hover:text-indigo-700">
-                    <Plus size={14} /> Crear primera PO
+                  <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <FileText size={20} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500 mb-3">Sin órdenes de compra</p>
+                  <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg">
+                    <Plus size={14} /> Crear primera
                   </Link>
                 </div>
               ) : (
@@ -266,13 +309,10 @@ export default function AccountingPage() {
                   {recentPOs.map((po) => (
                     <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`}>
                       <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
-                            <FileText size={16} className="text-indigo-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">PO-{po.number}</p>
-                            <p className="text-xs text-slate-500">{po.supplier || "Sin proveedor"}</p>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex-shrink-0">
+                            <p className="text-sm font-semibold text-slate-900">PO-{po.number}</p>
+                            <p className="text-xs text-slate-500 truncate max-w-[140px]">{po.supplier || "Sin proveedor"}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -280,7 +320,7 @@ export default function AccountingPage() {
                             <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
                             {getStatusBadge(po.status)}
                           </div>
-                          <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
                         </div>
                       </div>
                     </Link>
@@ -288,48 +328,60 @@ export default function AccountingPage() {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Recent Invoices */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900">Facturas recientes</h3>
-                <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1">
-                  Ver todas <ChevronRight size={14} />
-                </Link>
+          {/* Recent Invoices */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <Receipt size={16} className="text-emerald-600" />
+                </div>
+                <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
               </div>
+              <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1">
+                Ver todas <ChevronRight size={14} />
+              </Link>
+            </div>
 
+            <div className="p-4">
               {recentInvoices.length === 0 ? (
                 <div className="text-center py-10">
-                  <Receipt size={24} className="text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 mb-2">Sin facturas</p>
-                  <Link href={`/project/${id}/accounting/invoices/new`} className="inline-flex items-center gap-1 text-sm text-emerald-600 font-medium hover:text-emerald-700">
-                    <Plus size={14} /> Registrar primera factura
+                  <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <Receipt size={20} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500 mb-3">Sin facturas</p>
+                  <Link href={`/project/${id}/accounting/invoices/new`} className="inline-flex items-center gap-1.5 text-sm text-emerald-600 font-medium hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg">
+                    <Upload size={14} /> Subir primera
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {recentInvoices.map((invoice) => (
-                    <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`}>
-                      <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center">
-                            <Receipt size={16} className="text-emerald-600" />
+                  {recentInvoices.map((invoice) => {
+                    const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
+                    return (
+                      <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`}>
+                        <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex-shrink-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-semibold text-slate-900">FAC-{invoice.number}</p>
+                                {isOverdue && <AlertCircle size={12} className="text-red-500" />}
+                              </div>
+                              <p className="text-xs text-slate-500 truncate max-w-[140px]">{invoice.supplier || "Sin proveedor"}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">FAC-{invoice.number}</p>
-                            <p className="text-xs text-slate-500">{invoice.supplier || "Sin proveedor"}</p>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
+                              {getStatusBadge(invoice.status)}
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
-                            {getStatusBadge(invoice.status)}
-                          </div>
-                          <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -339,4 +391,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
