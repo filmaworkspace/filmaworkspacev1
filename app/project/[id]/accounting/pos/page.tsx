@@ -518,7 +518,7 @@ export default function POsPage() {
             className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
             <ArrowLeft size={16} />
-            Volver al panel
+            Volver al Panel
           </Link>
 
           <div className="flex items-start justify-between">
