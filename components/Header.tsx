@@ -10,11 +10,8 @@ import {
   Settings,
   Folder,
   LayoutDashboard,
-  FileText,
   Wallet,
   BarChart3,
-  List,
-  Clock,
   Briefcase,
   Info,
   UserCog,
@@ -42,6 +39,11 @@ export default function Header() {
   const [userName, setUserName] = useState("Usuario");
   const [userId, setUserId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState({
+    config: false,
+    accounting: false,
+    team: false,
+  });
   const [accountingAccess, setAccountingAccess] = useState({
     panel: false,
     suppliers: false,
@@ -76,13 +78,28 @@ export default function Header() {
   }, [pathname]);
 
   useEffect(() => {
-    const loadAccountingPermissions = async () => {
+    const loadPermissions = async () => {
       if (!userId || !projectId) {
+        setPermissions({ config: false, accounting: false, team: false });
         setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
         return;
       }
 
       try {
+        // Check userProjects for general permissions
+        const userProjectRef = doc(db, `userProjects/${userId}/projects`, projectId);
+        const userProjectSnap = await getDoc(userProjectRef);
+
+        if (userProjectSnap.exists()) {
+          const userProjectData = userProjectSnap.data();
+          setPermissions({
+            config: userProjectData.permissions?.config || false,
+            accounting: userProjectData.permissions?.accounting || false,
+            team: userProjectData.permissions?.team || false,
+          });
+        }
+
+        // Check member doc for accounting access level
         const memberRef = doc(db, `projects/${projectId}/members`, userId);
         const memberSnap = await getDoc(memberRef);
 
@@ -97,6 +114,7 @@ export default function Header() {
 
           const accessLevel = memberData.accountingAccessLevel || "user";
           const accessLevels = {
+            visitor: { panel: true, suppliers: false, budget: false, users: false, reports: false },
             user: { panel: true, suppliers: true, budget: false, users: false, reports: false },
             accounting: { panel: true, suppliers: true, budget: false, users: false, reports: true },
             accounting_extended: { panel: true, suppliers: true, budget: true, users: true, reports: true },
@@ -108,11 +126,12 @@ export default function Header() {
         }
       } catch (error) {
         console.error("Error cargando permisos:", error);
+        setPermissions({ config: false, accounting: false, team: false });
         setAccountingAccess({ panel: false, suppliers: false, budget: false, users: false, reports: false });
       }
     };
 
-    loadAccountingPermissions();
+    loadPermissions();
   }, [userId, projectId]);
 
   const handleLogout = async () => {
@@ -127,6 +146,7 @@ export default function Header() {
   const isAccountingSection = pathname.includes("/accounting");
   const isTeamSection = pathname.includes("/team") && !pathname.includes("/config");
   const isConfigSection = pathname.includes("/config");
+  const isInProjectSection = isAccountingSection || isTeamSection || isConfigSection;
 
   const currentSection = isAccountingSection ? "accounting" : isTeamSection ? "team" : isConfigSection ? "config" : null;
 
@@ -155,10 +175,49 @@ export default function Header() {
     </Link>
   );
 
+  // Section switcher icons for when inside a project section
+  const SectionSwitcher = () => {
+    if (!isInProjectSection || !projectId) return null;
+
+    const sections = [
+      { key: "config", href: `/project/${projectId}/config`, icon: Settings, label: "Config", hasAccess: permissions.config },
+      { key: "accounting", href: `/project/${projectId}/accounting`, icon: BarChart3, label: "Accounting", hasAccess: permissions.accounting },
+      { key: "team", href: `/project/${projectId}/team`, icon: Users, label: "Team", hasAccess: permissions.team },
+    ];
+
+    const availableSections = sections.filter(s => s.hasAccess && s.key !== currentSection);
+
+    if (availableSections.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-1 mr-2 pr-2 border-r border-slate-200">
+        {availableSections.map((section) => {
+          const Icon = section.icon;
+          const colorClass = section.key === "config" 
+            ? "hover:text-slate-700 hover:bg-slate-100" 
+            : section.key === "accounting" 
+            ? "hover:text-indigo-600 hover:bg-indigo-50" 
+            : "hover:text-amber-600 hover:bg-amber-50";
+          
+          return (
+            <Link
+              key={section.key}
+              href={section.href}
+              className={`p-2 rounded-lg text-slate-400 transition-colors ${colorClass}`}
+              title={section.label}
+            >
+              <Icon size={18} />
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-3 flex items-center justify-between">
-        {/* Logo - Solo texto */}
+        {/* Logo */}
         <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center`}>
           <span className="text-slate-500 font-normal tracking-tighter">workspace</span>
           {currentSection && (
@@ -233,7 +292,7 @@ export default function Header() {
             </>
           )}
 
-          {/* Team Menu - Solo Panel */}
+          {/* Team Menu */}
           {isTeamSection && projectId && (
             <NavLink href={`/project/${projectId}/team`} isActive={true}>
               <Users size={15} />
@@ -242,8 +301,14 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Profile - Desktop */}
-        <div className="relative flex items-center gap-3">
+        {/* Right side: Section switcher + Profile */}
+        <div className="relative flex items-center gap-2">
+          {/* Section Switcher - Desktop */}
+          <div className="hidden md:flex">
+            <SectionSwitcher />
+          </div>
+
+          {/* Profile */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
@@ -258,14 +323,14 @@ export default function Header() {
           {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 text-sm z-50 animate-fadeIn">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 text-sm z-50 animate-fadeIn">
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
                 <p className="text-xs text-slate-400">Sesión iniciada como</p>
                 <p className="text-sm font-medium text-slate-900 truncate">{userName}</p>
               </div>
               <Link href="/profile" className="flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
                 <Settings size={14} />
-                Configuración
+                Mi cuenta
               </Link>
               <button onClick={handleLogout} className="flex w-full items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
                 <LogOut size={14} />
@@ -285,6 +350,47 @@ export default function Header() {
       {menuOpen && (
         <div className="md:hidden border-t border-slate-100 bg-white">
           <nav className="flex flex-col p-3 gap-1">
+            {/* Section Switcher - Mobile */}
+            {isInProjectSection && projectId && (
+              <>
+                <p className="px-3 py-1 text-xs text-slate-400 uppercase tracking-wider">Ir a sección</p>
+                <div className="flex gap-2 px-3 py-2 mb-2">
+                  {permissions.config && currentSection !== "config" && (
+                    <Link
+                      href={`/project/${projectId}/config`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
+                    >
+                      <Settings size={16} />
+                      <span className="text-sm">Config</span>
+                    </Link>
+                  )}
+                  {permissions.accounting && currentSection !== "accounting" && (
+                    <Link
+                      href={`/project/${projectId}/accounting`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
+                    >
+                      <BarChart3 size={16} />
+                      <span className="text-sm">Accounting</span>
+                    </Link>
+                  )}
+                  {permissions.team && currentSection !== "team" && (
+                    <Link
+                      href={`/project/${projectId}/team`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-amber-600 hover:bg-amber-50 border border-amber-200"
+                    >
+                      <Users size={16} />
+                      <span className="text-sm">Team</span>
+                    </Link>
+                  )}
+                </div>
+                <div className="border-t border-slate-100 my-2"></div>
+                <p className="px-3 py-1 text-xs text-slate-400 uppercase tracking-wider">En esta sección</p>
+              </>
+            )}
+
             {!isAccountingSection && !isTeamSection && !isConfigSection ? (
               <>
                 <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
@@ -294,7 +400,7 @@ export default function Header() {
                 <div className="border-t border-slate-100 my-2"></div>
                 <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <Settings size={16} />
-                  Configuración
+                  Mi cuenta
                 </Link>
                 <button
                   onClick={() => {
@@ -410,7 +516,7 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              /* Team Section - Solo Panel */
+              /* Team Section */
               <>
                 <Link
                   href={`/project/${projectId}/team`}
