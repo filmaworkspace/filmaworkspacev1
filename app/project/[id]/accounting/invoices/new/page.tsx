@@ -747,7 +747,7 @@ export default function NewInvoicePage() {
                 <Receipt size={24} className="text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Nueva factura</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Subir factura</h1>
                 <p className="text-slate-500 text-sm mt-0.5">FAC-{nextInvoiceNumber} · {userName}</p>
               </div>
             </div>
