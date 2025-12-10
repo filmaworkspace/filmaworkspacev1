@@ -5,23 +5,21 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import {
   Folder,
   Search,
-  Filter,
   Users,
   Settings,
-  FileText,
-  Calendar,
   Clock,
   Mail,
   Check,
   X as XIcon,
   Building2,
-  User,
-  Briefcase,
   Sparkles,
   ArrowRight,
   LayoutGrid,
   List,
   BarChart3,
+  Archive,
+  ChevronDown,
+  FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -99,6 +97,7 @@ interface Project {
   createdAt: Timestamp | null;
   addedAt: Timestamp | null;
   memberCount?: number;
+  archived?: boolean;
 }
 
 interface Invitation {
@@ -135,6 +134,7 @@ export default function Dashboard() {
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -217,6 +217,7 @@ export default function Dashboard() {
               createdAt: projectData.createdAt || null,
               addedAt: userProjectData.addedAt || null,
               memberCount: membersSnapshot.size,
+              archived: projectData.archived || false,
             });
           }
         }
@@ -228,7 +229,7 @@ export default function Dashboard() {
         });
 
         setProjects(projectsData);
-        setFilteredProjects(projectsData);
+        setFilteredProjects(projectsData.filter(p => !p.archived));
 
         const invitationsRef = collection(db, "invitations");
         const q = query(
@@ -271,7 +272,7 @@ export default function Dashboard() {
   }, [userId, userEmail]);
 
   useEffect(() => {
-    let filtered = [...projects];
+    let filtered = [...projects].filter(p => !p.archived);
 
     if (searchTerm) {
       filtered = filtered.filter((p) =>
@@ -302,6 +303,9 @@ export default function Dashboard() {
 
     setFilteredProjects(filtered);
   }, [searchTerm, selectedPhase, sortBy, projects]);
+
+  const archivedProjects = projects.filter(p => p.archived);
+  const activeProjectsCount = projects.filter(p => !p.archived).length;
 
   const handleAcceptInvitation = async (invitation: Invitation) => {
     if (!userId) return;
@@ -385,6 +389,182 @@ export default function Dashboard() {
     return "Buenas noches";
   };
 
+  const renderProjectCard = (project: Project, isArchived: boolean = false) => {
+    const hasConfig = project.permissions.config;
+    const hasAccounting = project.permissions.accounting;
+    const hasTeam = project.permissions.team;
+    const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+
+    return (
+      <div
+        key={project.id}
+        className={`group bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 transition-all hover:shadow-md ${isArchived ? "opacity-75" : ""}`}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${isArchived ? "bg-slate-400" : phaseStyle.dot}`}></div>
+            <h2 className="text-base font-semibold text-slate-900 group-hover:text-slate-800">
+              {project.name}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {isArchived && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600">
+                Archivado
+              </span>
+            )}
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} border ${phaseStyle.border}`}>
+              {project.phase}
+            </span>
+          </div>
+        </div>
+
+        {project.description && (
+          <p className="text-xs text-slate-600 mb-3 line-clamp-2">
+            {project.description}
+          </p>
+        )}
+
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Building2 size={12} className="text-amber-600" />
+            <span className="text-xs text-slate-600">
+              {project.producerNames.join(", ")}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 mb-4">
+          {project.role && (
+            <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">
+              {project.role}
+            </span>
+          )}
+          {project.position && (
+            <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">
+              {project.position}
+            </span>
+          )}
+          {project.memberCount !== undefined && (
+            <span className="text-xs text-slate-500 flex items-center gap-1 ml-auto">
+              <Users size={12} />
+              {project.memberCount}
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-3 border-t border-slate-200">
+          {hasConfig && (
+            <Link href={`/project/${project.id}/config`} className="flex-1">
+              <div className="flex items-center justify-center gap-2 p-2.5 bg-white border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all text-slate-600 hover:text-slate-900">
+                <Settings size={14} />
+                <span className="text-xs font-medium">Config</span>
+              </div>
+            </Link>
+          )}
+          {hasAccounting && (
+            <Link href={`/project/${project.id}/accounting`} className="flex-1">
+              <div className="flex items-center justify-center gap-2 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:shadow-sm transition-all text-indigo-700">
+                <BarChart3 size={14} />
+                <span className="text-xs font-medium">Accounting</span>
+              </div>
+            </Link>
+          )}
+          {hasTeam && (
+            <Link href={`/project/${project.id}/team`} className="flex-1">
+              <div className="flex items-center justify-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:shadow-sm transition-all text-amber-700">
+                <Users size={14} />
+                <span className="text-xs font-medium">Team</span>
+              </div>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderProjectListItem = (project: Project, isArchived: boolean = false) => {
+    const hasConfig = project.permissions.config;
+    const hasAccounting = project.permissions.accounting;
+    const hasTeam = project.permissions.team;
+    const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+
+    return (
+      <div
+        key={project.id}
+        className={`group flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all hover:shadow-sm ${isArchived ? "opacity-75" : ""}`}
+      >
+        <div className="flex items-center gap-4">
+          <div className={`w-2 h-10 rounded-full ${isArchived ? "bg-slate-400" : phaseStyle.dot}`}></div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-900">
+                {project.name}
+              </h2>
+              {isArchived && (
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">
+                  Archivado
+                </span>
+              )}
+              <span className={`text-xs font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text}`}>
+                {project.phase}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              {project.producerNames && (
+                <span className="text-xs text-slate-500">
+                  {project.producerNames.join(", ")}
+                </span>
+              )}
+              {project.role && (
+                <span className="text-xs text-slate-600 font-medium">
+                  {project.role}
+                </span>
+              )}
+              {project.memberCount !== undefined && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <Users size={11} />
+                  {project.memberCount}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {hasConfig && (
+            <Link
+              href={`/project/${project.id}/config`}
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Configuración"
+            >
+              <Settings size={16} />
+            </Link>
+          )}
+          {hasAccounting && (
+            <Link
+              href={`/project/${project.id}/accounting`}
+              className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Contabilidad"
+            >
+              <BarChart3 size={16} />
+            </Link>
+          )}
+          {hasTeam && (
+            <Link
+              href={`/project/${project.id}/team`}
+              className="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+              title="Equipo"
+            >
+              <Users size={16} />
+            </Link>
+          )}
+          <ArrowRight size={16} className="text-slate-400 ml-2" />
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -405,34 +585,16 @@ export default function Dashboard() {
                 {userName.split(' ')[0]}
               </h1>
             </div>
-            
-            {/* Quick stats */}
-            {projects.length > 0 && (
-              <div className="hidden md:flex items-center gap-6">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-slate-900">{projects.length}</p>
-                  <p className="text-xs text-slate-500">
-                    {projects.length === 1 ? "proyecto" : "proyectos"}
-                  </p>
-                </div>
-                <div className="w-px h-10 bg-slate-200"></div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-slate-900">
-                    {projects.filter(p => p.phase !== "Finalizado").length}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {projects.filter(p => p.phase !== "Finalizado").length === 1 ? "activo" : "activos"}
-                  </p>
-                </div>
-                <div className="w-px h-10 bg-slate-200"></div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-slate-900">
-                    {projects.reduce((acc, p) => acc + (p.memberCount || 0), 0)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {projects.reduce((acc, p) => acc + (p.memberCount || 0), 0) === 1 ? "colaborador" : "colaboradores"}
-                  </p>
-                </div>
+
+            {/* Quick access */}
+            {activeProjectsCount > 0 && (
+              <div className="hidden md:flex items-center gap-3">
+                <Link
+                  href="/profile"
+                  className="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Mi perfil
+                </Link>
               </div>
             )}
           </div>
@@ -516,10 +678,10 @@ export default function Dashboard() {
 
           {/* Empty state */}
           {projects.length === 0 && invitations.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <div className="border-2 border-dashed border-slate-200 rounded-2xl">
               <div className="flex items-center justify-center py-20">
                 <div className="text-center max-w-md">
-                  <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <Sparkles size={32} className="text-slate-400" />
                   </div>
                   <h2 className="text-xl font-semibold text-slate-900 mb-2">
@@ -537,258 +699,144 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            projects.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Filters */}
-                <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                  <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
-                    <div className="relative flex-1 max-w-md">
-                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Buscar proyectos..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50"
-                      />
+            <>
+              {/* Active Projects */}
+              {activeProjectsCount > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                  {/* Filters */}
+                  <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                    <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
+                      <div className="relative flex-1 max-w-md">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Buscar proyectos..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedPhase}
+                          onChange={(e) => setSelectedPhase(e.target.value)}
+                          className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                        >
+                          <option value="all">Todas las fases</option>
+                          <option value="Desarrollo">Desarrollo</option>
+                          <option value="Preproducción">Preproducción</option>
+                          <option value="Rodaje">Rodaje</option>
+                          <option value="Postproducción">Postproducción</option>
+                          <option value="Finalizado">Finalizado</option>
+                        </select>
+
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")}
+                          className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                        >
+                          <option value="recent">Recientes</option>
+                          <option value="name">Nombre</option>
+                          <option value="phase">Fase</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedPhase}
-                        onChange={(e) => setSelectedPhase(e.target.value)}
-                        className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none text-sm bg-slate-50"
+                    <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                      <button
+                        onClick={() => setViewMode("grid")}
+                        className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
                       >
-                        <option value="all">Todas las fases</option>
-                        <option value="Desarrollo">Desarrollo</option>
-                        <option value="Preproducción">Preproducción</option>
-                        <option value="Rodaje">Rodaje</option>
-                        <option value="Postproducción">Postproducción</option>
-                        <option value="Finalizado">Finalizado</option>
-                      </select>
-
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")}
-                        className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none text-sm bg-slate-50"
+                        <LayoutGrid size={16} />
+                      </button>
+                      <button
+                        onClick={() => setViewMode("list")}
+                        className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
                       >
-                        <option value="recent">Recientes</option>
-                        <option value="name">Nombre</option>
-                        <option value="phase">Fase</option>
-                      </select>
+                        <List size={16} />
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-                    <button
-                      onClick={() => setViewMode("grid")}
-                      className={`p-2 rounded-md transition-all ${viewMode === "grid" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
-                    >
-                      <LayoutGrid size={16} />
-                    </button>
-                    <button
-                      onClick={() => setViewMode("list")}
-                      className={`p-2 rounded-md transition-all ${viewMode === "list" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
-                    >
-                      <List size={16} />
-                    </button>
-                  </div>
+                  {filteredProjects.length === 0 ? (
+                    <div className="text-center py-16">
+                      <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-500 text-sm font-medium mb-2">
+                        No se encontraron proyectos
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedPhase("all");
+                        }}
+                        className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
+                      >
+                        Limpiar filtros
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-4">
+                        {filteredProjects.length} de {activeProjectsCount} proyectos
+                      </p>
+
+                      {viewMode === "grid" ? (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {filteredProjects.map((project) => renderProjectCard(project))}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredProjects.map((project) => renderProjectListItem(project))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {filteredProjects.length === 0 ? (
-                  <div className="text-center py-16">
-                    <p className="text-slate-500 text-sm font-medium mb-2">
-                      No se encontraron proyectos
-                    </p>
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSelectedPhase("all");
-                      }}
-                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
-                    >
-                      Limpiar filtros
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-4">
-                    <p className="text-xs text-slate-500 mb-4">
-                      {filteredProjects.length} de {projects.length} proyectos
-                    </p>
-
-                    {viewMode === "grid" ? (
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {filteredProjects.map((project) => {
-                          const hasConfig = project.permissions.config;
-                          const hasAccounting = project.permissions.accounting;
-                          const hasTeam = project.permissions.team;
-                          const phaseStyle = phaseColors[project.phase];
-
-                          return (
-                            <div
-                              key={project.id}
-                              className="group bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 transition-all hover:shadow-md"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-3 h-3 rounded-full ${phaseStyle.dot}`}></div>
-                                  <h2 className="text-base font-semibold text-slate-900 group-hover:text-slate-800">
-                                    {project.name}
-                                  </h2>
-                                </div>
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} border ${phaseStyle.border}`}>
-                                  {project.phase}
-                                </span>
-                              </div>
-
-                              {project.description && (
-                                <p className="text-xs text-slate-600 mb-3 line-clamp-2">
-                                  {project.description}
-                                </p>
-                              )}
-
-                              {project.producerNames && project.producerNames.length > 0 && (
-                                <div className="flex items-center gap-1.5 mb-3">
-                                  <Building2 size={12} className="text-amber-600" />
-                                  <span className="text-xs text-slate-600">
-                                    {project.producerNames.join(", ")}
-                                  </span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center gap-2 mb-4">
-                                {project.role && (
-                                  <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                                    {project.role}
-                                  </span>
-                                )}
-                                {project.position && (
-                                  <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                                    {project.position}
-                                  </span>
-                                )}
-                                {project.memberCount !== undefined && (
-                                  <span className="text-xs text-slate-500 flex items-center gap-1 ml-auto">
-                                    <Users size={12} />
-                                    {project.memberCount}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex gap-2 pt-3 border-t border-slate-200">
-                                {hasConfig && (
-                                  <Link href={`/project/${project.id}/config`} className="flex-1">
-                                    <div className="flex items-center justify-center gap-2 p-2.5 bg-white border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all text-slate-600 hover:text-slate-900">
-                                      <Settings size={14} />
-                                      <span className="text-xs font-medium">Config</span>
-                                    </div>
-                                  </Link>
-                                )}
-                                {hasAccounting && (
-                                  <Link href={`/project/${project.id}/accounting`} className="flex-1">
-                                    <div className="flex items-center justify-center gap-2 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:shadow-sm transition-all text-indigo-700">
-                                      <BarChart3 size={14} />
-                                      <span className="text-xs font-medium">Accounting</span>
-                                    </div>
-                                  </Link>
-                                )}
-                                {hasTeam && (
-                                  <Link href={`/project/${project.id}/team`} className="flex-1">
-                                    <div className="flex items-center justify-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:shadow-sm transition-all text-amber-700">
-                                      <Users size={14} />
-                                      <span className="text-xs font-medium">Team</span>
-                                    </div>
-                                  </Link>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+              {/* Archived Projects */}
+              {archivedProjects.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setShowArchived(!showArchived)}
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                        <Archive size={18} className="text-slate-500" />
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredProjects.map((project) => {
-                          const hasConfig = project.permissions.config;
-                          const hasAccounting = project.permissions.accounting;
-                          const hasTeam = project.permissions.team;
-                          const phaseStyle = phaseColors[project.phase];
-
-                          return (
-                            <div
-                              key={project.id}
-                              className="group flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all hover:shadow-sm"
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className={`w-2 h-10 rounded-full ${phaseStyle.dot}`}></div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h2 className="text-sm font-semibold text-slate-900">
-                                      {project.name}
-                                    </h2>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text}`}>
-                                      {project.phase}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    {project.producerNames && (
-                                      <span className="text-xs text-slate-500">
-                                        {project.producerNames.join(", ")}
-                                      </span>
-                                    )}
-                                    {project.role && (
-                                      <span className="text-xs text-slate-600 font-medium">
-                                        {project.role}
-                                      </span>
-                                    )}
-                                    {project.memberCount !== undefined && (
-                                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                                        <Users size={11} />
-                                        {project.memberCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {hasConfig && (
-                                  <Link
-                                    href={`/project/${project.id}/config`}
-                                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                                    title="Configuración"
-                                  >
-                                    <Settings size={16} />
-                                  </Link>
-                                )}
-                                {hasAccounting && (
-                                  <Link
-                                    href={`/project/${project.id}/accounting`}
-                                    className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-                                    title="Contabilidad"
-                                  >
-                                    <BarChart3 size={16} />
-                                  </Link>
-                                )}
-                                {hasTeam && (
-                                  <Link
-                                    href={`/project/${project.id}/team`}
-                                    className="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
-                                    title="Equipo"
-                                  >
-                                    <Users size={16} />
-                                  </Link>
-                                )}
-                                <ArrowRight size={16} className="text-slate-400 ml-2" />
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="text-left">
+                        <h3 className="font-semibold text-slate-900">Proyectos archivados</h3>
+                        <p className="text-sm text-slate-500">
+                          {archivedProjects.length} proyecto{archivedProjects.length !== 1 ? "s" : ""}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
+                    </div>
+                    <ChevronDown
+                      size={20}
+                      className={`text-slate-400 transition-transform ${showArchived ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {showArchived && (
+                    <div className="px-4 pb-4 border-t border-slate-100">
+                      <div className="pt-4">
+                        {viewMode === "grid" ? (
+                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {archivedProjects.map((project) => renderProjectCard(project, true))}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {archivedProjects.map((project) => renderProjectListItem(project, true))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
