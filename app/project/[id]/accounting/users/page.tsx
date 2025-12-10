@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import {
-  Users,
+  UserCog,
   UserPlus,
   Search,
   Grid3x3,
@@ -572,7 +572,7 @@ export default function AccountingUsersPage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <Users size={24} className="text-indigo-600" />
+                <UserCog size={24} className="text-indigo-600" />
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
@@ -671,7 +671,7 @@ export default function AccountingUsersPage() {
         {/* Members Display */}
         {filteredMembers.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
-            <Users size={32} className="text-slate-300 mx-auto mb-3" />
+            <UserCog size={32} className="text-slate-300 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-slate-900 mb-1">
               {searchTerm || roleFilter !== "all" ? "No se encontraron usuarios" : "No hay usuarios con acceso"}
             </h3>
@@ -1040,3 +1040,4 @@ export default function AccountingUsersPage() {
     </div>
   );
 }
+
