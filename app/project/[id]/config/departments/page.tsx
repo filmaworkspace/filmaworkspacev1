@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Layers, Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users, Briefcase } from "lucide-react";
+import { Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users, Briefcase } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -104,31 +104,49 @@ export default function ConfigDepartments() {
     } catch { showToast("error", "Error"); } finally { setSaving(false); setConfirmDelete(null); setActiveMenu(null); }
   };
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+    </div>
+  );
 
   if (!hasConfigAccess) return (
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
       <div className="text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertCircle size={28} className="text-slate-400" /></div>
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertCircle size={28} className="text-slate-400" />
+        </div>
         <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
-        <Link href="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><ArrowLeft size={16} />Volver al dashboard</Link>
+        <Link href="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+          <ArrowLeft size={16} />
+          Volver al dashboard
+        </Link>
       </div>
     </div>
   );
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      {toast && <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>{toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}{toast.message}</div>}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
+          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {toast.message}
+        </div>
+      )}
 
       {/* Delete Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
             <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar departamento?</h3>
             <p className="text-sm text-slate-500 mb-6">Se eliminará "{confirmDelete}" del proyecto.</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button onClick={() => handleRemoveDepartment(confirmDelete)} disabled={saving} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">Eliminar</button>
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={() => handleRemoveDepartment(confirmDelete)} disabled={saving} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
@@ -136,29 +154,54 @@ export default function ConfigDepartments() {
 
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"><ArrowLeft size={16} />Volver al dashboard</Link>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
+            <ArrowLeft size={16} />
+            Volver al dashboard
+          </Link>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center"><Briefcase size={24} className="text-slate-600" /></div>
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <Briefcase size={24} className="text-slate-600" />
+              </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{projectName}</h1>
-                <p className="text-slate-500 text-sm mt-1">Departamentos · {departments.length} departamento{departments.length !== 1 ? "s" : ""}</p>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
+                  <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                    {departments.length} departamento{departments.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p className="text-slate-500 text-sm mt-0.5">{projectName}</p>
               </div>
             </div>
-            <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={16} />Nuevo</button>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <Plus size={16} />
+              Nuevo
+            </button>
           </div>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
         {/* Add Form */}
         {showAddForm && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <div className="flex gap-3">
-              <input type="text" value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddDepartment()} placeholder="Nombre del departamento (ej: Producción, Arte, Sonido...)" autoFocus className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-sm bg-slate-50" />
-              <button onClick={handleAddDepartment} disabled={saving || !newDepartment.trim()} className="px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50">Crear</button>
-              <button onClick={() => { setShowAddForm(false); setNewDepartment(""); }} className="px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">Cancelar</button>
+              <input
+                type="text"
+                value={newDepartment}
+                onChange={(e) => setNewDepartment(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddDepartment()}
+                placeholder="Nombre del departamento (ej: Producción, Arte, Sonido...)"
+                autoFocus
+                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+              />
+              <button onClick={handleAddDepartment} disabled={saving || !newDepartment.trim()} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50">
+                Crear
+              </button>
+              <button onClick={() => { setShowAddForm(false); setNewDepartment(""); }} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">
+                Cancelar
+              </button>
             </div>
           </div>
         )}
@@ -179,14 +222,21 @@ export default function ConfigDepartments() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg ${color.bg} ${color.text} border ${color.border}`}>{dept.members.length}</span>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg ${color.bg} ${color.text} border ${color.border}`}>
+                        {dept.members.length}
+                      </span>
                       <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><MoreHorizontal size={16} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                          <MoreHorizontal size={16} />
+                        </button>
                         {activeMenu === dept.name && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
-                              <button onClick={(e) => { e.stopPropagation(); setActiveMenu(null); if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); else setConfirmDelete(dept.name); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} />Eliminar</button>
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-20">
+                              <button onClick={(e) => { e.stopPropagation(); setActiveMenu(null); if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); else setConfirmDelete(dept.name); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <Trash2 size={14} />
+                                Eliminar
+                              </button>
                             </div>
                           </>
                         )}
@@ -200,7 +250,9 @@ export default function ConfigDepartments() {
                         <div className="grid gap-2 md:grid-cols-2 pt-2">
                           {dept.members.map((m) => (
                             <div key={m.userId} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100">
-                              <div className={`w-9 h-9 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm`}>{m.name?.[0]?.toUpperCase()}</div>
+                              <div className={`w-9 h-9 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm`}>
+                                {m.name?.[0]?.toUpperCase()}
+                              </div>
                               <div className="min-w-0">
                                 <p className="font-medium text-slate-900 truncate">{m.name}</p>
                                 {m.position && <p className="text-xs text-slate-500">{m.position}</p>}
@@ -212,7 +264,9 @@ export default function ConfigDepartments() {
                         <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200 mt-2">
                           <Users size={20} className="text-slate-300 mx-auto mb-2" />
                           <p className="text-sm text-slate-400">Sin miembros asignados</p>
-                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-1 inline-block">Asignar desde Usuarios</Link>
+                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-1 inline-block">
+                            Asignar desde Usuarios
+                          </Link>
                         </div>
                       )}
                     </div>
@@ -222,11 +276,16 @@ export default function ConfigDepartments() {
             })}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase size={28} className="text-slate-400" /></div>
-            <p className="text-slate-600 text-sm font-medium mb-1">Sin departamentos</p>
-            <p className="text-slate-400 text-xs mb-4">Crea el primer departamento para organizar tu equipo</p>
-            <button onClick={() => setShowAddForm(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={14} />Crear departamento</button>
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Briefcase size={28} className="text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Sin departamentos</h3>
+            <p className="text-slate-500 text-sm mb-6">Crea el primer departamento para organizar tu equipo</p>
+            <button onClick={() => setShowAddForm(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <Plus size={16} />
+              Crear departamento
+            </button>
           </div>
         )}
       </main>
