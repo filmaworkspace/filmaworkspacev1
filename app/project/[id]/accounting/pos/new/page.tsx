@@ -581,7 +581,7 @@ export default function NewPOPage() {
             className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
             <ArrowLeft size={16} />
-            Volver a órdenes de compra
+            Volver a Órdenes de compra
           </Link>
 
           <div className="flex items-start justify-between">
