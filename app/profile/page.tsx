@@ -1,12 +1,23 @@
-// Página de Perfil — Versión totalmente nueva (Opción C)
-// Estilo: Ultra minimalista, limpio y moderno
-// Mantiene la MISMA información y funcionalidad base que tu archivo original
-// pero con una experiencia completamente nueva.
-
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, ArrowLeft, CheckCircle, Lock, Eye, EyeOff, Bell } from "lucide-react";
+import { Inter } from "next/font/google";
+import { 
+  User, 
+  Mail, 
+  ArrowLeft, 
+  CheckCircle, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  Bell,
+  Shield,
+  Smartphone,
+  Globe,
+  AlertCircle,
+  Camera,
+  LogOut
+} from "lucide-react";
 import { auth } from "@/lib/firebase";
 import {
   onAuthStateChanged,
@@ -14,45 +25,51 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  signOut,
 } from "firebase/auth";
+
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 export default function ProfilePage() {
   const router = useRouter();
 
-  // -------------------------------------------
-  // STATE
-  // -------------------------------------------
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
 
   const [formData, setFormData] = useState({ name: "", email: "" });
-
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
-
   const [showPassword, setShowPassword] = useState({
     current: false,
     new: false,
     confirm: false,
   });
-
   const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
+    emailNotifications: true,
+    pushNotifications: false,
     projectUpdates: true,
     teamInvites: true,
     weeklyDigest: false,
   });
 
-  // -------------------------------------------
-  // AUTH LOAD
-  // -------------------------------------------
+  const notificationLabels: Record<string, { label: string; description: string }> = {
+    emailNotifications: { label: "Notificaciones por email", description: "Recibe actualizaciones en tu correo" },
+    pushNotifications: { label: "Notificaciones push", description: "Alertas en tiempo real en tu navegador" },
+    projectUpdates: { label: "Actualizaciones de proyectos", description: "Cambios en proyectos donde participas" },
+    teamInvites: { label: "Invitaciones de equipo", description: "Cuando te invitan a un nuevo proyecto" },
+    weeklyDigest: { label: "Resumen semanal", description: "Un email con el resumen de la semana" },
+  };
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) return router.push("/");
@@ -62,241 +79,411 @@ export default function ProfilePage() {
     return () => unsub();
   }, [router]);
 
-  // -------------------------------------------
-  // SUBMIT: PROFILE
-  // -------------------------------------------
-  const handleProfileSubmit = async (e) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setSuccess(false);
-    setError("");
 
     try {
       const user = auth.currentUser;
-      if (!user) return setError("No hay usuario autenticado");
-      if (!formData.name.trim()) return setError("El nombre no puede estar vacío");
+      if (!user) {
+        showToast("error", "No hay usuario autenticado");
+        return;
+      }
+      if (!formData.name.trim()) {
+        showToast("error", "El nombre no puede estar vacío");
+        return;
+      }
 
       await updateProfile(user, { displayName: formData.name });
       await user.reload();
-      setSuccess(true);
-    } catch (err) {
-      setError(err.message);
+      showToast("success", "Perfil actualizado correctamente");
+    } catch (err: any) {
+      showToast("error", err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // -------------------------------------------
-  // SUBMIT: PASSWORD
-  // -------------------------------------------
-  const handlePasswordSubmit = async (e) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setSuccess(false);
-    setError("");
 
     try {
       const user = auth.currentUser;
-      if (!user || !user.email) return setError("No hay usuario autenticado");
+      if (!user || !user.email) {
+        showToast("error", "No hay usuario autenticado");
+        return;
+      }
 
-      if (passwordData.newPassword.length < 6)
-        return setError("La nueva contraseña debe tener al menos 6 caracteres");
+      if (passwordData.newPassword.length < 6) {
+        showToast("error", "La nueva contraseña debe tener al menos 6 caracteres");
+        return;
+      }
 
-      if (passwordData.newPassword !== passwordData.confirmPassword)
-        return setError("Las contraseñas no coinciden");
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        showToast("error", "Las contraseñas no coinciden");
+        return;
+      }
 
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        passwordData.currentPassword
-      );
-
+      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, passwordData.newPassword);
 
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setSuccess(true);
-    } catch (err) {
-      if (err.code === "auth/wrong-password") return setError("La contraseña actual es incorrecta");
-      setError(err.message);
+      showToast("success", "Contraseña actualizada correctamente");
+    } catch (err: any) {
+      if (err.code === "auth/wrong-password") {
+        showToast("error", "La contraseña actual es incorrecta");
+      } else {
+        showToast("error", err.message);
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  // -------------------------------------------
-  // SUBMIT: NOTIFICATIONS
-  // -------------------------------------------
-  const handleNotificationsSubmit = async (e) => {
+  const handleNotificationsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setSuccess(false);
     await new Promise((r) => setTimeout(r, 500));
     setSaving(false);
-    setSuccess(true);
+    showToast("success", "Preferencias guardadas");
   };
 
-  if (loading)
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push("/");
+    } catch (err) {
+      showToast("error", "Error al cerrar sesión");
+    }
+  };
+
+  const tabs = [
+    { key: "profile", label: "Perfil", icon: User },
+    { key: "password", label: "Seguridad", icon: Shield },
+    { key: "notifications", label: "Notificaciones", icon: Bell },
+  ];
+
+  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="animate-spin w-10 h-10 border-4 border-slate-300 border-t-slate-900 rounded-full"></div>
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
+  }
 
-  // ============================================
-  // UI MODERNA — MINIMALISTA
-  // ============================================
   return (
-    <div className="min-h-screen bg-white px-6 py-24 max-w-2xl mx-auto">
-      {/* Volver */}
-      <button
-        onClick={() => router.push("/dashboard")}
-        className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition mb-8"
-      >
-        <ArrowLeft size={18} /> Volver
-      </button>
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${
+          toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {toast.message}
+        </div>
+      )}
 
-      <h1 className="text-3xl font-semibold text-slate-900 mb-6">Tu cuenta</h1>
-      <p className="text-slate-600 mb-10">Gestiona tu información personal y preferencias</p>
-
-      {/* Tabs minimalistas */}
-      <div className="flex gap-4 border-b border-slate-200 mb-8">
-        {[{ key: "profile", label: "Perfil" }, { key: "password", label: "Contraseña" }, { key: "notifications", label: "Notificaciones" }].map((t) => (
+      {/* Header */}
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`pb-3 text-sm font-medium transition ${
-              activeTab === t.key
-                ? "text-slate-900 border-b-2 border-slate-900"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
+            onClick={() => router.push("/dashboard")}
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
-            {t.label}
+            <ArrowLeft size={16} />
+            Volver al dashboard
           </button>
-        ))}
-      </div>
 
-      <div className="bg-white p-8 border border-slate-200 rounded-2xl shadow-sm">
-        {/* PERFIL */}
-        {activeTab === "profile" && (
-          <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <User size={20} /> Información personal
-            </h2>
-
-            <div>
-              <label className="text-sm text-slate-700 mb-1 block">Nombre</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400/40 outline-none text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm text-slate-700 mb-1 block">Correo</label>
-              <input
-                type="email"
-                disabled
-                value={formData.email}
-                className="w-full p-3 border border-slate-200 bg-slate-50 rounded-lg text-sm text-slate-500"
-              />
-            </div>
-
-            {error && <div className="text-red-600 text-sm">{error}</div>}
-            {success && <div className="text-emerald-600 text-sm flex items-center gap-2"><CheckCircle size={16}/> Guardado</div>}
-
-            <button
-              disabled={saving}
-              className="w-full bg-slate-900 text-white py-3 rounded-lg text-sm hover:bg-slate-800 transition"
-            >
-              {saving ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </form>
-        )}
-
-        {/* CONTRASEÑA */}
-        {activeTab === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Lock size={20} /> Cambiar contraseña
-            </h2>
-
-            {[{
-              label: "Contraseña actual",
-              key: "current",
-              value: passwordData.currentPassword,
-            },{
-              label: "Nueva contraseña",
-              key: "new",
-              value: passwordData.newPassword,
-            },{
-              label: "Confirmar nueva contraseña",
-              key: "confirm",
-              value: passwordData.confirmPassword,
-            }].map((field) => (
-              <div key={field.key} className="relative">
-                <label className="text-sm text-slate-700 mb-1 block">{field.label}</label>
-                <input
-                  type={showPassword[field.key] ? "text" : "password"}
-                  value={field.value}
-                  onChange={(e) =>
-                    setPasswordData({ ...passwordData, [`${field.key}Password`]: e.target.value })
-                  }
-                  className="w-full p-3 border border-slate-300 rounded-lg text-sm pr-10 focus:ring-2 focus:ring-slate-400/40 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword({ ...showPassword, [field.key]: !showPassword[field.key] })}
-                  className="absolute right-3 top-9 text-slate-500"
-                >
-                  {showPassword[field.key] ? <EyeOff size={18} /> : <Eye size={18} />}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl flex items-center justify-center text-white text-xl font-semibold">
+                  {formData.name?.[0]?.toUpperCase() || "U"}
+                </div>
+                <button className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors">
+                  <Camera size={12} className="text-slate-500" />
                 </button>
               </div>
-            ))}
-
-            {error && <div className="text-red-600 text-sm">{error}</div>}
-            {success && <div className="text-emerald-600 text-sm flex items-center gap-2"><CheckCircle size={16}/> Contraseña actualizada</div>}
-
-            <button
-              disabled={saving}
-              className="w-full bg-slate-900 text-white py-3 rounded-lg text-sm hover:bg-slate-800 transition"
-            >
-              {saving ? "Guardando..." : "Actualizar contraseña"}
-            </button>
-          </form>
-        )}
-
-        {/* NOTIFICACIONES */}
-        {activeTab === "notifications" && (
-          <form onSubmit={handleNotificationsSubmit} className="space-y-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Bell size={20} /> Notificaciones
-            </h2>
-
-            {Object.entries(notifications).map(([key, value]) => (
-              <label key={key} className="flex items-center justify-between py-3">
-                <span className="text-sm text-slate-800 capitalize">{key}</span>
-                <input
-                  type="checkbox"
-                  checked={value}
-                  onChange={() => setNotifications({ ...notifications, [key]: !value })}
-                  className="w-4 h-4"
-                />
-              </label>
-            ))}
-
-            {success && <div className="text-emerald-600 text-sm flex items-center gap-2"><CheckCircle size={16}/> Preferencias guardadas</div>}
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">{formData.name || "Usuario"}</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{formData.email}</p>
+              </div>
+            </div>
 
             <button
-              disabled={saving}
-              className="w-full bg-slate-900 text-white py-3 rounded-lg text-sm hover:bg-slate-800 transition"
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-xl text-sm font-medium transition-colors"
             >
-              {saving ? "Guardando..." : "Guardar preferencias"}
+              <LogOut size={16} />
+              Cerrar sesión
             </button>
-          </form>
-        )}
+          </div>
+        </div>
       </div>
+
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+        <div className="flex gap-8">
+          {/* Sidebar Navigation */}
+          <div className="w-64 flex-shrink-0">
+            <nav className="space-y-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Quick Stats */}
+            <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-xs text-slate-400 uppercase tracking-wider font-medium mb-3">Tu cuenta</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <CheckCircle size={14} className="text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Estado</p>
+                    <p className="text-sm font-medium text-slate-900">Verificado</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Globe size={14} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Idioma</p>
+                    <p className="text-sm font-medium text-slate-900">Español</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
+                    <Smartphone size={14} className="text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Sesiones activas</p>
+                    <p className="text-sm font-medium text-slate-900">1 dispositivo</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* PERFIL */}
+            {activeTab === "profile" && (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h2 className="font-semibold text-slate-900">Información personal</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Actualiza tu información de perfil</p>
+                </div>
+
+                <form onSubmit={handleProfileSubmit} className="p-6 space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                        Nombre completo
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                        placeholder="Tu nombre"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                        Correo electrónico
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          disabled
+                          value={formData.email}
+                          className="w-full px-4 py-3 border border-slate-200 bg-slate-50 rounded-xl text-sm text-slate-500 pr-10"
+                        />
+                        <Lock size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1.5">El correo no se puede cambiar</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? "Guardando..." : "Guardar cambios"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* SEGURIDAD */}
+            {activeTab === "password" && (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h2 className="font-semibold text-slate-900">Cambiar contraseña</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Asegúrate de usar una contraseña segura</p>
+                </div>
+
+                <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                      Contraseña actual
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword.current ? "text" : "password"}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword({ ...showPassword, current: !showPassword.current })}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPassword.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                        Nueva contraseña
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.new ? "text" : "password"}
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                        Confirmar contraseña
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.confirm ? "text" : "password"}
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p className="text-sm text-amber-800">
+                      <strong>Consejo:</strong> Usa al menos 8 caracteres con una combinación de letras, números y símbolos.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? "Actualizando..." : "Actualizar contraseña"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* NOTIFICACIONES */}
+            {activeTab === "notifications" && (
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h2 className="font-semibold text-slate-900">Preferencias de notificaciones</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Elige qué notificaciones quieres recibir</p>
+                </div>
+
+                <form onSubmit={handleNotificationsSubmit} className="p-6">
+                  <div className="divide-y divide-slate-100">
+                    {Object.entries(notifications).map(([key, value]) => {
+                      const config = notificationLabels[key];
+                      return (
+                        <label key={key} className="flex items-center justify-between py-4 cursor-pointer group">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900 group-hover:text-slate-700 transition-colors">
+                              {config.label}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">{config.description}</p>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={value}
+                              onChange={() => setNotifications({ ...notifications, [key]: !value })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-slate-900 transition-colors" />
+                            <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm peer-checked:translate-x-5 transition-transform" />
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex justify-end pt-6 mt-4 border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? "Guardando..." : "Guardar preferencias"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
