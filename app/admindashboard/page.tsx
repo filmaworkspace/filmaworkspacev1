@@ -1,63 +1,41 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  getDocs,
-  getDoc,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  Timestamp,
-  serverTimestamp,
-} from "firebase/firestore";
-import {
-  LayoutDashboard,
-  FolderPlus,
-  Users,
-  Building2,
-  Search,
-  X,
-  Edit2,
-  Trash2,
-  UserPlus,
-  Briefcase,
-  CheckCircle,
-  AlertCircle,
-  Shield,
-  Plus,
-  Eye,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Zap,
-  RefreshCw,
-} from "lucide-react";
+import { collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore";
+import { LayoutDashboard, FolderPlus, Users, Building2, Search, X, Edit2, Trash2, UserPlus, Briefcase, CheckCircle, AlertCircle, Shield, Plus, Eye, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Clock } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const PHASES = [
-  "Desarrollo",
-  "Preproducción",
-  "Rodaje",
-  "Postproducción",
-  "Finalizado",
-];
-
+const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
 const PHASE_COLORS: Record<string, string> = {
-  Desarrollo: "bg-sky-100 text-sky-700",
-  Preproducción: "bg-amber-100 text-amber-700",
-  Rodaje: "bg-indigo-100 text-indigo-700",
-  Postproducción: "bg-purple-100 text-purple-700",
-  Finalizado: "bg-emerald-100 text-emerald-700",
+  Desarrollo: "bg-sky-100 text-sky-700 border-sky-200",
+  Preproducción: "bg-amber-100 text-amber-700 border-amber-200",
+  Rodaje: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  Postproducción: "bg-purple-100 text-purple-700 border-purple-200",
+  Finalizado: "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
-
-const PROJECT_ROLES = ["PM", "Controller", "PC"];
+const PHASE_DOT_COLORS: Record<string, string> = {
+  Desarrollo: "bg-sky-500",
+  Preproducción: "bg-amber-500",
+  Rodaje: "bg-indigo-500",
+  Postproducción: "bg-purple-500",
+  Finalizado: "bg-emerald-500",
+};
+const PROJECT_ROLES = ["EP", "PM", "Controller", "PC", "Supervisor"];
+const DEFAULT_DEPARTMENTS = [
+  { name: "Producción", color: "#3B82F6" },
+  { name: "Dirección", color: "#8B5CF6" },
+  { name: "Fotografía", color: "#F59E0B" },
+  { name: "Arte", color: "#10B981" },
+  { name: "Sonido", color: "#EC4899" },
+  { name: "Vestuario", color: "#6366F1" },
+  { name: "Maquillaje", color: "#14B8A6" },
+  { name: "Localizaciones", color: "#F97316" },
+];
 
 interface Project {
   id: string;
@@ -66,39 +44,31 @@ interface Project {
   description?: string;
   producers?: string[];
   producerNames?: string[];
-  departments?: string[];
   createdAt: Timestamp;
   memberCount: number;
   members?: Member[];
 }
-
 interface Member {
-  userId: string;
+  odId: string;
   name: string;
   email: string;
   role?: string;
-  department?: string;
   position?: string;
 }
-
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
-  createdAt: Timestamp;
   projectCount: number;
   projects: UserProject[];
 }
-
 interface UserProject {
   id: string;
   name: string;
   role?: string;
-  department?: string;
   position?: string;
 }
-
 interface Producer {
   id: string;
   name: string;
@@ -114,19 +84,16 @@ export default function AdminDashboard() {
   const [userName, setUserName] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "projects" | "users" | "producers">("overview");
 
-  // Data states
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [producers, setProducers] = useState<Producer[]>([]);
 
-  // Filter states
   const [projectSearch, setProjectSearch] = useState("");
   const [projectPhaseFilter, setProjectPhaseFilter] = useState("all");
-  const [projectProducerFilter, setProjectProducerFilter] = useState("all");
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [producerSearch, setProducerSearch] = useState("");
 
-  // Modal states
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateProducer, setShowCreateProducer] = useState(false);
   const [showEditProducer, setShowEditProducer] = useState<string | null>(null);
@@ -134,108 +101,59 @@ export default function AdminDashboard() {
   const [showAssignUser, setShowAssignUser] = useState<string | null>(null);
   const [showEditProject, setShowEditProject] = useState<string | null>(null);
 
-  // Form states
-  const [newProject, setNewProject] = useState({
-    name: "",
-    description: "",
-    phase: "Desarrollo",
-    producers: [] as string[],
-  });
-  const [newProducer, setNewProducer] = useState("");
-  const [editProducerName, setEditProducerName] = useState("");
-  const [assignUserForm, setAssignUserForm] = useState({
-    userId: "",
-    role: "",
-  });
+  const [newProject, setNewProject] = useState({ name: "", description: "", phase: "Desarrollo", producers: [] as string[] });
+  const [newProducer, setNewProducer] = useState({ name: "" });
+  const [assignUserForm, setAssignUserForm] = useState({ odId: "", role: "" });
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
-  // Message states
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Expanded rows
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-
-  // Auth check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/");
-        return;
-      }
-
+      if (!user) { router.push("/"); return; }
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        const userRole = userData?.role || "user";
-
-        if (userRole !== "admin") {
-          router.push("/dashboard");
-          return;
-        }
-
+        if (userData?.role !== "admin") { router.push("/dashboard"); return; }
         setUserId(user.uid);
         setUserName(userData?.name || user.email || "Admin");
       } catch (error) {
-        console.error("Error verificando usuario:", error);
+        console.error(error);
         router.push("/");
       }
     });
-
     return () => unsubscribe();
   }, [router]);
 
-  // Load data function
   const loadData = async () => {
     if (!userId) return;
-
     try {
-      console.log("🔄 Iniciando carga de datos...");
-
-      // Load producers first
-      console.log("📦 Cargando productoras...");
+      // Load producers
       const producersSnap = await getDocs(collection(db, "producers"));
-      console.log(`✅ Productoras encontradas: ${producersSnap.size}`);
-      
-      const producersData: Producer[] = producersSnap.docs.map((prodDoc) => {
-        const data = prodDoc.data();
-        console.log(`  - ${data.name} (${prodDoc.id})`);
-        return {
-          id: prodDoc.id,
-          name: data.name,
-          createdAt: data.createdAt,
-          projectCount: 0,
-        };
-      });
+      const producersData: Producer[] = producersSnap.docs.map((d) => ({
+        id: d.id,
+        name: d.data().name,
+        createdAt: d.data().createdAt,
+        projectCount: 0,
+      }));
 
       // Load projects
-      console.log("📁 Cargando proyectos...");
       const projectsSnap = await getDocs(collection(db, "projects"));
-      console.log(`✅ Proyectos encontrados: ${projectsSnap.size}`);
-      
       const projectsData: Project[] = await Promise.all(
         projectsSnap.docs.map(async (projectDoc) => {
           const data = projectDoc.data();
-          console.log(`  - ${data.name} (${projectDoc.id})`);
-          
-          // Get producer names
           const producerIds = data.producers || [];
-          const producerNames = producerIds.map((prodId: string) => {
-            const producer = producersData.find(p => p.id === prodId);
-            return producer?.name || "Productora eliminada";
-          });
-
-          // Load members
+          const producerNames = producerIds.map((pid: string) => producersData.find((p) => p.id === pid)?.name || "Eliminada");
           const membersSnap = await getDocs(collection(db, `projects/${projectDoc.id}/members`));
-          const members: Member[] = membersSnap.docs.map(memberDoc => ({
-            userId: memberDoc.id,
-            name: memberDoc.data().name,
-            email: memberDoc.data().email,
-            role: memberDoc.data().role,
-            department: memberDoc.data().department,
-            position: memberDoc.data().position,
+          const members: Member[] = membersSnap.docs.map((m) => ({
+            odId: m.id,
+            name: m.data().name,
+            email: m.data().email,
+            role: m.data().role,
+            position: m.data().position,
           }));
-
           return {
             id: projectDoc.id,
             name: data.name,
@@ -243,7 +161,6 @@ export default function AdminDashboard() {
             description: data.description || "",
             producers: producerIds,
             producerNames,
-            departments: data.departments || [],
             createdAt: data.createdAt,
             memberCount: membersSnap.size,
             members,
@@ -252,25 +169,18 @@ export default function AdminDashboard() {
       );
 
       // Update producer project counts
-      producersData.forEach(producer => {
-        producer.projectCount = projectsData.filter(p => 
-          p.producers?.includes(producer.id)
-        ).length;
+      producersData.forEach((p) => {
+        p.projectCount = projectsData.filter((pr) => pr.producers?.includes(p.id)).length;
       });
 
       setProjects(projectsData);
       setProducers(producersData);
 
       // Load users
-      console.log("👥 Cargando usuarios...");
       const usersSnap = await getDocs(collection(db, "users"));
-      console.log(`✅ Usuarios encontrados: ${usersSnap.size}`);
-      
       const usersData: User[] = await Promise.all(
         usersSnap.docs.map(async (userDoc) => {
           const data = userDoc.data();
-          console.log(`  - ${data.name || data.email} (${userDoc.id})`);
-          
           const userProjectsSnap = await getDocs(collection(db, `userProjects/${userDoc.id}/projects`));
           const userProjects: UserProject[] = await Promise.all(
             userProjectsSnap.docs.map(async (upDoc) => {
@@ -278,1098 +188,928 @@ export default function AdminDashboard() {
               const projectDoc = await getDoc(doc(db, "projects", upDoc.id));
               return {
                 id: upDoc.id,
-                name: projectDoc.exists() ? projectDoc.data().name : "Proyecto eliminado",
+                name: projectDoc.exists() ? projectDoc.data().name : "Eliminado",
                 role: upData.role,
-                department: upData.department,
                 position: upData.position,
               };
             })
           );
-
           return {
             id: userDoc.id,
             name: data.name || data.email,
             email: data.email,
             role: data.role || "user",
-            createdAt: data.createdAt,
             projectCount: userProjectsSnap.size,
             projects: userProjects,
           };
         })
       );
-
       setUsers(usersData);
-      
-      console.log("✅ Carga completada");
-      console.log(`📊 Resumen: ${projectsData.length} proyectos, ${usersData.length} usuarios, ${producersData.length} productoras`);
-      
       setLoading(false);
       setRefreshing(false);
     } catch (error) {
-      console.error("❌ Error cargando datos:", error);
-      setErrorMessage("Error al cargar los datos. Revisa la consola.");
+      console.error(error);
+      setErrorMessage("Error al cargar los datos");
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // Load data on mount
   useEffect(() => {
     loadData();
   }, [userId]);
 
-  // Refresh data
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setSuccessMessage("Datos actualizados correctamente");
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), 3000);
   };
 
-  // Create project
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(""), 5000);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    showSuccess("Datos actualizados");
+  };
+
+  // Project handlers
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
-      setErrorMessage("El nombre del proyecto es obligatorio");
-      setTimeout(() => setErrorMessage(""), 3000);
+      showError("El nombre es obligatorio");
       return;
     }
-
     setSaving(true);
-    setErrorMessage("");
-
     try {
-      console.log("📝 Creando proyecto:", newProject);
-      
       const projectRef = doc(collection(db, "projects"));
       await setDoc(projectRef, {
         name: newProject.name.trim(),
         description: newProject.description.trim(),
         phase: newProject.phase,
         producers: newProject.producers,
-        departments: [],
         createdAt: serverTimestamp(),
       });
-
-      console.log("✅ Proyecto creado:", projectRef.id);
-
+      // Create default departments
+      for (const dept of DEFAULT_DEPARTMENTS) {
+        const deptRef = doc(collection(db, `projects/${projectRef.id}/departments`));
+        await setDoc(deptRef, { name: dept.name, color: dept.color, createdAt: serverTimestamp() });
+      }
       setNewProject({ name: "", description: "", phase: "Desarrollo", producers: [] });
       setShowCreateProject(false);
-      setSuccessMessage("Proyecto creado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
+      showSuccess("Proyecto creado correctamente");
       await loadData();
     } catch (error) {
-      console.error("❌ Error creando proyecto:", error);
-      setErrorMessage("Error al crear el proyecto");
-      setTimeout(() => setErrorMessage(""), 3000);
+      console.error(error);
+      showError("Error al crear el proyecto");
     } finally {
       setSaving(false);
     }
   };
 
-  // Edit project
   const handleEditProject = async () => {
     if (!showEditProject) return;
-
     setSaving(true);
-    setErrorMessage("");
-
     try {
-      console.log("📝 Actualizando proyecto:", showEditProject);
-      
       await updateDoc(doc(db, "projects", showEditProject), {
         name: newProject.name.trim(),
         description: newProject.description.trim(),
         phase: newProject.phase,
         producers: newProject.producers,
       });
-
-      console.log("✅ Proyecto actualizado");
-
       setShowEditProject(null);
-      setSuccessMessage("Proyecto actualizado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
+      showSuccess("Proyecto actualizado");
       await loadData();
     } catch (error) {
-      console.error("❌ Error actualizando proyecto:", error);
-      setErrorMessage("Error al actualizar el proyecto");
-      setTimeout(() => setErrorMessage(""), 3000);
+      console.error(error);
+      showError("Error al actualizar");
     } finally {
       setSaving(false);
     }
   };
 
-  // Create producer
-  const handleCreateProducer = async () => {
-    if (!newProducer.trim()) {
-      setErrorMessage("El nombre de la productora es obligatorio");
-      setTimeout(() => setErrorMessage(""), 3000);
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
-    try {
-      console.log("🏢 Creando productora:", newProducer);
-      
-      const producerRef = doc(collection(db, "producers"));
-      await setDoc(producerRef, {
-        name: newProducer.trim(),
-        createdAt: serverTimestamp(),
-      });
-
-      console.log("✅ Productora creada:", producerRef.id);
-
-      setNewProducer("");
-      setShowCreateProducer(false);
-      setSuccessMessage("Productora creada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      await loadData();
-    } catch (error) {
-      console.error("❌ Error creando productora:", error);
-      setErrorMessage(`Error al crear la productora: ${error}`);
-      setTimeout(() => setErrorMessage(""), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Edit producer
-  const handleEditProducer = async () => {
-    if (!showEditProducer || !editProducerName.trim()) return;
-
-    setSaving(true);
-    setErrorMessage("");
-
-    try {
-      console.log("📝 Actualizando productora:", showEditProducer);
-      
-      await updateDoc(doc(db, "producers", showEditProducer), {
-        name: editProducerName.trim(),
-      });
-
-      console.log("✅ Productora actualizada");
-
-      setShowEditProducer(null);
-      setEditProducerName("");
-      setSuccessMessage("Productora actualizada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      await loadData();
-    } catch (error) {
-      console.error("❌ Error actualizando productora:", error);
-      setErrorMessage("Error al actualizar la productora");
-      setTimeout(() => setErrorMessage(""), 3000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete producer
-  const handleDeleteProducer = async (producerId: string) => {
-    const producer = producers.find(p => p.id === producerId);
-    if (!producer) return;
-
-    if (producer.projectCount > 0) {
-      setErrorMessage(`No se puede eliminar "${producer.name}" porque tiene ${producer.projectCount} proyecto(s) asignado(s)`);
-      setTimeout(() => setErrorMessage(""), 5000);
-      return;
-    }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar la productora "${producer.name}"?`)) {
-      return;
-    }
-
-    setSaving(true);
-    try {
-      console.log("🗑️ Eliminando productora:", producerId);
-      
-      await deleteDoc(doc(db, "producers", producerId));
-
-      console.log("✅ Productora eliminada");
-
-      setSuccessMessage("Productora eliminada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
-      await loadData();
-    } catch (error) {
-      console.error("❌ Error eliminando productora:", error);
-      setErrorMessage("Error al eliminar la productora");
-      setTimeout(() => setErrorMessage(""), 3000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Assign user to project
-  const handleAssignUser = async () => {
-    if (!assignUserForm.userId || !assignUserForm.role || !showAssignUser) {
-      setErrorMessage("Selecciona un usuario y un rol");
-      setTimeout(() => setErrorMessage(""), 3000);
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
-    try {
-      const user = users.find(u => u.id === assignUserForm.userId);
-      const project = projects.find(p => p.id === showAssignUser);
-      if (!user || !project) return;
-
-      if (project.members?.some(m => m.userId === user.id)) {
-        setErrorMessage("Este usuario ya está asignado al proyecto");
-        setSaving(false);
-        setTimeout(() => setErrorMessage(""), 3000);
-        return;
-      }
-
-      console.log("👤 Asignando usuario al proyecto:", user.name, "→", project.name);
-
-      await setDoc(doc(db, `projects/${showAssignUser}/members`, user.id), {
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: assignUserForm.role,
-        permissions: {
-          config: true,
-          accounting: true,
-          team: true,
-        },
-        addedAt: serverTimestamp(),
-      });
-
-      await setDoc(doc(db, `userProjects/${user.id}/projects/${showAssignUser}`), {
-        projectId: showAssignUser,
-        role: assignUserForm.role,
-        permissions: {
-          config: true,
-          accounting: true,
-          team: true,
-        },
-        addedAt: serverTimestamp(),
-      });
-
-      console.log("✅ Usuario asignado correctamente");
-
-      setAssignUserForm({ userId: "", role: "" });
-      setShowAssignUser(null);
-      setSuccessMessage("Usuario asignado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      await loadData();
-    } catch (error) {
-      console.error("❌ Error asignando usuario:", error);
-      setErrorMessage("Error al asignar el usuario");
-      setTimeout(() => setErrorMessage(""), 3000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Remove user from project
-  const handleRemoveUserFromProject = async (projectId: string, userId: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este usuario del proyecto?")) {
-      return;
-    }
-
-    setSaving(true);
-    try {
-      console.log("🗑️ Eliminando usuario del proyecto");
-      
-      await deleteDoc(doc(db, `projects/${projectId}/members`, userId));
-      await deleteDoc(doc(db, `userProjects/${userId}/projects/${projectId}`));
-
-      console.log("✅ Usuario eliminado del proyecto");
-
-      setSuccessMessage("Usuario eliminado del proyecto");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      await loadData();
-    } catch (error) {
-      console.error("❌ Error eliminando usuario del proyecto:", error);
-      setErrorMessage("Error al eliminar el usuario del proyecto");
-      setTimeout(() => setErrorMessage(""), 3000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete project
   const handleDeleteProject = async (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
     if (!project) return;
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar el proyecto "${project.name}"? Se eliminarán todos sus miembros. Esta acción no se puede deshacer.`)) {
-      return;
-    }
-
+    if (!confirm(`¿Eliminar "${project.name}"? Esta acción no se puede deshacer.`)) return;
     setSaving(true);
     try {
-      console.log("🗑️ Eliminando proyecto:", projectId);
-      
+      // Remove members from userProjects
       const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
       for (const memberDoc of membersSnap.docs) {
         await deleteDoc(doc(db, `userProjects/${memberDoc.id}/projects/${projectId}`));
         await deleteDoc(memberDoc.ref);
       }
-
+      // Delete departments
+      const deptsSnap = await getDocs(collection(db, `projects/${projectId}/departments`));
+      for (const deptDoc of deptsSnap.docs) {
+        await deleteDoc(deptDoc.ref);
+      }
       await deleteDoc(doc(db, "projects", projectId));
-
-      console.log("✅ Proyecto eliminado");
-
-      setSuccessMessage("Proyecto eliminado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
+      showSuccess("Proyecto eliminado");
       await loadData();
     } catch (error) {
-      console.error("❌ Error eliminando proyecto:", error);
-      setErrorMessage("Error al eliminar el proyecto");
-      setTimeout(() => setErrorMessage(""), 3000);
+      console.error(error);
+      showError("Error al eliminar");
     } finally {
       setSaving(false);
     }
   };
 
-  // Delete user
-  const handleDeleteUser = async (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (!user) return;
-
-    if (user.role === "admin") {
-      setErrorMessage("No puedes eliminar usuarios administradores");
-      setTimeout(() => setErrorMessage(""), 3000);
+  // Producer handlers
+  const handleCreateProducer = async () => {
+    if (!newProducer.name.trim()) {
+      showError("El nombre es obligatorio");
       return;
     }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${user.name}"? Se eliminará de todos sus proyectos.`)) {
-      return;
-    }
-
     setSaving(true);
     try {
-      console.log("🗑️ Eliminando usuario:", userId);
-      
-      for (const project of user.projects) {
-        await deleteDoc(doc(db, `projects/${project.id}/members`, userId));
-      }
-
-      const userProjectsSnap = await getDocs(collection(db, `userProjects/${userId}/projects`));
-      for (const upDoc of userProjectsSnap.docs) {
-        await deleteDoc(upDoc.ref);
-      }
-
-      await deleteDoc(doc(db, "users", userId));
-
-      console.log("✅ Usuario eliminado");
-
-      setSuccessMessage("Usuario eliminado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
+      const producerRef = doc(collection(db, "producers"));
+      await setDoc(producerRef, { name: newProducer.name.trim(), createdAt: serverTimestamp() });
+      setNewProducer({ name: "" });
+      setShowCreateProducer(false);
+      showSuccess("Productora creada");
       await loadData();
     } catch (error) {
-      console.error("❌ Error eliminando usuario:", error);
-      setErrorMessage("Error al eliminar el usuario");
-      setTimeout(() => setErrorMessage(""), 3000);
+      console.error(error);
+      showError("Error al crear");
     } finally {
       setSaving(false);
     }
   };
 
-  // Toggle user role
-  const handleToggleUserRole = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === "admin" ? "user" : "admin";
-    
-    if (!confirm(`¿Cambiar rol de ${currentRole === "admin" ? "Administrador" : "Usuario"} a ${newRole === "admin" ? "Administrador" : "Usuario"}?`)) {
-      return;
-    }
-
+  const handleEditProducer = async () => {
+    if (!showEditProducer) return;
     setSaving(true);
     try {
-      console.log("🔄 Cambiando rol de usuario:", userId, "→", newRole);
-      
-      await updateDoc(doc(db, "users", userId), {
-        role: newRole,
+      await updateDoc(doc(db, "producers", showEditProducer), { name: newProducer.name.trim() });
+      setShowEditProducer(null);
+      setNewProducer({ name: "" });
+      showSuccess("Productora actualizada");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      showError("Error al actualizar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProducer = async (producerId: string) => {
+    const producer = producers.find((p) => p.id === producerId);
+    if (!producer) return;
+    if (producer.projectCount > 0) {
+      showError(`"${producer.name}" tiene proyectos asignados`);
+      return;
+    }
+    if (!confirm(`¿Eliminar "${producer.name}"?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, "producers", producerId));
+      showSuccess("Productora eliminada");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      showError("Error al eliminar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // User handlers
+  const handleAssignUser = async () => {
+    if (!assignUserForm.odId || !assignUserForm.role || !showAssignUser) {
+      showError("Selecciona usuario y rol");
+      return;
+    }
+    setSaving(true);
+    try {
+      const user = users.find((u) => u.id === assignUserForm.odId);
+      const project = projects.find((p) => p.id === showAssignUser);
+      if (!user || !project) return;
+      if (project.members?.some((m) => m.odId === user.id)) {
+        showError("Usuario ya asignado a este proyecto");
+        setSaving(false);
+        return;
+      }
+      await setDoc(doc(db, `projects/${showAssignUser}/members`, user.id), {
+        odId: user.id,
+        name: user.name,
+        email: user.email,
+        role: assignUserForm.role,
+        permissions: { config: true, accounting: true, team: true },
+        addedAt: serverTimestamp(),
       });
-
-      console.log("✅ Rol actualizado");
-
-      setSuccessMessage("Rol actualizado correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
+      await setDoc(doc(db, `userProjects/${user.id}/projects/${showAssignUser}`), {
+        projectId: showAssignUser,
+        role: assignUserForm.role,
+        permissions: { config: true, accounting: true, team: true },
+        addedAt: serverTimestamp(),
+      });
+      setAssignUserForm({ odId: "", role: "" });
+      setShowAssignUser(null);
+      showSuccess("Usuario asignado correctamente");
       await loadData();
     } catch (error) {
-      console.error("❌ Error actualizando rol:", error);
-      setErrorMessage("Error al actualizar el rol");
-      setTimeout(() => setErrorMessage(""), 3000);
+      console.error(error);
+      showError("Error al asignar");
     } finally {
       setSaving(false);
     }
   };
 
-  // Toggle expanded project
+  const handleRemoveUserFromProject = async (projectId: string, odId: string) => {
+    if (!confirm("¿Eliminar este usuario del proyecto?")) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, `projects/${projectId}/members`, odId));
+      await deleteDoc(doc(db, `userProjects/${odId}/projects/${projectId}`));
+      showSuccess("Usuario eliminado del proyecto");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      showError("Error al eliminar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleUserRole = async (odId: string, currentRole: string) => {
+    const newRole = currentRole === "admin" ? "user" : "admin";
+    if (!confirm(`¿Cambiar rol a ${newRole === "admin" ? "Administrador" : "Usuario"}?`)) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "users", odId), { role: newRole });
+      showSuccess("Rol actualizado");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      showError("Error al actualizar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const toggleProjectExpand = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
-    if (newExpanded.has(projectId)) {
-      newExpanded.delete(projectId);
-    } else {
-      newExpanded.add(projectId);
-    }
+    if (newExpanded.has(projectId)) newExpanded.delete(projectId);
+    else newExpanded.add(projectId);
     setExpandedProjects(newExpanded);
   };
 
-  // Filtered data
-  const filteredProjects = projects.filter(p => {
+  // Filters
+  const filteredProjects = projects.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(projectSearch.toLowerCase());
     const matchesPhase = projectPhaseFilter === "all" || p.phase === projectPhaseFilter;
-    const matchesProducer = projectProducerFilter === "all" || p.producers?.includes(projectProducerFilter);
-    return matchesSearch && matchesPhase && matchesProducer;
+    return matchesSearch && matchesPhase;
   });
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-                          u.email.toLowerCase().includes(userSearch.toLowerCase());
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch = u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase());
     const matchesRole = userRoleFilter === "all" || u.role === userRoleFilter;
     return matchesSearch && matchesRole;
   });
 
+  const filteredProducers = producers.filter((p) => p.name.toLowerCase().includes(producerSearch.toLowerCase()));
+
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 text-sm font-medium">Cargando panel de administración...</p>
-          <p className="text-slate-500 text-xs mt-2">Revisa la consola para ver el progreso</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  const activeProjects = projects.filter(p => p.phase !== "Finalizado").length;
-  const finishedProjects = projects.filter(p => p.phase === "Finalizado").length;
+  const activeProjects = projects.filter((p) => p.phase !== "Finalizado").length;
+  const adminUsers = users.filter((u) => u.role === "admin").length;
 
   return (
-    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
-      <main className="pt-28 pb-16 px-6 md:px-12 flex-grow">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="mb-10">
-            <div className="flex items-center justify-between mb-4">
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
+                <Shield size={28} className="text-white" />
+              </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight mb-2">
-                  Panel de administración
-                </h1>
-                <p className="text-slate-600">
-                  Gestión completa de la plataforma
-                </p>
-              </div>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                title="Refrescar datos"
-              >
-                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-                {refreshing ? "Actualizando..." : "Refrescar"}
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-blue-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Briefcase size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-blue-700">{projects.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-blue-900 mb-1">Proyectos totales</h3>
-                <p className="text-xs text-blue-700">En la plataforma</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-emerald-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Zap size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-emerald-700">{activeProjects}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-emerald-900 mb-1">Activos</h3>
-                <p className="text-xs text-emerald-700">En producción</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-purple-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Users size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-purple-700">{users.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-purple-900 mb-1">Usuarios</h3>
-                <p className="text-xs text-purple-700">Registrados</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="bg-amber-600 text-white p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform">
-                    <Building2 size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-amber-700">{producers.length}</div>
-                </div>
-                <h3 className="text-sm font-semibold text-amber-900 mb-1">Productoras</h3>
-                <p className="text-xs text-amber-700">Registradas</p>
+                <p className="text-white/60 text-sm font-medium uppercase tracking-wider mb-1">Panel de administración</p>
+                <h1 className="text-2xl font-semibold">Hola, {userName.split(" ")[0]}</h1>
               </div>
             </div>
-          </header>
-
-          {/* Messages */}
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-emerald-700">
-              <CheckCircle size={20} />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-              <AlertCircle size={20} />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex gap-2 border-b border-slate-200 mb-8">
             <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === "overview"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
-              }`}
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-xl text-sm font-medium transition-all border border-white/10 disabled:opacity-50"
             >
-              <div className="flex items-center gap-2">
-                <LayoutDashboard size={16} />
-                Vista general
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab("projects")}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === "projects"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Briefcase size={16} />
-                Proyectos ({projects.length})
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === "users"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Users size={16} />
-                Usuarios ({users.length})
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab("producers")}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === "producers"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Building2 size={16} />
-                Productoras ({producers.length})
-              </div>
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "..." : "Refrescar"}
             </button>
           </div>
 
-          {/* Content */}
-          <div>
-            {/* Overview Tab */}
-            {activeTab === "overview" && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Últimos proyectos</h3>
-                    <div className="space-y-3">
-                      {projects.slice(0, 5).map(project => (
-                        <div key={project.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-slate-900">{project.name}</p>
-                            <p className="text-xs text-slate-600">
-                              {project.producerNames && project.producerNames.length > 0
-                                ? project.producerNames.join(", ")
-                                : "Sin productora"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-medium px-2 py-1 rounded ${PHASE_COLORS[project.phase]}`}>
-                              {project.phase}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {project.memberCount} {project.memberCount === 1 ? "miembro" : "miembros"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                      {projects.length === 0 && (
-                        <p className="text-sm text-slate-500 text-center py-4">No hay proyectos todavía</p>
-                      )}
-                    </div>
-                  </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                  <Briefcase size={20} className="text-blue-400" />
+                </div>
+                <span className="text-2xl font-bold text-white">{projects.length}</span>
+              </div>
+              <p className="text-sm text-white/60">Proyectos</p>
+              <p className="text-xs text-emerald-400 mt-1">{activeProjects} activos</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                  <Users size={20} className="text-purple-400" />
+                </div>
+                <span className="text-2xl font-bold text-white">{users.length}</span>
+              </div>
+              <p className="text-sm text-white/60">Usuarios</p>
+              <p className="text-xs text-purple-400 mt-1">{adminUsers} admins</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                  <Building2 size={20} className="text-amber-400" />
+                </div>
+                <span className="text-2xl font-bold text-white">{producers.length}</span>
+              </div>
+              <p className="text-sm text-white/60">Productoras</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                  <Users size={20} className="text-emerald-400" />
+                </div>
+                <span className="text-2xl font-bold text-white">{projects.reduce((acc, p) => acc + p.memberCount, 0)}</span>
+              </div>
+              <p className="text-sm text-white/60">Asignaciones</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Últimos usuarios</h3>
-                    <div className="space-y-3">
-                      {users.slice(0, 5).map(user => (
-                        <div key={user.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                            <p className="text-xs text-slate-600">{user.email}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-medium px-2 py-1 rounded ${
-                              user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-700"
-                            }`}>
-                              {user.role === "admin" ? "Admin" : "Usuario"}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {user.projectCount} {user.projectCount === 1 ? "proyecto" : "proyectos"}
-                            </span>
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 -mt-6">
+        {/* Messages */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700">
+            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <CheckCircle size={18} />
+            </div>
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
+            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+              <AlertCircle size={18} />
+            </div>
+            <span className="font-medium">{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="bg-white rounded-2xl border border-slate-200 mb-6 p-1.5 inline-flex gap-1 flex-wrap">
+          {[
+            { id: "overview", label: "Vista general", icon: LayoutDashboard },
+            { id: "projects", label: "Proyectos", icon: Briefcase, count: projects.length },
+            { id: "users", label: "Usuarios", icon: Users, count: users.length },
+            { id: "producers", label: "Productoras", icon: Building2, count: producers.length },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className={`px-1.5 py-0.5 rounded-md text-xs ${activeTab === tab.id ? "bg-white/20" : "bg-slate-100"}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          {/* Overview Tab */}
+          {activeTab === "overview" && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Projects */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                      <Clock size={18} className="text-slate-400" />
+                      Últimos proyectos
+                    </h3>
+                    <button onClick={() => setActiveTab("projects")} className="text-sm text-slate-500 hover:text-slate-900 font-medium">
+                      Ver todos →
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {projects.slice(0, 5).map((project) => (
+                      <div key={project.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2.5 h-2.5 rounded-full ${PHASE_DOT_COLORS[project.phase]}`} />
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{project.name}</p>
+                            <p className="text-xs text-slate-500">{project.producerNames?.join(", ") || "Sin productora"}</p>
                           </div>
                         </div>
-                      ))}
-                      {users.length === 0 && (
-                        <p className="text-sm text-slate-500 text-center py-4">No hay usuarios todavía</p>
-                      )}
-                    </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${PHASE_COLORS[project.phase]}`}>
+                            {project.phase}
+                          </span>
+                          <Link href={`/project/${project.id}/config`} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all">
+                            <ExternalLink size={16} />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                    {projects.length === 0 && (
+                      <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
+                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                          <Briefcase size={20} className="text-slate-400" />
+                        </div>
+                        <p className="text-sm text-slate-500">No hay proyectos todavía</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Projects by phase */}
-                <div className="bg-white border border-slate-200 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Proyectos por fase</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {PHASES.map(phase => {
-                      const count = projects.filter(p => p.phase === phase).length;
-                      return (
-                        <div key={phase} className="text-center p-4 bg-slate-50 rounded-lg">
-                          <div className={`text-2xl font-bold mb-1 ${PHASE_COLORS[phase].split(' ')[1]}`}>
-                            {count}
+                {/* Recent Users */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                      <Users size={18} className="text-slate-400" />
+                      Últimos usuarios
+                    </h3>
+                    <button onClick={() => setActiveTab("users")} className="text-sm text-slate-500 hover:text-slate-900 font-medium">
+                      Ver todos →
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {users.slice(0, 5).map((user) => (
+                      <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-medium">
+                            {user.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="text-xs text-slate-600">{phase}</div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                            <p className="text-xs text-slate-500">{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {user.role === "admin" && (
+                            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-purple-100 text-purple-700 border border-purple-200">
+                              Admin
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500">{user.projectCount} proy.</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Projects by Phase */}
+              <div className="mt-8 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h3 className="font-semibold text-slate-900">Distribución por fase</h3>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-5 gap-4">
+                    {PHASES.map((phase) => {
+                      const count = projects.filter((p) => p.phase === phase).length;
+                      const percentage = projects.length > 0 ? (count / projects.length) * 100 : 0;
+                      return (
+                        <div key={phase} className="text-center">
+                          <div className="relative h-28 bg-slate-100 rounded-xl overflow-hidden mb-3">
+                            <div
+                              className={`absolute bottom-0 left-0 right-0 ${PHASE_DOT_COLORS[phase]} transition-all duration-500`}
+                              style={{ height: `${Math.max(percentage, 8)}%` }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-2xl font-bold text-slate-900">{count}</span>
+                            </div>
+                          </div>
+                          <p className="text-xs font-medium text-slate-600">{phase}</p>
                         </div>
                       );
                     })}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Projects Tab */}
-            {activeTab === "projects" && (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-                  <div className="flex flex-col md:flex-row gap-3 flex-1 w-full">
-                    <div className="relative flex-1 max-w-md">
-                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Buscar proyectos..."
-                        value={projectSearch}
-                        onChange={(e) => setProjectSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm"
-                      />
-                    </div>
-                    <select
-                      value={projectPhaseFilter}
-                      onChange={(e) => setProjectPhaseFilter(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm"
-                    >
-                      <option value="all">Todas las fases</option>
-                      {PHASES.map(phase => (
-                        <option key={phase} value={phase}>{phase}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={projectProducerFilter}
-                      onChange={(e) => setProjectProducerFilter(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm"
-                    >
-                      <option value="all">Todas las productoras</option>
-                      {producers.map(producer => (
-                        <option key={producer.id} value={producer.id}>{producer.name}</option>
-                      ))}
-                    </select>
+          {/* Projects Tab */}
+          {activeTab === "projects" && (
+            <div>
+              <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+                <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
+                  <div className="relative flex-1 max-w-md">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar proyectos..."
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
+                    />
                   </div>
+                  <select
+                    value={projectPhaseFilter}
+                    onChange={(e) => setProjectPhaseFilter(e.target.value)}
+                    className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                  >
+                    <option value="all">Todas las fases</option>
+                    {PHASES.map((phase) => (
+                      <option key={phase} value={phase}>{phase}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => setShowCreateProject(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  <FolderPlus size={16} />
+                  Crear proyecto
+                </button>
+              </div>
+
+              {filteredProjects.length === 0 ? (
+                <div className="p-16 text-center">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Briefcase size={32} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay proyectos</h3>
+                  <p className="text-slate-500 text-sm mb-6">
+                    {projectSearch || projectPhaseFilter !== "all"
+                      ? "No se encontraron proyectos con los filtros aplicados"
+                      : "Crea tu primer proyecto para empezar"}
+                  </p>
                   <button
                     onClick={() => setShowCreateProject(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
                   >
                     <FolderPlus size={16} />
                     Crear proyecto
                   </button>
                 </div>
-
-                {filteredProjects.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
-                    <Briefcase size={48} className="text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No hay proyectos
-                    </h3>
-                    <p className="text-slate-600 text-sm">
-                      {projectSearch || projectPhaseFilter !== "all" || projectProducerFilter !== "all"
-                        ? "No se encontraron proyectos con los filtros aplicados"
-                        : "Crea tu primer proyecto para empezar"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-8"></th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Proyecto</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Productoras</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Fase</th>
-                          <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Miembros</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredProjects.map(project => {
-                          const isExpanded = expandedProjects.has(project.id);
-                          
-                          return (
-                            <>
-                              <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="py-3 px-4">
-                                  {project.memberCount > 0 && (
-                                    <button
-                                      onClick={() => toggleProjectExpand(project.id)}
-                                      className="text-slate-400 hover:text-slate-600"
-                                    >
-                                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="py-3 px-4">
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase w-8" />
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Proyecto</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Productoras</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Fase</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Miembros</th>
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjects.map((project) => {
+                        const isExpanded = expandedProjects.has(project.id);
+                        return (
+                          <React.Fragment key={project.id}>
+                            <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                              <td className="py-3 px-4">
+                                {project.memberCount > 0 && (
+                                  <button
+                                    onClick={() => toggleProjectExpand(project.id)}
+                                    className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded"
+                                  >
+                                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                  </button>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div>
                                   <p className="text-sm font-medium text-slate-900">{project.name}</p>
                                   {project.description && (
-                                    <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">{project.description}</p>
+                                    <p className="text-xs text-slate-500 line-clamp-1">{project.description}</p>
                                   )}
-                                </td>
-                                <td className="py-3 px-4">
-                                  {project.producerNames && project.producerNames.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {project.producerNames.map((name, idx) => (
-                                        <span key={idx} className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
-                                          {name}
-                                        </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                {project.producerNames && project.producerNames.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {project.producerNames.slice(0, 2).map((name, idx) => (
+                                      <span key={idx} className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200">
+                                        {name}
+                                      </span>
+                                    ))}
+                                    {project.producerNames.length > 2 && (
+                                      <span className="text-xs text-slate-500">+{project.producerNames.length - 2}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-400">Sin productora</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${PHASE_COLORS[project.phase]}`}>
+                                  {project.phase}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-sm font-medium text-slate-700">
+                                  {project.memberCount}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Link
+                                    href={`/project/${project.id}/config`}
+                                    className="text-slate-400 hover:text-slate-700 p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="Ver proyecto"
+                                  >
+                                    <ExternalLink size={16} />
+                                  </Link>
+                                  <button
+                                    onClick={() => {
+                                      setNewProject({
+                                        name: project.name,
+                                        description: project.description || "",
+                                        phase: project.phase,
+                                        producers: project.producers || [],
+                                      });
+                                      setShowEditProject(project.id);
+                                    }}
+                                    className="text-slate-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => setShowAssignUser(project.id)}
+                                    className="text-slate-400 hover:text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Asignar usuario"
+                                  >
+                                    <UserPlus size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProject(project.id)}
+                                    disabled={saving}
+                                    className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && project.members && project.members.length > 0 && (
+                              <tr>
+                                <td colSpan={6} className="bg-slate-50 px-4 py-4">
+                                  <div className="pl-8">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-3">Miembros del proyecto</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                      {project.members.map((member) => (
+                                        <div key={member.odId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-600 text-xs font-medium">
+                                              {member.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                              <p className="text-sm font-medium text-slate-900">{member.name}</p>
+                                              <p className="text-xs text-slate-500">{member.email}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">
+                                              {member.role || member.position}
+                                            </span>
+                                            <button
+                                              onClick={() => handleRemoveUserFromProject(project.id, member.odId)}
+                                              disabled={saving}
+                                              className="text-slate-400 hover:text-red-600 p-1"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        </div>
                                       ))}
                                     </div>
-                                  ) : (
-                                    <span className="text-sm text-slate-400">Sin productora</span>
-                                  )}
-                                </td>
-                                <td className="py-3 px-4">
-                                  <span className={`text-xs font-medium px-2 py-1 rounded ${PHASE_COLORS[project.phase]}`}>
-                                    {project.phase}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-center">
-                                  <span className="text-sm text-slate-700">{project.memberCount}</span>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Link
-                                      href={`/project/${project.id}/config`}
-                                      className="text-slate-600 hover:text-slate-900 p-1.5 hover:bg-slate-100 rounded transition-colors"
-                                      title="Ver proyecto"
-                                    >
-                                      <ExternalLink size={16} />
-                                    </Link>
-                                    <button
-                                      onClick={() => {
-                                        setNewProject({
-                                          name: project.name,
-                                          description: project.description || "",
-                                          phase: project.phase,
-                                          producers: project.producers || [],
-                                        });
-                                        setShowEditProject(project.id);
-                                      }}
-                                      className="text-blue-600 hover:text-blue-700 p-1.5 hover:bg-blue-50 rounded transition-colors"
-                                      title="Editar proyecto"
-                                    >
-                                      <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                      onClick={() => setShowAssignUser(project.id)}
-                                      className="text-emerald-600 hover:text-emerald-700 p-1.5 hover:bg-emerald-50 rounded transition-colors"
-                                      title="Asignar usuario"
-                                    >
-                                      <UserPlus size={16} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteProject(project.id)}
-                                      disabled={saving}
-                                      className="text-red-600 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors"
-                                      title="Eliminar proyecto"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
                                   </div>
                                 </td>
                               </tr>
-                              {isExpanded && project.members && project.members.length > 0 && (
-                                <tr>
-                                  <td colSpan={6} className="bg-slate-50 px-4 py-3">
-                                    <div className="pl-8">
-                                      <p className="text-xs font-semibold text-slate-600 uppercase mb-2">
-                                        Miembros del proyecto
-                                      </p>
-                                      <div className="space-y-2">
-                                        {project.members.map(member => (
-                                          <div key={member.userId} className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-                                            <div>
-                                              <p className="text-sm font-medium text-slate-900">{member.name}</p>
-                                              <p className="text-xs text-slate-600">{member.email}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
-                                                {member.role || `${member.position} - ${member.department}`}
-                                              </span>
-                                              <button
-                                                onClick={() => handleRemoveUserFromProject(project.id, member.userId)}
-                                                disabled={saving}
-                                                className="text-red-600 hover:text-red-700 p-1"
-                                                title="Eliminar del proyecto"
-                                              >
-                                                <Trash2 size={14} />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Users Tab */}
-            {activeTab === "users" && (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-                  <div className="flex flex-col md:flex-row gap-3 flex-1 w-full">
-                    <div className="relative flex-1 max-w-md">
-                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Buscar usuarios..."
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm"
-                      />
-                    </div>
-                    <select
-                      value={userRoleFilter}
-                      onChange={(e) => setUserRoleFilter(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm"
-                    >
-                      <option value="all">Todos los roles</option>
-                      <option value="admin">Administradores</option>
-                      <option value="user">Usuarios</option>
-                    </select>
-                  </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+              )}
+            </div>
+          )}
 
-                {filteredUsers.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
-                    <Users size={48} className="text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No hay usuarios
-                    </h3>
-                    <p className="text-slate-600 text-sm">
-                      No se encontraron usuarios con los filtros aplicados
-                    </p>
+          {/* Users Tab */}
+          {activeTab === "users" && (
+            <div>
+              <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3 items-start md:items-center">
+                <div className="relative flex-1 max-w-md">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar usuarios..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                  />
+                </div>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                >
+                  <option value="all">Todos los roles</option>
+                  <option value="admin">Administradores</option>
+                  <option value="user">Usuarios</option>
+                </select>
+              </div>
+
+              {filteredUsers.length === 0 ? (
+                <div className="p-16 text-center">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Users size={32} className="text-slate-400" />
                   </div>
-                ) : (
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Usuario</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rol</th>
-                          <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Proyectos</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredUsers.map(user => (
-                          <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="py-3 px-4">
-                              <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                              <p className="text-xs text-slate-600">{user.email}</p>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className={`text-xs font-medium px-2 py-1 rounded ${
-                                user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-700"
-                              }`}>
-                                {user.role === "admin" ? "Administrador" : "Usuario"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-center">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay usuarios</h3>
+                  <p className="text-slate-500 text-sm">No se encontraron usuarios</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Usuario</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Rol</th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Proyectos</th>
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map((user) => (
+                        <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-medium">
+                                {user.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                                <p className="text-xs text-slate-500">{user.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${
+                              user.role === "admin"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : "bg-slate-50 text-slate-700 border-slate-200"
+                            }`}>
+                              {user.role === "admin" ? "Administrador" : "Usuario"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => setShowUserDetails(user.id)}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                            >
+                              {user.projectCount} {user.projectCount === 1 ? "proyecto" : "proyectos"}
+                            </button>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => setShowUserDetails(user.id)}
-                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                className="text-slate-400 hover:text-slate-700 p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Ver detalles"
                               >
-                                {user.projectCount} {user.projectCount === 1 ? "proyecto" : "proyectos"}
+                                <Eye size={16} />
                               </button>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => setShowUserDetails(user.id)}
-                                  className="text-slate-600 hover:text-slate-900 p-1.5 hover:bg-slate-100 rounded transition-colors"
-                                  title="Ver detalles"
-                                >
-                                  <Eye size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleUserRole(user.id, user.role)}
-                                  disabled={saving}
-                                  className="text-blue-600 hover:text-blue-700 p-1.5 hover:bg-blue-50 rounded transition-colors text-xs font-medium"
-                                  title={user.role === "admin" ? "Quitar admin" : "Hacer admin"}
-                                >
-                                  <Shield size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteUser(user.id)}
-                                  disabled={saving || user.role === "admin"}
-                                  className="text-red-600 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={user.role === "admin" ? "No se puede eliminar admin" : "Eliminar usuario"}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
+                              <button
+                                onClick={() => handleToggleUserRole(user.id, user.role)}
+                                disabled={saving}
+                                className="text-slate-400 hover:text-purple-600 p-2 hover:bg-purple-50 rounded-lg transition-colors"
+                                title={user.role === "admin" ? "Quitar admin" : "Hacer admin"}
+                              >
+                                <Shield size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Producers Tab */}
-            {activeTab === "producers" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Gestión de productoras
-                  </h2>
+          {/* Producers Tab */}
+          {activeTab === "producers" && (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="relative flex-1 max-w-md">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar productoras..."
+                      value={producerSearch}
+                      onChange={(e) => setProducerSearch(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCreateProducer(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Plus size={16} />
+                  Nueva productora
+                </button>
+              </div>
+
+              {filteredProducers.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Building2 size={32} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay productoras</h3>
+                  <p className="text-slate-500 text-sm mb-6">Crea tu primera productora para empezar</p>
                   <button
                     onClick={() => setShowCreateProducer(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
                   >
                     <Plus size={16} />
                     Crear productora
                   </button>
                 </div>
-
-                {producers.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
-                    <Building2 size={48} className="text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No hay productoras
-                    </h3>
-                    <p className="text-slate-600 text-sm mb-4">
-                      Crea tu primera productora para empezar
-                    </p>
-                    <button
-                      onClick={() => setShowCreateProducer(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      <Plus size={16} />
-                      Crear productora
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {producers.map(producer => (
-                      <div key={producer.id} className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg transition-shadow group">
-                        <div className="flex items-center justify-between mb-3">
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProducers.map((producer) => (
+                    <div key={producer.id} className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 hover:shadow-lg transition-all group">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                           <Building2 size={24} className="text-amber-600" />
-                          <span className="text-2xl font-bold text-slate-900">{producer.projectCount}</span>
                         </div>
-                        <h3 className="text-sm font-semibold text-slate-900 mb-1">{producer.name}</h3>
-                        <p className="text-xs text-slate-600 mb-4">
-                          {producer.projectCount} {producer.projectCount === 1 ? "proyecto" : "proyectos"}
-                        </p>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => {
-                              setEditProducerName(producer.name);
+                              setNewProducer({ name: producer.name });
                               setShowEditProducer(producer.id);
                             }}
-                            className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-white rounded-lg transition-colors"
                           >
                             <Edit2 size={14} />
-                            Editar
                           </button>
                           <button
                             onClick={() => handleDeleteProducer(producer.id)}
                             disabled={saving || producer.projectCount > 0}
-                            className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={producer.projectCount > 0 ? "No se puede eliminar (tiene proyectos)" : "Eliminar"}
+                            className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={producer.projectCount > 0 ? "Tiene proyectos asignados" : "Eliminar"}
                           >
                             <Trash2 size={14} />
-                            Eliminar
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{producer.name}</h3>
+                      <p className="text-sm text-amber-700">
+                        {producer.projectCount} {producer.projectCount === 1 ? "proyecto" : "proyectos"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Modals continuarán en el siguiente mensaje... */}
-      
       {/* Create/Edit Project Modal */}
       {(showCreateProject || showEditProject) && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-slate-900">
-                {showEditProject ? "Editar proyecto" : "Crear nuevo proyecto"}
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {showEditProject ? "Editar proyecto" : "Nuevo proyecto"}
               </h3>
               <button
                 onClick={() => {
@@ -1377,24 +1117,22 @@ export default function AdminDashboard() {
                   setShowEditProject(null);
                   setNewProject({ name: "", description: "", phase: "Desarrollo", producers: [] });
                 }}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <div className="space-y-4">
+            <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del proyecto *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre *</label>
                 <input
                   type="text"
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                   placeholder="Nombre del proyecto"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Descripción</label>
                 <textarea
@@ -1402,44 +1140,40 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                   placeholder="Descripción del proyecto"
                   rows={3}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none resize-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none resize-none"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Fase inicial</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Fase</label>
                 <select
                   value={newProject.phase}
                   onChange={(e) => setNewProject({ ...newProject, phase: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                 >
-                  {PHASES.map(phase => (
+                  {PHASES.map((phase) => (
                     <option key={phase} value={phase}>{phase}</option>
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Productoras (puedes seleccionar varias)
-                </label>
-                {producers.length > 0 ? (
-                  <div className="border border-slate-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                    {producers.map(producer => (
-                      <label key={producer.id} className="flex items-center gap-2 py-2 cursor-pointer hover:bg-slate-50 px-2 rounded">
+              {producers.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Productoras</label>
+                  <div className="border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto space-y-1">
+                    {producers.map((producer) => (
+                      <label
+                        key={producer.id}
+                        className="flex items-center gap-3 py-2 px-2 cursor-pointer hover:bg-slate-50 rounded-lg"
+                      >
                         <input
                           type="checkbox"
                           checked={newProject.producers.includes(producer.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setNewProject({
-                                ...newProject,
-                                producers: [...newProject.producers, producer.id]
-                              });
+                              setNewProject({ ...newProject, producers: [...newProject.producers, producer.id] });
                             } else {
                               setNewProject({
                                 ...newProject,
-                                producers: newProject.producers.filter(id => id !== producer.id)
+                                producers: newProject.producers.filter((id) => id !== producer.id),
                               });
                             }
                           }}
@@ -1449,30 +1183,12 @@ export default function AdminDashboard() {
                       </label>
                     ))}
                   </div>
-                ) : (
-                  <div className="border border-slate-300 rounded-lg p-4 text-center">
-                    <p className="text-sm text-slate-500 mb-3">
-                      No hay productoras disponibles. Crea una primero.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateProject(false);
-                        setShowEditProject(null);
-                        setShowCreateProducer(true);
-                      }}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Crear productora
-                    </button>
-                  </div>
-                )}
-              </div>
-
+                </div>
+              )}
               <button
                 onClick={showEditProject ? handleEditProject : handleCreateProject}
                 disabled={saving || !newProject.name.trim()}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {saving ? "Guardando..." : showEditProject ? "Guardar cambios" : "Crear proyecto"}
               </button>
@@ -1484,41 +1200,37 @@ export default function AdminDashboard() {
       {/* Create/Edit Producer Modal */}
       {(showCreateProducer || showEditProducer) && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-slate-900">
-                {showEditProducer ? "Editar productora" : "Crear productora"}
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {showEditProducer ? "Editar productora" : "Nueva productora"}
               </h3>
               <button
                 onClick={() => {
                   setShowCreateProducer(false);
                   setShowEditProducer(null);
-                  setNewProducer("");
-                  setEditProducerName("");
+                  setNewProducer({ name: "" });
                 }}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre de la productora *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre *</label>
                 <input
                   type="text"
-                  value={showEditProducer ? editProducerName : newProducer}
-                  onChange={(e) => showEditProducer ? setEditProducerName(e.target.value) : setNewProducer(e.target.value)}
+                  value={newProducer.name}
+                  onChange={(e) => setNewProducer({ ...newProducer, name: e.target.value })}
                   placeholder="Nombre de la productora"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
-                  autoFocus
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                 />
               </div>
-
               <button
                 onClick={showEditProducer ? handleEditProducer : handleCreateProducer}
-                disabled={saving || (showEditProducer ? !editProducerName.trim() : !newProducer.trim())}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={saving || !newProducer.name.trim()}
+                className="w-full px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {saving ? "Guardando..." : showEditProducer ? "Guardar cambios" : "Crear productora"}
               </button>
@@ -1530,53 +1242,50 @@ export default function AdminDashboard() {
       {/* Assign User Modal */}
       {showAssignUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-slate-900">Asignar usuario al proyecto</h3>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Asignar usuario</h3>
               <button
                 onClick={() => {
                   setShowAssignUser(null);
-                  setAssignUserForm({ userId: "", role: "" });
+                  setAssignUserForm({ odId: "", role: "" });
                 }}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Usuario *</label>
                 <select
-                  value={assignUserForm.userId}
-                  onChange={(e) => setAssignUserForm({ ...assignUserForm, userId: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  value={assignUserForm.odId}
+                  onChange={(e) => setAssignUserForm({ ...assignUserForm, odId: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                 >
                   <option value="">Seleccionar usuario</option>
-                  {users.map(user => (
+                  {users.map((user) => (
                     <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Rol en el proyecto *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Rol *</label>
                 <select
                   value={assignUserForm.role}
                   onChange={(e) => setAssignUserForm({ ...assignUserForm, role: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                 >
                   <option value="">Seleccionar rol</option>
-                  {PROJECT_ROLES.map(role => (
+                  {PROJECT_ROLES.map((role) => (
                     <option key={role} value={role}>{role}</option>
                   ))}
                 </select>
               </div>
-
               <button
                 onClick={handleAssignUser}
-                disabled={saving || !assignUserForm.userId || !assignUserForm.role}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={saving || !assignUserForm.odId || !assignUserForm.role}
+                className="w-full px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {saving ? "Asignando..." : "Asignar usuario"}
               </button>
@@ -1587,51 +1296,54 @@ export default function AdminDashboard() {
 
       {/* User Details Modal */}
       {showUserDetails && (() => {
-        const user = users.find(u => u.id === showUserDetails);
+        const user = users.find((u) => u.id === showUserDetails);
         if (!user) return null;
-
         return (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-slate-900">Detalles del usuario</h3>
-                <button onClick={() => setShowUserDetails(null)} className="text-slate-400 hover:text-slate-600">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+                <h3 className="text-lg font-semibold text-slate-900">Detalles del usuario</h3>
+                <button
+                  onClick={() => setShowUserDetails(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
                   <X size={20} />
                 </button>
               </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-700">Nombre</p>
-                  <p className="text-slate-900">{user.name}</p>
+              <div className="p-6">
+                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200">
+                  <div className="w-16 h-16 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl flex items-center justify-center text-white text-2xl font-medium">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-900">{user.name}</h4>
+                    <p className="text-sm text-slate-500">{user.email}</p>
+                    <span className={`inline-block mt-2 text-xs font-medium px-2 py-1 rounded-lg ${
+                      user.role === "admin"
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-slate-100 text-slate-700"
+                    }`}>
+                      {user.role === "admin" ? "Administrador" : "Usuario"}
+                    </span>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-700">Email</p>
-                  <p className="text-slate-900">{user.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-700">Rol</p>
-                  <span className={`inline-block text-xs font-medium px-2 py-1 rounded ${
-                    user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-700"
-                  }`}>
-                    {user.role === "admin" ? "Administrador" : "Usuario"}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-700 mb-2">Proyectos asignados</p>
+                  <p className="text-sm font-semibold text-slate-700 mb-3">Proyectos asignados ({user.projectCount})</p>
                   {user.projects && user.projects.length > 0 ? (
                     <div className="space-y-2">
-                      {user.projects.map(project => (
-                        <div key={project.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
-                          <span className="text-sm text-slate-900">{project.name}</span>
-                          <span className="text-xs text-slate-600">
-                            {project.role || `${project.position} - ${project.department}`}
+                      {user.projects.map((project) => (
+                        <div key={project.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                          <span className="text-sm text-slate-900 font-medium">{project.name}</span>
+                          <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                            {project.role || project.position}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600">Sin proyectos asignados</p>
+                    <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
+                      <p className="text-sm text-slate-500">Sin proyectos asignados</p>
+                    </div>
                   )}
                 </div>
               </div>
