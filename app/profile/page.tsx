@@ -2,103 +2,109 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { 
-  User, 
-  Mail, 
-  ArrowLeft, 
-  CheckCircle, 
-  Lock, 
-  Eye, 
-  EyeOff, 
+import {
+  User,
+  Mail,
+  Save,
+  ArrowLeft,
+  CheckCircle,
+  Lock,
+  Eye,
+  EyeOff,
   Bell,
-  Shield,
-  Smartphone,
-  Globe,
-  AlertCircle,
-  Camera,
-  LogOut
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import {
-  onAuthStateChanged,
   updateProfile,
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  signOut,
 } from "firebase/auth";
+import { useUser } from "@/contexts/UserContext";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export default function ProfilePage() {
   const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, updateUserName } = useUser();
+  
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [activeTab, setActiveTab] = useState("profile");
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<"profile" | "password" | "notifications">("profile");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [formData, setFormData] = useState({ name: "", email: "" });
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+  });
+
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
-  const [showPassword, setShowPassword] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
+
   const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    pushNotifications: false,
+    email: true,
+    push: false,
     projectUpdates: true,
     teamInvites: true,
     weeklyDigest: false,
   });
 
-  const notificationLabels: Record<string, { label: string; description: string }> = {
-    emailNotifications: { label: "Notificaciones por email", description: "Recibe actualizaciones en tu correo" },
-    pushNotifications: { label: "Notificaciones push", description: "Alertas en tiempo real en tu navegador" },
-    projectUpdates: { label: "Actualizaciones de proyectos", description: "Cambios en proyectos donde participas" },
-    teamInvites: { label: "Invitaciones de equipo", description: "Cuando te invitan a un nuevo proyecto" },
-    weeklyDigest: { label: "Resumen semanal", description: "Un email con el resumen de la semana" },
-  };
-
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
-  };
-
+  // Sincronizar formData cuando el usuario se carga
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) return router.push("/");
-      setFormData({ name: user.displayName || "", email: user.email || "" });
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [router]);
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+      });
+    }
+  }, [user]);
+
+  // Redirigir si no hay usuario
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/");
+    }
+  }, [isLoading, user, router]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess(false);
     setSaving(true);
 
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        showToast("error", "No hay usuario autenticado");
-        return;
-      }
-      if (!formData.name.trim()) {
-        showToast("error", "El nombre no puede estar vacío");
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setError("No hay usuario autenticado");
+        setSaving(false);
         return;
       }
 
-      await updateProfile(user, { displayName: formData.name });
-      await user.reload();
-      showToast("success", "Perfil actualizado correctamente");
-    } catch (err: any) {
-      showToast("error", err.message);
+      if (!formData.name.trim()) {
+        setError("El nombre no puede estar vacío");
+        setSaving(false);
+        return;
+      }
+
+      // Actualizar en Firebase Auth
+      await updateProfile(currentUser, {
+        displayName: formData.name.trim(),
+      });
+
+      // Actualizar el contexto inmediatamente (sin esperar a Firebase)
+      updateUserName(formData.name.trim());
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (error: any) {
+      console.error("Error al actualizar perfil:", error);
+      setError(error.message || "Error al actualizar el perfil");
     } finally {
       setSaving(false);
     }
@@ -106,36 +112,54 @@ export default function ProfilePage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess(false);
     setSaving(true);
 
     try {
-      const user = auth.currentUser;
-      if (!user || !user.email) {
-        showToast("error", "No hay usuario autenticado");
+      const currentUser = auth.currentUser;
+      if (!currentUser || !currentUser.email) {
+        setError("No hay usuario autenticado");
+        setSaving(false);
         return;
       }
 
       if (passwordData.newPassword.length < 6) {
-        showToast("error", "La nueva contraseña debe tener al menos 6 caracteres");
+        setError("La nueva contraseña debe tener al menos 6 caracteres");
+        setSaving(false);
         return;
       }
 
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-        showToast("error", "Las contraseñas no coinciden");
+        setError("Las contraseñas no coinciden");
+        setSaving(false);
         return;
       }
 
-      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, passwordData.newPassword);
+      // Reautenticar al usuario
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        passwordData.currentPassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
 
-      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      showToast("success", "Contraseña actualizada correctamente");
-    } catch (err: any) {
-      if (err.code === "auth/wrong-password") {
-        showToast("error", "La contraseña actual es incorrecta");
+      // Cambiar contraseña
+      await updatePassword(currentUser, passwordData.newPassword);
+
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (error: any) {
+      console.error("Error al cambiar contraseña:", error);
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        setError("La contraseña actual es incorrecta");
       } else {
-        showToast("error", err.message);
+        setError(error.message || "Error al cambiar la contraseña");
       }
     } finally {
       setSaving(false);
@@ -144,342 +168,449 @@ export default function ProfilePage() {
 
   const handleNotificationsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess(false);
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setSaving(false);
-    showToast("success", "Preferencias guardadas");
-  };
 
-  const handleLogout = async () => {
     try {
-      await signOut(auth);
-      router.push("/");
-    } catch (err) {
-      showToast("error", "Error al cerrar sesión");
+      // Aquí guardarías las preferencias en Firebase/Firestore
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (error: any) {
+      console.error("Error al guardar notificaciones:", error);
+      setError(error.message || "Error al guardar las preferencias");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const tabs = [
-    { key: "profile", label: "Perfil", icon: User },
-    { key: "password", label: "Seguridad", icon: Shield },
-    { key: "notifications", label: "Notificaciones", icon: Bell },
-  ];
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+      <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+        <main className="pt-28 pb-16 px-6 md:px-12 flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-slate-300 border-t-slate-700 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-600 text-sm">Cargando perfil...</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen bg-white ${inter.className}`}>
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${
-          toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"
-        }`}>
-          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-          {toast.message}
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+    <div className={`flex flex-col min-h-screen bg-white ${inter.className}`}>
+      <main className="mt-[4.5rem] py-8 px-6 md:px-12 flex-grow">
+        <div className="max-w-3xl mx-auto">
           <button
             onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors mb-6"
           >
-            <ArrowLeft size={16} />
-            Volver a Proyectos
+            <ArrowLeft size={18} />
+            <span className="text-sm font-medium">Volver al dashboard</span>
           </button>
 
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl flex items-center justify-center text-white text-xl font-semibold">
-                  {formData.name?.[0]?.toUpperCase() || "U"}
-                </div>
-                <button className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors">
-                  <Camera size={12} className="text-slate-500" />
-                </button>
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{formData.name || "Usuario"}</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{formData.email}</p>
-              </div>
-            </div>
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 tracking-tight mb-2">
+              Configuración
+            </h1>
+            <p className="text-slate-600">
+              Administra tu información personal y preferencias
+            </p>
+          </header>
 
+          {/* Tabs */}
+          <div className="bg-white rounded-2xl border border-slate-200 mb-6 p-1.5 inline-flex gap-1">
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-xl text-sm font-medium transition-colors"
+              onClick={() => setActiveTab("profile")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === "profile"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
             >
-              <LogOut size={16} />
-              Cerrar sesión
+              <User size={16} />
+              Perfil
+            </button>
+            <button
+              onClick={() => setActiveTab("password")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === "password"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <Lock size={16} />
+              Contraseña
+            </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === "notifications"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <Bell size={16} />
+              Notificaciones
             </button>
           </div>
-        </div>
-      </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar Navigation */}
-          <div className="w-64 flex-shrink-0">
-            <nav className="space-y-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Icon size={18} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Quick Stats */}
-            <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-xs text-slate-400 uppercase tracking-wider font-medium mb-3">Tu cuenta</p>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                    <CheckCircle size={14} className="text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Estado</p>
-                    <p className="text-sm font-medium text-slate-900">Verificado</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Globe size={14} className="text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Idioma</p>
-                    <p className="text-sm font-medium text-slate-900">Español</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
-                    <Smartphone size={14} className="text-violet-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Sesiones activas</p>
-                    <p className="text-sm font-medium text-slate-900">1 dispositivo</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1">
-            {/* PERFIL */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 md:p-10">
+            {/* Tab: Perfil */}
             {activeTab === "profile" && (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Información personal</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">Actualiza tu información de perfil</p>
+              <>
+                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-200">
+                  <div className="bg-gradient-to-br from-slate-700 to-slate-900 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-md">
+                    <User size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Información del perfil
+                    </h2>
+                    <p className="text-sm text-slate-600">
+                      Actualiza tu información personal
+                    </p>
+                  </div>
                 </div>
 
-                <form onSubmit={handleProfileSubmit} className="p-6 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                        Nombre completo
-                      </label>
+                <form onSubmit={handleProfileSubmit} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Nombre completo
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <User size={18} className="text-slate-400" />
+                      </div>
                       <input
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        placeholder="Tu nombre"
+                        placeholder="Tu nombre completo"
+                        disabled={saving}
+                        className="w-full border border-slate-200 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 rounded-xl pl-11 pr-4 py-3 text-sm bg-white outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                        Correo electrónico
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="email"
-                          disabled
-                          value={formData.email}
-                          className="w-full px-4 py-3 border border-slate-200 bg-slate-50 rounded-xl text-sm text-slate-500 pr-10"
-                        />
-                        <Lock size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1.5">El correo no se puede cambiar</p>
-                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Este es el nombre que se mostrará en toda la aplicación
+                    </p>
                   </div>
 
-                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Correo electrónico
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Mail size={18} className="text-slate-400" />
+                      </div>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        disabled
+                        className="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm bg-slate-50 outline-none cursor-not-allowed text-slate-500"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      El correo electrónico no se puede modificar
+                    </p>
+                  </div>
+
+                  {error && (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                      <CheckCircle size={18} className="text-emerald-600" />
+                      <p className="text-sm text-emerald-600 font-medium">
+                        Perfil actualizado correctamente
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-4">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
+                      <Save size={18} />
                       {saving ? "Guardando..." : "Guardar cambios"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard")}
+                      disabled={saving}
+                      className="px-6 py-3 rounded-xl font-medium text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Cancelar
                     </button>
                   </div>
                 </form>
-              </div>
+              </>
             )}
 
-            {/* SEGURIDAD */}
+            {/* Tab: Contraseña */}
             {activeTab === "password" && (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Cambiar contraseña</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">Asegúrate de usar una contraseña segura</p>
+              <>
+                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-200">
+                  <div className="bg-gradient-to-br from-slate-700 to-slate-900 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-md">
+                    <Lock size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Cambiar contraseña
+                    </h2>
+                    <p className="text-sm text-slate-600">
+                      Actualiza tu contraseña de acceso
+                    </p>
+                  </div>
                 </div>
 
-                <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
+                <form onSubmit={handlePasswordSubmit} className="space-y-6">
                   <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
                       Contraseña actual
                     </label>
                     <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock size={18} className="text-slate-400" />
+                      </div>
                       <input
-                        type={showPassword.current ? "text" : "password"}
+                        type={showCurrentPassword ? "text" : "password"}
                         value={passwordData.currentPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
-                        placeholder="••••••••"
+                        placeholder="Tu contraseña actual"
+                        disabled={saving}
+                        className="w-full border border-slate-200 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 rounded-xl pl-11 pr-12 py-3 text-sm bg-white outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
-                        onClick={() => setShowPassword({ ...showPassword, current: !showPassword.current })}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                       >
-                        {showPassword.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                        Nueva contraseña
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword.new ? "text" : "password"}
-                          value={passwordData.newPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
-                          placeholder="••••••••"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Nueva contraseña
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock size={18} className="text-slate-400" />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                        Confirmar contraseña
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword.confirm ? "text" : "password"}
-                          value={passwordData.confirmPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm pr-12"
-                          placeholder="••••••••"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                        placeholder="Nueva contraseña (mínimo 6 caracteres)"
+                        disabled={saving}
+                        className="w-full border border-slate-200 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 rounded-xl pl-11 pr-12 py-3 text-sm bg-white outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-sm text-amber-800">
-                      <strong>Consejo:</strong> Usa al menos 8 caracteres con una combinación de letras, números y símbolos.
-                    </p>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-slate-700">
+                      Confirmar nueva contraseña
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Lock size={18} className="text-slate-400" />
+                      </div>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                        placeholder="Confirma tu nueva contraseña"
+                        disabled={saving}
+                        className="w-full border border-slate-200 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 rounded-xl pl-11 pr-12 py-3 text-sm bg-white outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                  {error && (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                      <CheckCircle size={18} className="text-emerald-600" />
+                      <p className="text-sm text-emerald-600 font-medium">
+                        Contraseña actualizada correctamente
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-4">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
-                      {saving ? "Actualizando..." : "Actualizar contraseña"}
+                      <Save size={18} />
+                      {saving ? "Guardando..." : "Cambiar contraseña"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                        setError("");
+                      }}
+                      disabled={saving}
+                      className="px-6 py-3 rounded-xl font-medium text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Limpiar
                     </button>
                   </div>
                 </form>
-              </div>
+              </>
             )}
 
-            {/* NOTIFICACIONES */}
+            {/* Tab: Notificaciones */}
             {activeTab === "notifications" && (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Preferencias de notificaciones</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">Elige qué notificaciones quieres recibir</p>
+              <>
+                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-200">
+                  <div className="bg-gradient-to-br from-slate-700 to-slate-900 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-md">
+                    <Bell size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Preferencias de notificaciones
+                    </h2>
+                    <p className="text-sm text-slate-600">
+                      Controla cómo y cuándo recibes notificaciones
+                    </p>
+                  </div>
                 </div>
 
-                <form onSubmit={handleNotificationsSubmit} className="p-6">
-                  <div className="divide-y divide-slate-100">
-                    {Object.entries(notifications).map(([key, value]) => {
-                      const config = notificationLabels[key];
-                      return (
-                        <label key={key} className="flex items-center justify-between py-4 cursor-pointer group">
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 group-hover:text-slate-700 transition-colors">
-                              {config.label}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">{config.description}</p>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={value}
-                              onChange={() => setNotifications({ ...notifications, [key]: !value })}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-slate-900 transition-colors" />
-                            <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm peer-checked:translate-x-5 transition-transform" />
-                          </div>
+                <form onSubmit={handleNotificationsSubmit} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className="flex items-start gap-3">
+                        <Mail size={20} className="text-slate-600 mt-0.5" />
+                        <div>
+                          <h3 className="font-medium text-slate-900">Notificaciones por email</h3>
+                          <p className="text-sm text-slate-600">Recibe actualizaciones en tu correo</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notifications.email}
+                          onChange={(e) => setNotifications({ ...notifications, email: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-slate-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className="flex items-start gap-3">
+                        <Bell size={20} className="text-slate-600 mt-0.5" />
+                        <div>
+                          <h3 className="font-medium text-slate-900">Notificaciones push</h3>
+                          <p className="text-sm text-slate-600">Recibe alertas en tiempo real</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notifications.push}
+                          onChange={(e) => setNotifications({ ...notifications, push: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-slate-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                      </label>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-4 mt-6">
+                      <h3 className="text-sm font-semibold text-slate-900 mb-4">Tipos de notificaciones</h3>
+                      <div className="space-y-3">
+                        <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer">
+                          <span className="text-sm text-slate-700">Actualizaciones de proyectos</span>
+                          <input
+                            type="checkbox"
+                            checked={notifications.projectUpdates}
+                            onChange={(e) => setNotifications({ ...notifications, projectUpdates: e.target.checked })}
+                            className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                          />
                         </label>
-                      );
-                    })}
+                        <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer">
+                          <span className="text-sm text-slate-700">Invitaciones a equipos</span>
+                          <input
+                            type="checkbox"
+                            checked={notifications.teamInvites}
+                            onChange={(e) => setNotifications({ ...notifications, teamInvites: e.target.checked })}
+                            className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                          />
+                        </label>
+                        <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer">
+                          <span className="text-sm text-slate-700">Resumen semanal</span>
+                          <input
+                            type="checkbox"
+                            checked={notifications.weeklyDigest}
+                            onChange={(e) => setNotifications({ ...notifications, weeklyDigest: e.target.checked })}
+                            className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                          />
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex justify-end pt-6 mt-4 border-t border-slate-100">
+                  {error && (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                      <CheckCircle size={18} className="text-emerald-600" />
+                      <p className="text-sm text-emerald-600 font-medium">
+                        Preferencias guardadas correctamente
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-4">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
+                      <Save size={18} />
                       {saving ? "Guardando..." : "Guardar preferencias"}
                     </button>
                   </div>
                 </form>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -487,4 +618,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
