@@ -47,11 +47,12 @@ export default function TeamPage() {
             className="inline-flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft size={16} />
-            <span>Volver a proyectos</span>
+            <span>Volver a Proyectos</span>
           </Link>
         </div>
       </main>
     </div>
   );
 }
+
 
