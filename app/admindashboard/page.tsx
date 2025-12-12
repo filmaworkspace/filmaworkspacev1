@@ -2,30 +2,53 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore";
-import { LayoutDashboard, FolderPlus, Users, Building2, Search, X, Edit2, Trash2, UserPlus, Briefcase, CheckCircle, AlertCircle, Shield, Plus, Eye, ExternalLink, ChevronDown, ChevronUp, RefreshCw, Clock } from "lucide-react";
+import {
+  LayoutDashboard,
+  FolderPlus,
+  Users,
+  Building2,
+  Search,
+  X,
+  Edit2,
+  Trash2,
+  UserPlus,
+  Briefcase,
+  CheckCircle,
+  AlertCircle,
+  Shield,
+  Plus,
+  Eye,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Clock,
+  LayoutGrid,
+  List,
+  FolderOpen,
+  Folder,
+} from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
-const PHASE_COLORS: Record<string, string> = {
-  Desarrollo: "bg-sky-100 text-sky-700 border-sky-200",
-  Preproducción: "bg-amber-100 text-amber-700 border-amber-200",
-  Rodaje: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  Postproducción: "bg-purple-100 text-purple-700 border-purple-200",
-  Finalizado: "bg-emerald-100 text-emerald-700 border-emerald-200",
+
+const phaseColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  Desarrollo: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", dot: "bg-sky-500" },
+  Preproducción: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
+  Rodaje: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+  Postproducción: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
+  Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
 };
-const PHASE_DOT_COLORS: Record<string, string> = {
-  Desarrollo: "bg-sky-500",
-  Preproducción: "bg-amber-500",
-  Rodaje: "bg-indigo-500",
-  Postproducción: "bg-purple-500",
-  Finalizado: "bg-emerald-500",
-};
+
 const PROJECT_ROLES = ["EP", "PM", "Controller", "PC", "Supervisor"];
+
 const DEFAULT_DEPARTMENTS = [
   { name: "Producción", color: "#3B82F6" },
   { name: "Dirección", color: "#8B5CF6" },
@@ -48,6 +71,7 @@ interface Project {
   memberCount: number;
   members?: Member[];
 }
+
 interface Member {
   odId: string;
   name: string;
@@ -55,6 +79,7 @@ interface Member {
   role?: string;
   position?: string;
 }
+
 interface User {
   id: string;
   name: string;
@@ -63,12 +88,14 @@ interface User {
   projectCount: number;
   projects: UserProject[];
 }
+
 interface UserProject {
   id: string;
   name: string;
   role?: string;
   position?: string;
 }
+
 interface Producer {
   id: string;
   name: string;
@@ -78,11 +105,11 @@ interface Producer {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user: contextUser, isLoading: userLoading } = useUser();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "projects" | "users" | "producers">("overview");
+  const [activeTab, setActiveTab] = useState<"projects" | "users" | "producers">("projects");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -93,6 +120,8 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("all");
   const [producerSearch, setProducerSearch] = useState("");
+
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showCreateProducer, setShowCreateProducer] = useState(false);
@@ -106,29 +135,23 @@ export default function AdminDashboard() {
   const [assignUserForm, setAssignUserForm] = useState({ odId: "", role: "" });
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Auth check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) { router.push("/"); return; }
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        if (userData?.role !== "admin") { router.push("/dashboard"); return; }
-        setUserId(user.uid);
-        setUserName(userData?.name || user.email || "Admin");
-      } catch (error) {
-        console.error(error);
-        router.push("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (!userLoading && (!contextUser || contextUser.role !== "admin")) {
+      router.push("/dashboard");
+    }
+  }, [contextUser, userLoading, router]);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const loadData = async () => {
-    if (!userId) return;
+    if (!contextUser?.uid) return;
     try {
       // Load producers
       const producersSnap = await getDocs(collection(db, "producers"));
@@ -168,7 +191,6 @@ export default function AdminDashboard() {
         })
       );
 
-      // Update producer project counts
       producersData.forEach((p) => {
         p.projectCount = projectsData.filter((pr) => pr.producers?.includes(p.id)).length;
       });
@@ -209,36 +231,28 @@ export default function AdminDashboard() {
       setRefreshing(false);
     } catch (error) {
       console.error(error);
-      setErrorMessage("Error al cargar los datos");
+      showToast("error", "Error al cargar los datos");
       setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [userId]);
-
-  const showSuccess = (msg: string) => {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
-
-  const showError = (msg: string) => {
-    setErrorMessage(msg);
-    setTimeout(() => setErrorMessage(""), 5000);
-  };
+    if (contextUser?.uid) {
+      loadData();
+    }
+  }, [contextUser?.uid]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
-    showSuccess("Datos actualizados");
+    showToast("success", "Datos actualizados");
   };
 
   // Project handlers
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
-      showError("El nombre es obligatorio");
+      showToast("error", "El nombre es obligatorio");
       return;
     }
     setSaving(true);
@@ -251,18 +265,17 @@ export default function AdminDashboard() {
         producers: newProject.producers,
         createdAt: serverTimestamp(),
       });
-      // Create default departments
       for (const dept of DEFAULT_DEPARTMENTS) {
         const deptRef = doc(collection(db, `projects/${projectRef.id}/departments`));
         await setDoc(deptRef, { name: dept.name, color: dept.color, createdAt: serverTimestamp() });
       }
       setNewProject({ name: "", description: "", phase: "Desarrollo", producers: [] });
       setShowCreateProject(false);
-      showSuccess("Proyecto creado correctamente");
+      showToast("success", "Proyecto creado correctamente");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al crear el proyecto");
+      showToast("error", "Error al crear el proyecto");
     } finally {
       setSaving(false);
     }
@@ -279,11 +292,11 @@ export default function AdminDashboard() {
         producers: newProject.producers,
       });
       setShowEditProject(null);
-      showSuccess("Proyecto actualizado");
+      showToast("success", "Proyecto actualizado");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al actualizar");
+      showToast("error", "Error al actualizar");
     } finally {
       setSaving(false);
     }
@@ -295,23 +308,21 @@ export default function AdminDashboard() {
     if (!confirm(`¿Eliminar "${project.name}"? Esta acción no se puede deshacer.`)) return;
     setSaving(true);
     try {
-      // Remove members from userProjects
       const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
       for (const memberDoc of membersSnap.docs) {
         await deleteDoc(doc(db, `userProjects/${memberDoc.id}/projects/${projectId}`));
         await deleteDoc(memberDoc.ref);
       }
-      // Delete departments
       const deptsSnap = await getDocs(collection(db, `projects/${projectId}/departments`));
       for (const deptDoc of deptsSnap.docs) {
         await deleteDoc(deptDoc.ref);
       }
       await deleteDoc(doc(db, "projects", projectId));
-      showSuccess("Proyecto eliminado");
+      showToast("success", "Proyecto eliminado");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al eliminar");
+      showToast("error", "Error al eliminar");
     } finally {
       setSaving(false);
     }
@@ -320,7 +331,7 @@ export default function AdminDashboard() {
   // Producer handlers
   const handleCreateProducer = async () => {
     if (!newProducer.name.trim()) {
-      showError("El nombre es obligatorio");
+      showToast("error", "El nombre es obligatorio");
       return;
     }
     setSaving(true);
@@ -329,11 +340,11 @@ export default function AdminDashboard() {
       await setDoc(producerRef, { name: newProducer.name.trim(), createdAt: serverTimestamp() });
       setNewProducer({ name: "" });
       setShowCreateProducer(false);
-      showSuccess("Productora creada");
+      showToast("success", "Productora creada");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al crear");
+      showToast("error", "Error al crear");
     } finally {
       setSaving(false);
     }
@@ -346,11 +357,11 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, "producers", showEditProducer), { name: newProducer.name.trim() });
       setShowEditProducer(null);
       setNewProducer({ name: "" });
-      showSuccess("Productora actualizada");
+      showToast("success", "Productora actualizada");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al actualizar");
+      showToast("error", "Error al actualizar");
     } finally {
       setSaving(false);
     }
@@ -360,18 +371,18 @@ export default function AdminDashboard() {
     const producer = producers.find((p) => p.id === producerId);
     if (!producer) return;
     if (producer.projectCount > 0) {
-      showError(`"${producer.name}" tiene proyectos asignados`);
+      showToast("error", `"${producer.name}" tiene proyectos asignados`);
       return;
     }
     if (!confirm(`¿Eliminar "${producer.name}"?`)) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, "producers", producerId));
-      showSuccess("Productora eliminada");
+      showToast("success", "Productora eliminada");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al eliminar");
+      showToast("error", "Error al eliminar");
     } finally {
       setSaving(false);
     }
@@ -380,7 +391,7 @@ export default function AdminDashboard() {
   // User handlers
   const handleAssignUser = async () => {
     if (!assignUserForm.odId || !assignUserForm.role || !showAssignUser) {
-      showError("Selecciona usuario y rol");
+      showToast("error", "Selecciona usuario y rol");
       return;
     }
     setSaving(true);
@@ -389,7 +400,7 @@ export default function AdminDashboard() {
       const project = projects.find((p) => p.id === showAssignUser);
       if (!user || !project) return;
       if (project.members?.some((m) => m.odId === user.id)) {
-        showError("Usuario ya asignado a este proyecto");
+        showToast("error", "Usuario ya asignado a este proyecto");
         setSaving(false);
         return;
       }
@@ -409,11 +420,11 @@ export default function AdminDashboard() {
       });
       setAssignUserForm({ odId: "", role: "" });
       setShowAssignUser(null);
-      showSuccess("Usuario asignado correctamente");
+      showToast("success", "Usuario asignado correctamente");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al asignar");
+      showToast("error", "Error al asignar");
     } finally {
       setSaving(false);
     }
@@ -425,11 +436,11 @@ export default function AdminDashboard() {
     try {
       await deleteDoc(doc(db, `projects/${projectId}/members`, odId));
       await deleteDoc(doc(db, `userProjects/${odId}/projects/${projectId}`));
-      showSuccess("Usuario eliminado del proyecto");
+      showToast("success", "Usuario eliminado del proyecto");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al eliminar");
+      showToast("error", "Error al eliminar");
     } finally {
       setSaving(false);
     }
@@ -441,11 +452,11 @@ export default function AdminDashboard() {
     setSaving(true);
     try {
       await updateDoc(doc(db, "users", odId), { role: newRole });
-      showSuccess("Rol actualizado");
+      showToast("success", "Rol actualizado");
       await loadData();
     } catch (error) {
       console.error(error);
-      showError("Error al actualizar");
+      showToast("error", "Error al actualizar");
     } finally {
       setSaving(false);
     }
@@ -473,7 +484,14 @@ export default function AdminDashboard() {
 
   const filteredProducers = producers.filter((p) => p.name.toLowerCase().includes(producerSearch.toLowerCase()));
 
-  if (loading) {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Buenos días";
+    if (hour < 20) return "Buenas tardes";
+    return "Buenas noches";
+  };
+
+  if (loading || userLoading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
@@ -486,96 +504,88 @@ export default function AdminDashboard() {
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-20 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 ${
+          toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {toast.message}
+        </div>
+      )}
+
       {/* Header */}
-      <div className="mt-[4.5rem] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="mt-[4.5rem] bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
-                <Shield size={28} className="text-white" />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Shield size={16} className="text-purple-600" />
+                <p className="text-sm text-purple-600 font-medium">Panel de administración</p>
               </div>
-              <div>
-                <p className="text-white/60 text-sm font-medium uppercase tracking-wider mb-1">Panel de administración</p>
-                <h1 className="text-2xl font-semibold">Hola, {userName.split(" ")[0]}</h1>
-              </div>
+              <h1 className={`text-3xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
+                {getGreeting()}, {contextUser?.name?.split(' ')[0]}
+              </h1>
             </div>
+
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-xl text-sm font-medium transition-all border border-white/10 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
             >
               <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
               {refreshing ? "..." : "Refrescar"}
             </button>
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                  <Briefcase size={20} className="text-blue-400" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Briefcase size={16} className="text-blue-600" />
                 </div>
-                <span className="text-2xl font-bold text-white">{projects.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{projects.length}</span>
               </div>
-              <p className="text-sm text-white/60">Proyectos</p>
-              <p className="text-xs text-emerald-400 mt-1">{activeProjects} activos</p>
+              <p className="text-sm text-slate-500">Proyectos</p>
+              <p className="text-xs text-emerald-600 mt-1">{activeProjects} activos</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                  <Users size={20} className="text-purple-400" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Users size={16} className="text-purple-600" />
                 </div>
-                <span className="text-2xl font-bold text-white">{users.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{users.length}</span>
               </div>
-              <p className="text-sm text-white/60">Usuarios</p>
-              <p className="text-xs text-purple-400 mt-1">{adminUsers} admins</p>
+              <p className="text-sm text-slate-500">Usuarios</p>
+              <p className="text-xs text-purple-600 mt-1">{adminUsers} admins</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
-                  <Building2 size={20} className="text-amber-400" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <Building2 size={16} className="text-amber-600" />
                 </div>
-                <span className="text-2xl font-bold text-white">{producers.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{producers.length}</span>
               </div>
-              <p className="text-sm text-white/60">Productoras</p>
+              <p className="text-sm text-slate-500">Productoras</p>
             </div>
-            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                  <Users size={20} className="text-emerald-400" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <Users size={16} className="text-emerald-600" />
                 </div>
-                <span className="text-2xl font-bold text-white">{projects.reduce((acc, p) => acc + p.memberCount, 0)}</span>
+                <span className="text-2xl font-bold text-slate-900">{projects.reduce((acc, p) => acc + p.memberCount, 0)}</span>
               </div>
-              <p className="text-sm text-white/60">Asignaciones</p>
+              <p className="text-sm text-slate-500">Asignaciones</p>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 -mt-6">
-        {/* Messages */}
-        {successMessage && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700">
-            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <CheckCircle size={18} />
-            </div>
-            <span className="font-medium">{successMessage}</span>
-          </div>
-        )}
-        {errorMessage && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
-            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertCircle size={18} />
-            </div>
-            <span className="font-medium">{errorMessage}</span>
-          </div>
-        )}
-
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {/* Tabs */}
-        <div className="bg-white rounded-2xl border border-slate-200 mb-6 p-1.5 inline-flex gap-1 flex-wrap">
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-6">
           {[
-            { id: "overview", label: "Vista general", icon: LayoutDashboard },
             { id: "projects", label: "Proyectos", icon: Briefcase, count: projects.length },
             { id: "users", label: "Usuarios", icon: Users, count: users.length },
             { id: "producers", label: "Productoras", icon: Building2, count: producers.length },
@@ -583,492 +593,370 @@ export default function AdminDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === tab.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === tab.id ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <tab.icon size={16} />
               {tab.label}
-              {tab.count !== undefined && (
-                <span className={`px-1.5 py-0.5 rounded-md text-xs ${activeTab === tab.id ? "bg-white/20" : "bg-slate-100"}`}>
-                  {tab.count}
-                </span>
-              )}
+              <span className={`px-1.5 py-0.5 rounded text-xs ${activeTab === tab.id ? "bg-slate-100" : "bg-slate-200/50"}`}>
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Content */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          {/* Overview Tab */}
-          {activeTab === "overview" && (
-            <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Projects */}
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                      <Clock size={18} className="text-slate-400" />
-                      Últimos proyectos
-                    </h3>
-                    <button onClick={() => setActiveTab("projects")} className="text-sm text-slate-500 hover:text-slate-900 font-medium">
-                      Ver todos →
-                    </button>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {projects.slice(0, 5).map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-2.5 h-2.5 rounded-full ${PHASE_DOT_COLORS[project.phase]}`} />
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{project.name}</p>
-                            <p className="text-xs text-slate-500">{project.producerNames?.join(", ") || "Sin productora"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${PHASE_COLORS[project.phase]}`}>
-                            {project.phase}
-                          </span>
-                          <Link href={`/project/${project.id}/config`} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all">
-                            <ExternalLink size={16} />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                    {projects.length === 0 && (
-                      <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                          <Briefcase size={20} className="text-slate-400" />
-                        </div>
-                        <p className="text-sm text-slate-500">No hay proyectos todavía</p>
-                      </div>
-                    )}
-                  </div>
+        {/* Projects Tab */}
+        {activeTab === "projects" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
+                <div className="relative flex-1 max-w-md">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar proyectos..."
+                    value={projectSearch}
+                    onChange={(e) => setProjectSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                  />
                 </div>
-
-                {/* Recent Users */}
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                      <Users size={18} className="text-slate-400" />
-                      Últimos usuarios
-                    </h3>
-                    <button onClick={() => setActiveTab("users")} className="text-sm text-slate-500 hover:text-slate-900 font-medium">
-                      Ver todos →
-                    </button>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {users.slice(0, 5).map((user) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-medium">
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                            <p className="text-xs text-slate-500">{user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {user.role === "admin" && (
-                            <span className="text-xs font-medium px-2 py-1 rounded-lg bg-purple-100 text-purple-700 border border-purple-200">
-                              Admin
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-500">{user.projectCount} proy.</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <select
+                  value={projectPhaseFilter}
+                  onChange={(e) => setProjectPhaseFilter(e.target.value)}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                >
+                  <option value="all">Todas las fases</option>
+                  {PHASES.map((phase) => (
+                    <option key={phase} value={phase}>{phase}</option>
+                  ))}
+                </select>
               </div>
-
-              {/* Projects by Phase */}
-              <div className="mt-8 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h3 className="font-semibold text-slate-900">Distribución por fase</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-5 gap-4">
-                    {PHASES.map((phase) => {
-                      const count = projects.filter((p) => p.phase === phase).length;
-                      const percentage = projects.length > 0 ? (count / projects.length) * 100 : 0;
-                      return (
-                        <div key={phase} className="text-center">
-                          <div className="relative h-28 bg-slate-100 rounded-xl overflow-hidden mb-3">
-                            <div
-                              className={`absolute bottom-0 left-0 right-0 ${PHASE_DOT_COLORS[phase]} transition-all duration-500`}
-                              style={{ height: `${Math.max(percentage, 8)}%` }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-2xl font-bold text-slate-900">{count}</span>
-                            </div>
-                          </div>
-                          <p className="text-xs font-medium text-slate-600">{phase}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Projects Tab */}
-          {activeTab === "projects" && (
-            <div>
-              <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-                <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
-                  <div className="relative flex-1 max-w-md">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar proyectos..."
-                      value={projectSearch}
-                      onChange={(e) => setProjectSearch(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
-                    />
-                  </div>
-                  <select
-                    value={projectPhaseFilter}
-                    onChange={(e) => setProjectPhaseFilter(e.target.value)}
-                    className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
                   >
-                    <option value="all">Todas las fases</option>
-                    {PHASES.map((phase) => (
-                      <option key={phase} value={phase}>{phase}</option>
-                    ))}
-                  </select>
+                    <LayoutGrid size={16} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    <List size={16} />
+                  </button>
                 </div>
                 <button
                   onClick={() => setShowCreateProject(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
                 >
                   <FolderPlus size={16} />
                   Crear proyecto
                 </button>
               </div>
-
-              {filteredProjects.length === 0 ? (
-                <div className="p-16 text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Briefcase size={32} className="text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay proyectos</h3>
-                  <p className="text-slate-500 text-sm mb-6">
-                    {projectSearch || projectPhaseFilter !== "all"
-                      ? "No se encontraron proyectos con los filtros aplicados"
-                      : "Crea tu primer proyecto para empezar"}
-                  </p>
-                  <button
-                    onClick={() => setShowCreateProject(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
-                  >
-                    <FolderPlus size={16} />
-                    Crear proyecto
-                  </button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase w-8" />
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Proyecto</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Productoras</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Fase</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Miembros</th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProjects.map((project) => {
-                        const isExpanded = expandedProjects.has(project.id);
-                        return (
-                          <React.Fragment key={project.id}>
-                            <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                              <td className="py-3 px-4">
-                                {project.memberCount > 0 && (
-                                  <button
-                                    onClick={() => toggleProjectExpand(project.id)}
-                                    className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded"
-                                  >
-                                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                  </button>
-                                )}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div>
-                                  <p className="text-sm font-medium text-slate-900">{project.name}</p>
-                                  {project.description && (
-                                    <p className="text-xs text-slate-500 line-clamp-1">{project.description}</p>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                {project.producerNames && project.producerNames.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {project.producerNames.slice(0, 2).map((name, idx) => (
-                                      <span key={idx} className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-200">
-                                        {name}
-                                      </span>
-                                    ))}
-                                    {project.producerNames.length > 2 && (
-                                      <span className="text-xs text-slate-500">+{project.producerNames.length - 2}</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-slate-400">Sin productora</span>
-                                )}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${PHASE_COLORS[project.phase]}`}>
-                                  {project.phase}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-sm font-medium text-slate-700">
-                                  {project.memberCount}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Link
-                                    href={`/project/${project.id}/config`}
-                                    className="text-slate-400 hover:text-slate-700 p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                    title="Ver proyecto"
-                                  >
-                                    <ExternalLink size={16} />
-                                  </Link>
-                                  <button
-                                    onClick={() => {
-                                      setNewProject({
-                                        name: project.name,
-                                        description: project.description || "",
-                                        phase: project.phase,
-                                        producers: project.producers || [],
-                                      });
-                                      setShowEditProject(project.id);
-                                    }}
-                                    className="text-slate-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                                    title="Editar"
-                                  >
-                                    <Edit2 size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => setShowAssignUser(project.id)}
-                                    className="text-slate-400 hover:text-emerald-600 p-2 hover:bg-emerald-50 rounded-lg transition-colors"
-                                    title="Asignar usuario"
-                                  >
-                                    <UserPlus size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteProject(project.id)}
-                                    disabled={saving}
-                                    className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Eliminar"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                            {isExpanded && project.members && project.members.length > 0 && (
-                              <tr>
-                                <td colSpan={6} className="bg-slate-50 px-4 py-4">
-                                  <div className="pl-8">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-3">Miembros del proyecto</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                      {project.members.map((member) => (
-                                        <div key={member.odId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
-                                          <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-600 text-xs font-medium">
-                                              {member.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                              <p className="text-sm font-medium text-slate-900">{member.name}</p>
-                                              <p className="text-xs text-slate-500">{member.email}</p>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">
-                                              {member.role || member.position}
-                                            </span>
-                                            <button
-                                              onClick={() => handleRemoveUserFromProject(project.id, member.odId)}
-                                              disabled={saving}
-                                              className="text-slate-400 hover:text-red-600 p-1"
-                                            >
-                                              <Trash2 size={14} />
-                                            </button>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
-          )}
 
-          {/* Users Tab */}
-          {activeTab === "users" && (
-            <div>
-              <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3 items-start md:items-center">
-                <div className="relative flex-1 max-w-md">
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar usuarios..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
-                  />
-                </div>
-                <select
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
-                >
-                  <option value="all">Todos los roles</option>
-                  <option value="admin">Administradores</option>
-                  <option value="user">Usuarios</option>
-                </select>
-              </div>
-
-              {filteredUsers.length === 0 ? (
-                <div className="p-16 text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Users size={32} className="text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay usuarios</h3>
-                  <p className="text-slate-500 text-sm">No se encontraron usuarios</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Usuario</th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Rol</th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Proyectos</th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUsers.map((user) => (
-                        <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-medium">
-                                {user.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                                <p className="text-xs text-slate-500">{user.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${
-                              user.role === "admin"
-                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                : "bg-slate-50 text-slate-700 border-slate-200"
-                            }`}>
-                              {user.role === "admin" ? "Administrador" : "Usuario"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => setShowUserDetails(user.id)}
-                              className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
-                            >
-                              {user.projectCount} {user.projectCount === 1 ? "proyecto" : "proyectos"}
-                            </button>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => setShowUserDetails(user.id)}
-                                className="text-slate-400 hover:text-slate-700 p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Ver detalles"
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleToggleUserRole(user.id, user.role)}
-                                disabled={saving}
-                                className="text-slate-400 hover:text-purple-600 p-2 hover:bg-purple-50 rounded-lg transition-colors"
-                                title={user.role === "admin" ? "Quitar admin" : "Hacer admin"}
-                              >
-                                <Shield size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Producers Tab */}
-          {activeTab === "producers" && (
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="relative flex-1 max-w-md">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar productoras..."
-                      value={producerSearch}
-                      onChange={(e) => setProducerSearch(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
-                    />
-                  </div>
-                </div>
+            {filteredProjects.length === 0 ? (
+              <div className="text-center py-16">
+                <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm font-medium mb-2">No hay proyectos</p>
                 <button
-                  onClick={() => setShowCreateProducer(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+                  onClick={() => setShowCreateProject(true)}
+                  className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
                 >
-                  <Plus size={16} />
-                  Nueva productora
+                  Crear el primero
                 </button>
               </div>
+            ) : (
+              <div className="p-4">
+                <p className="text-xs text-slate-500 mb-4">{filteredProjects.length} proyectos</p>
 
-              {filteredProducers.length === 0 ? (
-                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
-                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Building2 size={32} className="text-slate-400" />
+                {viewMode === "grid" ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredProjects.map((project) => {
+                      const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+                      return (
+                        <div key={project.id} className="group bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 transition-all hover:shadow-md">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${phaseStyle.dot}`}></div>
+                              <h2 className="text-base font-semibold text-slate-900">{project.name}</h2>
+                            </div>
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} border ${phaseStyle.border}`}>
+                              {project.phase}
+                            </span>
+                          </div>
+
+                          {project.description && (
+                            <p className="text-xs text-slate-600 mb-3 line-clamp-2">{project.description}</p>
+                          )}
+
+                          {project.producerNames && project.producerNames.length > 0 && (
+                            <div className="flex items-center gap-1.5 mb-3">
+                              <Building2 size={12} className="text-amber-600" />
+                              <span className="text-xs text-slate-600">{project.producerNames.join(", ")}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 mb-4">
+                            <span className="text-xs text-slate-500 flex items-center gap-1">
+                              <Users size={12} />
+                              {project.memberCount} miembros
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2 pt-3 border-t border-slate-200">
+                            <Link href={`/project/${project.id}/config`} className="flex-1">
+                              <div className="flex items-center justify-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all text-slate-600 hover:text-slate-900">
+                                <ExternalLink size={14} />
+                                <span className="text-xs font-medium">Ver</span>
+                              </div>
+                            </Link>
+                            <button
+                              onClick={() => {
+                                setNewProject({
+                                  name: project.name,
+                                  description: project.description || "",
+                                  phase: project.phase,
+                                  producers: project.producers || [],
+                                });
+                                setShowEditProject(project.id);
+                              }}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => setShowAssignUser(project.id)}
+                              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200 rounded-lg transition-colors"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProject(project.id)}
+                              disabled={saving}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No hay productoras</h3>
-                  <p className="text-slate-500 text-sm mb-6">Crea tu primera productora para empezar</p>
-                  <button
-                    onClick={() => setShowCreateProducer(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
-                  >
-                    <Plus size={16} />
-                    Crear productora
-                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredProjects.map((project) => {
+                      const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+                      const isExpanded = expandedProjects.has(project.id);
+                      return (
+                        <div key={project.id}>
+                          <div className="group flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all hover:shadow-sm">
+                            <div className="flex items-center gap-4">
+                              {project.memberCount > 0 && (
+                                <button onClick={() => toggleProjectExpand(project.id)} className="text-slate-400 hover:text-slate-600">
+                                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+                              )}
+                              <div className={`w-2 h-10 rounded-full ${phaseStyle.dot}`}></div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h2 className="text-sm font-semibold text-slate-900">{project.name}</h2>
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text}`}>
+                                    {project.phase}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1">
+                                  {project.producerNames && (
+                                    <span className="text-xs text-slate-500">{project.producerNames.join(", ")}</span>
+                                  )}
+                                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                                    <Users size={11} />
+                                    {project.memberCount}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Link href={`/project/${project.id}/config`} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                                <ExternalLink size={16} />
+                              </Link>
+                              <button
+                                onClick={() => {
+                                  setNewProject({
+                                    name: project.name,
+                                    description: project.description || "",
+                                    phase: project.phase,
+                                    producers: project.producers || [],
+                                  });
+                                  setShowEditProject(project.id);
+                                }}
+                                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => setShowAssignUser(project.id)} className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg">
+                                <UserPlus size={16} />
+                              </button>
+                              <button onClick={() => handleDeleteProject(project.id)} disabled={saving} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {isExpanded && project.members && project.members.length > 0 && (
+                            <div className="ml-12 mt-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                              <p className="text-xs font-semibold text-slate-500 uppercase mb-3">Miembros</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {project.members.map((member) => (
+                                  <div key={member.odId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-600 text-xs font-medium">
+                                        {member.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium text-slate-900">{member.name}</p>
+                                        <p className="text-xs text-slate-500">{member.email}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">{member.role || member.position}</span>
+                                      <button onClick={() => handleRemoveUserFromProject(project.id, member.odId)} disabled={saving} className="text-slate-400 hover:text-red-600 p-1">
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === "users" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3 items-start md:items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar usuarios..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                />
+              </div>
+              <select
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+              >
+                <option value="all">Todos los roles</option>
+                <option value="admin">Administradores</option>
+                <option value="user">Usuarios</option>
+              </select>
+            </div>
+
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-16">
+                <Users size={32} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm font-medium">No hay usuarios</p>
+              </div>
+            ) : (
+              <div className="p-4">
+                <p className="text-xs text-slate-500 mb-4">{filteredUsers.length} usuarios</p>
+                <div className="space-y-2">
+                  {filteredUsers.map((user) => (
+                    <div key={user.id} className="group flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl transition-all hover:shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-200 rounded-xl flex items-center justify-center text-slate-600 font-medium">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900">{user.name}</h3>
+                            {user.role === "admin" && (
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-100 text-purple-700">Admin</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setShowUserDetails(user.id)}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                        >
+                          {user.projectCount} proyectos
+                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setShowUserDetails(user.id)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
+                            <Eye size={16} />
+                          </button>
+                          <button onClick={() => handleToggleUserRole(user.id, user.role)} disabled={saving} className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title={user.role === "admin" ? "Quitar admin" : "Hacer admin"}>
+                            <Shield size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Producers Tab */}
+        {activeTab === "producers" && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar productoras..."
+                  value={producerSearch}
+                  onChange={(e) => setProducerSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm"
+                />
+              </div>
+              <button
+                onClick={() => setShowCreateProducer(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                <Plus size={16} />
+                Nueva productora
+              </button>
+            </div>
+
+            {filteredProducers.length === 0 ? (
+              <div className="text-center py-16">
+                <Building2 size={32} className="text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm font-medium mb-2">No hay productoras</p>
+                <button onClick={() => setShowCreateProducer(true)} className="text-sm text-slate-700 hover:text-slate-900 font-medium underline">
+                  Crear la primera
+                </button>
+              </div>
+            ) : (
+              <div className="p-4">
+                <p className="text-xs text-slate-500 mb-4">{filteredProducers.length} productoras</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredProducers.map((producer) => (
-                    <div key={producer.id} className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 hover:shadow-lg transition-all group">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                          <Building2 size={24} className="text-amber-600" />
+                    <div key={producer.id} className="group bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 transition-all hover:shadow-md">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                          <Building2 size={20} className="text-amber-600" />
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -1076,31 +964,31 @@ export default function AdminDashboard() {
                               setNewProducer({ name: producer.name });
                               setShowEditProducer(producer.id);
                             }}
-                            className="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-white rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteProducer(producer.id)}
                             disabled={saving || producer.projectCount > 0}
-                            className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             title={producer.projectCount > 0 ? "Tiene proyectos asignados" : "Eliminar"}
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
                       </div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{producer.name}</h3>
-                      <p className="text-sm text-amber-700">
+                      <h3 className="text-base font-semibold text-slate-900 mb-1">{producer.name}</h3>
+                      <p className="text-sm text-slate-500">
                         {producer.projectCount} {producer.projectCount === 1 ? "proyecto" : "proyectos"}
                       </p>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Create/Edit Project Modal */}
@@ -1160,10 +1048,7 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">Productoras</label>
                   <div className="border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto space-y-1">
                     {producers.map((producer) => (
-                      <label
-                        key={producer.id}
-                        className="flex items-center gap-3 py-2 px-2 cursor-pointer hover:bg-slate-50 rounded-lg"
-                      >
+                      <label key={producer.id} className="flex items-center gap-3 py-2 px-2 cursor-pointer hover:bg-slate-50 rounded-lg">
                         <input
                           type="checkbox"
                           checked={newProject.producers.includes(producer.id)}
@@ -1171,10 +1056,7 @@ export default function AdminDashboard() {
                             if (e.target.checked) {
                               setNewProject({ ...newProject, producers: [...newProject.producers, producer.id] });
                             } else {
-                              setNewProject({
-                                ...newProject,
-                                producers: newProject.producers.filter((id) => id !== producer.id),
-                              });
+                              setNewProject({ ...newProject, producers: newProject.producers.filter((id) => id !== producer.id) });
                             }
                           }}
                           className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
@@ -1303,28 +1185,21 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
                 <h3 className="text-lg font-semibold text-slate-900">Detalles del usuario</h3>
-                <button
-                  onClick={() => setShowUserDetails(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
+                <button onClick={() => setShowUserDetails(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl">
                   <X size={20} />
                 </button>
               </div>
               <div className="p-6">
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200">
-                  <div className="w-16 h-16 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl flex items-center justify-center text-white text-2xl font-medium">
+                  <div className="w-14 h-14 bg-slate-200 rounded-2xl flex items-center justify-center text-slate-600 text-xl font-medium">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-slate-900">{user.name}</h4>
                     <p className="text-sm text-slate-500">{user.email}</p>
-                    <span className={`inline-block mt-2 text-xs font-medium px-2 py-1 rounded-lg ${
-                      user.role === "admin"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-slate-100 text-slate-700"
-                    }`}>
-                      {user.role === "admin" ? "Administrador" : "Usuario"}
-                    </span>
+                    {user.role === "admin" && (
+                      <span className="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded bg-purple-100 text-purple-700">Administrador</span>
+                    )}
                   </div>
                 </div>
                 <div>
