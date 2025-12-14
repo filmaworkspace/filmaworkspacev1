@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useState, useEffect, useCallback } from "react";
 import { auth, db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   doc,
   getDoc,
@@ -16,7 +17,6 @@ import {
   where,
   updateDoc,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   Receipt,
   ArrowLeft,
@@ -653,8 +653,8 @@ export default function NewInvoicePage() {
   const validateForm = () => {
     const e: Record<string, string> = {};
     if (!uploadedFile) e.file = "Adjunta el archivo";
-    if (documentType === "invoice" && formData.invoiceType === "with-po" && !selectedPO) e.po = "Selecciona una PO";
-    if ((documentType !== "invoice" || formData.invoiceType === "without-po") && !formData.supplier && !linkedDocumentId) e.supplier = "Selecciona un proveedor";
+    if (formData.invoiceType === "with-po" && !selectedPO) e.po = "Selecciona una PO";
+    if (formData.invoiceType === "without-po" && !formData.supplier && !linkedDocumentId) e.supplier = "Selecciona un proveedor";
     if (!formData.description.trim()) e.description = "Obligatorio";
     if (!formData.dueDate) e.dueDate = "Fecha de vencimiento obligatoria";
     if (items.length === 0) e.items = "Añade al menos un ítem";
@@ -848,10 +848,6 @@ export default function NewInvoicePage() {
                         onClick={() => {
                           setDocumentType(key);
                           setLinkedDocumentId("");
-                          if (key !== "invoice") {
-                            setFormData({ ...formData, invoiceType: "without-po" });
-                            setSelectedPO(null);
-                          }
                         }}
                         className={`p-4 rounded-xl border-2 transition-all text-left ${isSelected ? `${config.borderColor} ${config.bgColor}` : "border-slate-200 hover:border-slate-300"}`}
                       >
@@ -910,48 +906,46 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            {/* Invoice Type (with/without PO) - Only for invoices */}
-            {documentType === "invoice" && (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Tipo de factura</h2>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button
-                      onClick={() => { setFormData({ ...formData, invoiceType: "with-po", supplier: "", supplierName: "" }); setItems([]); setSelectedPO(null); }}
-                      className={`p-5 rounded-xl border-2 transition-all text-left ${formData.invoiceType === "with-po" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                          <FileText size={20} className={formData.invoiceType === "with-po" ? "text-indigo-600" : "text-indigo-400"} />
-                        </div>
-                        {formData.invoiceType === "with-po" && <CheckCircle size={20} className="text-slate-900" />}
+            {/* Document Type (with/without PO) - Available for all document types */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900">Asociación a PO</h2>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => { setFormData({ ...formData, invoiceType: "with-po", supplier: "", supplierName: "" }); setItems([]); setSelectedPO(null); }}
+                    className={`p-5 rounded-xl border-2 transition-all text-left ${formData.invoiceType === "with-po" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <FileText size={20} className={formData.invoiceType === "with-po" ? "text-indigo-600" : "text-indigo-400"} />
                       </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">Con PO asociada</h3>
-                      <p className="text-sm text-slate-500">Vinculada a una orden de compra</p>
-                    </button>
+                      {formData.invoiceType === "with-po" && <CheckCircle size={20} className="text-slate-900" />}
+                    </div>
+                    <h3 className="font-semibold text-slate-900 mb-1">Con PO asociada</h3>
+                    <p className="text-sm text-slate-500">Vinculada a una orden de compra</p>
+                  </button>
 
-                    <button
-                      onClick={() => { setFormData({ ...formData, invoiceType: "without-po", supplier: "", supplierName: "" }); setItems([]); setSelectedPO(null); }}
-                      className={`p-5 rounded-xl border-2 transition-all text-left ${formData.invoiceType === "without-po" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                          <Receipt size={20} className={formData.invoiceType === "without-po" ? "text-emerald-600" : "text-emerald-400"} />
-                        </div>
-                        {formData.invoiceType === "without-po" && <CheckCircle size={20} className="text-slate-900" />}
+                  <button
+                    onClick={() => { setFormData({ ...formData, invoiceType: "without-po", supplier: "", supplierName: "" }); setItems([]); setSelectedPO(null); }}
+                    className={`p-5 rounded-xl border-2 transition-all text-left ${formData.invoiceType === "without-po" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                        <Receipt size={20} className={formData.invoiceType === "without-po" ? "text-emerald-600" : "text-emerald-400"} />
                       </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">Sin PO</h3>
-                      <p className="text-sm text-slate-500">Factura independiente</p>
-                    </button>
-                  </div>
+                      {formData.invoiceType === "without-po" && <CheckCircle size={20} className="text-slate-900" />}
+                    </div>
+                    <h3 className="font-semibold text-slate-900 mb-1">Sin PO</h3>
+                    <p className="text-sm text-slate-500">Documento independiente</p>
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* PO Selection */}
-            {documentType === "invoice" && formData.invoiceType === "with-po" && (
+            {/* PO Selection - Available for all document types when with-po is selected */}
+            {formData.invoiceType === "with-po" && (
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
                   <h2 className="font-semibold text-slate-900">Orden de compra</h2>
@@ -1008,8 +1002,8 @@ export default function NewInvoicePage() {
               </div>
             )}
 
-            {/* Supplier Selection */}
-            {(documentType !== "invoice" || formData.invoiceType === "without-po") && !linkedDocumentId && (
+            {/* Supplier Selection - Available when without-po is selected */}
+            {formData.invoiceType === "without-po" && !linkedDocumentId && (
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
                   <h2 className="font-semibold text-slate-900">Proveedor</h2>
@@ -1091,7 +1085,7 @@ export default function NewInvoicePage() {
                   <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">{items.length}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {documentType === "invoice" && formData.invoiceType === "with-po" && selectedPO && (
+                  {formData.invoiceType === "with-po" && selectedPO && (
                     <button onClick={() => setShowPOItemsModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors">
                       <Plus size={14} />
                       De PO
@@ -1112,7 +1106,7 @@ export default function NewInvoicePage() {
                     </div>
                     <p className="text-sm font-medium text-slate-700">No hay ítems</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {documentType === "invoice" && formData.invoiceType === "with-po" && selectedPO ? "Añade items de la PO o crea uno nuevo" : `Añade items a la ${currentDocType.label.toLowerCase()}`}
+                      {formData.invoiceType === "with-po" && selectedPO ? "Añade items de la PO o crea uno nuevo" : `Añade items a la ${currentDocType.label.toLowerCase()}`}
                     </p>
                   </div>
                 ) : (
