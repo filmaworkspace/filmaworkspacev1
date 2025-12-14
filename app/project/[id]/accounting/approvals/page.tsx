@@ -120,18 +120,32 @@ export default function ApprovalsPage() {
       setErrorMessage("");
       const approvals: PendingApproval[] = [];
 
+      // Load project name
+      let localProjectName = "Proyecto";
       const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
+      if (projectDoc.exists()) {
+        localProjectName = projectDoc.data().name || "Proyecto";
+        setProjectName(localProjectName);
+      }
+
+      // FIX: Load member data into LOCAL variables first to avoid timing issues
+      let localUserRole = "";
+      let localUserDepartment = "";
+      let localUserPosition = "";
 
       const memberDoc = await getDoc(doc(db, `projects/${id}/members`, userId!));
       if (memberDoc.exists()) {
         const d = memberDoc.data();
-        setUserRole(d.role || "");
-        setUserDepartment(d.department || "");
-        setUserPosition(d.position || "");
+        localUserRole = d.role || "";
+        localUserDepartment = d.department || "";
+        localUserPosition = d.position || "";
+        // Also update state for UI display
+        setUserRole(localUserRole);
+        setUserDepartment(localUserDepartment);
+        setUserPosition(localUserPosition);
       }
 
-      // Load POs
+      // Load POs - use LOCAL variables instead of state
       const posSnap = await getDocs(
         query(collection(db, `projects/${id}/pos`), where("status", "==", "pending"))
       );
@@ -139,14 +153,14 @@ export default function ApprovalsPage() {
         (a, b) => (b.data().createdAt?.toDate() || 0) - (a.data().createdAt?.toDate() || 0)
       )) {
         const d = poDoc.data();
-        if (canUserApprove(d, userId!, userRole, userDepartment, userPosition)) {
+        if (canUserApprove(d, userId!, localUserRole, localUserDepartment, localUserPosition)) {
           approvals.push({
             id: poDoc.id,
             type: "po",
             documentId: poDoc.id,
             documentNumber: d.number,
             projectId: id,
-            projectName,
+            projectName: localProjectName,
             supplier: d.supplier,
             amount: d.totalAmount || d.amount || 0,
             description: d.generalDescription || d.description || "",
@@ -164,7 +178,7 @@ export default function ApprovalsPage() {
         }
       }
 
-      // Load Invoices
+      // Load Invoices - use LOCAL variables instead of state
       try {
         const invoicesSnap = await getDocs(
           query(collection(db, `projects/${id}/invoices`), where("status", "==", "pending_approval"))
@@ -173,14 +187,14 @@ export default function ApprovalsPage() {
           (a, b) => (b.data().createdAt?.toDate() || 0) - (a.data().createdAt?.toDate() || 0)
         )) {
           const d = invDoc.data();
-          if (canUserApprove(d, userId!, userRole, userDepartment, userPosition)) {
+          if (canUserApprove(d, userId!, localUserRole, localUserDepartment, localUserPosition)) {
             approvals.push({
               id: invDoc.id,
               type: "invoice",
               documentId: invDoc.id,
               documentNumber: d.number,
               projectId: id,
-              projectName,
+              projectName: localProjectName,
               supplier: d.supplier,
               amount: d.totalAmount || 0,
               description: d.description || "",
