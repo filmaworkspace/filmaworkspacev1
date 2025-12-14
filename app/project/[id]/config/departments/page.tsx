@@ -179,8 +179,7 @@ export default function ConfigDepartments() {
                 <Briefcase size={24} className="text-slate-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
-                <p className="text-slate-500 text-sm mt-1">{projectName}</p>
+                <h1 className="text-2xl font-semibold text-slate-900">Departamentos del proyecto</h1>
               </div>
             </div>
       
