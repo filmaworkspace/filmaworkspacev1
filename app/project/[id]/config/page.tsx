@@ -250,19 +250,27 @@ export default function ConfigGeneral() {
 
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
-          >
-            <ArrowLeft size={16} />
-            Volver a Proyectos
-          </Link>
-
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          {/* Project context badge */}
+          <div className="mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft size={12} />
+                Proyectos
+              </Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{project?.name}</span>
+            </div>
+          </div>
+      
+          {/* Page header */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
-                <Settings size={24} className="text-slate-600" />
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <Settings size={24} className="text-indigo-600" />
               </div>
               <div>
                 <div className="flex items-center gap-3">
@@ -276,7 +284,7 @@ export default function ConfigGeneral() {
                 <p className="text-slate-500 text-sm mt-0.5">{project?.name}</p>
               </div>
             </div>
-
+      
             {/* Actions Menu */}
             <div className="relative">
               <button
@@ -289,14 +297,23 @@ export default function ConfigGeneral() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
-                    <button onClick={copyProjectId} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
+                    <button
+                      onClick={copyProjectId}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
+                    >
                       <Copy size={15} className="text-slate-400" /> Copiar ID
                     </button>
-                    <button onClick={archiveProject} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
+                    <button
+                      onClick={archiveProject}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
+                    >
                       <Archive size={15} className="text-slate-400" /> {project?.archived ? "Restaurar" : "Archivar"}
                     </button>
                     <div className="border-t border-slate-100 my-1" />
-                    <button onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
+                    <button
+                      onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                    >
                       <Trash2 size={15} /> Eliminar proyecto
                     </button>
                   </div>
@@ -476,5 +493,6 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
 
