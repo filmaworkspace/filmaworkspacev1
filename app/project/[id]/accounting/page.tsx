@@ -180,7 +180,7 @@ export default function AccountingPage() {
                 Proyectos
               </Link>
               <span className="text-slate-300">·</span>
-              <span className="tracking-widest uppercase text-slate-500">
+              <span className="uppercase text-slate-500">
                 {projectName}
               </span>
             </div>
@@ -385,6 +385,7 @@ export default function AccountingPage() {
     </div>
   );
 }
+
 
 
 
