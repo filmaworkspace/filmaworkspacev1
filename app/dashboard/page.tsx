@@ -425,13 +425,6 @@ export default function Dashboard() {
     }
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Buenos días";
-    if (hour < 20) return "Buenas tardes";
-    return "Buenas noches";
-  };
-
   const renderProjectCard = (project: Project, isArchived: boolean = false) => {
     const hasConfig = project.permissions.config;
     const hasAccounting = project.permissions.accounting;
@@ -623,9 +616,8 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-500 mb-1">{getGreeting()},</p>
               <h1 className={`text-3xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
-                {userName.split(' ')[0]}
+                Panel de proyectos
               </h1>
             </div>
 
