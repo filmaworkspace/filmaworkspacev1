@@ -554,7 +554,7 @@ export default function BudgetPage() {
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
           {/* Project context badge */}
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
               <Link
                 href={`/project/${id}/accounting`}
@@ -940,4 +940,5 @@ export default function BudgetPage() {
     </div>
   );
 }
+
 
