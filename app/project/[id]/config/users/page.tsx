@@ -288,9 +288,6 @@ export default function ConfigUsers() {
                 <h1 className="text-2xl font-semibold text-slate-900">
                   Usuarios del proyecto
                 </h1>
-                <p className="text-slate-500 text-sm mt-1">
-                  {projectName}
-                </p>
               </div>
             </div>
       
