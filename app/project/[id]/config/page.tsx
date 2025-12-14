@@ -278,7 +278,7 @@ export default function ConfigGeneral() {
       
               {/* Título principal */}
               <h1 className="text-2xl font-semibold text-slate-900">
-                Configuración general
+                Configuración del proyecto
               </h1>
             </div>
       
@@ -492,5 +492,6 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
 
 
