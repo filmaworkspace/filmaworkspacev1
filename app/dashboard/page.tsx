@@ -616,7 +616,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className={`text-3xl font-semibold text-slate-900 tracking-tight ${spaceGrotesk.className}`}>
+              <h1 className="text-2xl font-semibold text-slate-900">
                 Panel de proyectos
               </h1>
             </div>
