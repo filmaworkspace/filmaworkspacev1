@@ -551,36 +551,58 @@ export default function BudgetPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6">
-            <ArrowLeft size={16} />
-            Volver al Panel
-          </Link>
-
-          <div className="flex items-start justify-between">
+      <div className="mt-[4.5rem]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          {/* Project context badge */}
+          <div className="mb-4 flex justify-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+              <Link
+                href={`/project/${id}/accounting`}
+                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft size={12} />
+                Panel
+              </Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">
+                {projectName}
+              </span>
+            </div>
+          </div>
+      
+          {/* Page header */}
+          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <Wallet size={24} className="text-indigo-600" />
               </div>
+      
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
-                <p className="text-slate-500 text-sm">{projectName}</p>
+                <h1 className="text-2xl font-semibold text-slate-900">
+                  Presupuesto
+                </h1>
               </div>
             </div>
-
+      
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
                 <Upload size={16} />
                 Importar
               </button>
-              <button onClick={openCreateAccountModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+      
+              <button
+                onClick={openCreateAccountModal}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
+              >
                 <Plus size={18} />
                 Nueva cuenta
               </button>
             </div>
           </div>
-
+      
           {/* Summary Stats */}
           <div className="grid grid-cols-4 gap-4 mt-6">
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -600,7 +622,7 @@ export default function BudgetPage() {
               <p className="text-lg font-bold text-blue-600">{(summary.totalAvailable || 0).toLocaleString()} €</p>
             </div>
           </div>
-
+      
           {/* Progress bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
@@ -608,7 +630,10 @@ export default function BudgetPage() {
               <span>{budgetedPercent.toFixed(1)}%</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(budgetedPercent, 100)}%` }} />
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all"
+                style={{ width: `${Math.min(budgetedPercent, 100)}%` }}
+              />
             </div>
           </div>
         </div>
@@ -915,3 +940,4 @@ export default function BudgetPage() {
     </div>
   );
 }
+
