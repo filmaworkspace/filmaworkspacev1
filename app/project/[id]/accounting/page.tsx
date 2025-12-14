@@ -167,25 +167,30 @@ export default function AccountingPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4rem] border-b border-slate-200">
-        {/* Project mini banner */}
-        <div className="border-b border-slate-100">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 py-2">
-            <p className="text-[11px] tracking-widest uppercase text-slate-400 text-center font-medium">
-              {projectName}
-            </p>
+      <div className="mt-[4.5rem] border-b border-slate-200">
+        {/* Project context banner */}
+        <div className="border-b border-slate-100 bg-white">
+          <div className="max-w-7xl mx-auto px-6 md:px-12 h-10 flex items-center relative">
+            {/* Back to projects */}
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              <ArrowLeft size={14} />
+              Proyectos
+            </Link>
+      
+            {/* Project name */}
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <p className="text-[11px] tracking-widest uppercase text-slate-400 font-medium">
+                {projectName}
+              </p>
+            </div>
           </div>
         </div>
       
+        {/* Page header */}
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
-          >
-            <ArrowLeft size={16} />
-            Proyectos
-          </Link>
-      
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
@@ -384,6 +389,7 @@ export default function AccountingPage() {
     </div>
   );
 }
+
 
 
 
