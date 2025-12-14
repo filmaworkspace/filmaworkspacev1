@@ -2,7 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   doc,
@@ -14,14 +14,12 @@ import {
   deleteDoc,
   query,
   orderBy,
-  where,
   Timestamp,
 } from "firebase/firestore";
 import {
   CreditCard,
   Plus,
   Search,
-  Download,
   Trash2,
   X,
   CheckCircle2,
@@ -30,7 +28,6 @@ import {
   ArrowLeft,
   MoreHorizontal,
   Receipt,
-  Building2,
   GripVertical,
   Upload,
   Clock,
@@ -38,15 +35,10 @@ import {
   FileCheck,
   Shield,
   Landmark,
-  ChevronDown,
   ChevronRight,
-  AlertCircle,
-  Check,
   Eye,
   Edit3,
-  Copy,
   Send,
-  Filter,
   LayoutGrid,
   List,
   TrendingUp,
@@ -54,17 +46,11 @@ import {
   PiggyBank,
   BadgeEuro,
   CircleDollarSign,
-  ArrowUpRight,
-  ArrowDownRight,
-  Paperclip,
-  ExternalLink,
-  Users,
   FolderOpen,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-// Tipos de pago disponibles
 const PAYMENT_TYPES = {
   invoice: { label: "Pago de factura", icon: Receipt, color: "emerald", description: "Pago completo de una factura" },
   partial: { label: "Pago parcial", icon: CircleDollarSign, color: "blue", description: "Pago parcial de una factura" },
@@ -104,7 +90,7 @@ interface PaymentItem {
   addedBy: string;
   addedByName: string;
   addedAt: Date;
-  linkedInvoices?: string[]; // Para depósitos
+  linkedInvoices?: string[];
 }
 
 interface PaymentForecast {
@@ -135,20 +121,17 @@ export default function PaymentsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
 
-  // Data
   const [forecasts, setForecasts] = useState<PaymentForecast[]>([]);
   const [availableInvoices, setAvailableInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showForecastDetail, setShowForecastDetail] = useState<PaymentForecast | null>(null);
   const [showUploadReceipt, setShowUploadReceipt] = useState<PaymentForecast | null>(null);
 
-  // Forms
   const [newForecast, setNewForecast] = useState({ name: "", paymentDate: "", type: "remesa" as "remesa" | "fuera_remesa" });
   const [selectedForecastId, setSelectedForecastId] = useState<string | null>(null);
   const [newPayment, setNewPayment] = useState({
@@ -160,11 +143,8 @@ export default function PaymentsPage() {
     partialAmount: 0,
   });
 
-  // Drag and drop
   const [draggedInvoice, setDraggedInvoice] = useState<Invoice | null>(null);
   const [dragOverForecast, setDragOverForecast] = useState<string | null>(null);
-
-  // Menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -198,13 +178,11 @@ export default function PaymentsPage() {
     try {
       setLoading(true);
 
-      // Project info
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
       }
 
-      // Load forecasts
       const forecastsSnap = await getDocs(
         query(collection(db, `projects/${id}/paymentForecasts`), orderBy("paymentDate", "asc"))
       );
@@ -221,7 +199,6 @@ export default function PaymentsPage() {
       });
       setForecasts(forecastsData);
 
-      // Load available invoices (pending or overdue, not yet in any forecast)
       const invoicesSnap = await getDocs(
         query(collection(db, `projects/${id}/invoices`), orderBy("dueDate", "asc"))
       );
@@ -340,12 +317,11 @@ export default function PaymentsPage() {
 
   const handleUpdateForecastStatus = async (forecastId: string, status: PaymentForecast["status"]) => {
     try {
-      const updateData: any = { status };
+      const updateData: Record<string, unknown> = { status };
       if (status === "completed") {
         updateData.completedAt = Timestamp.now();
         updateData.completedBy = userId;
 
-        // Mark invoices as paid
         const forecast = forecasts.find((f) => f.id === forecastId);
         if (forecast) {
           for (const item of forecast.items) {
@@ -401,7 +377,6 @@ export default function PaymentsPage() {
     }
   };
 
-  // Helpers
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
 
@@ -412,7 +387,7 @@ export default function PaymentsPage() {
     date ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date) : "-";
 
   const getStatusConfig = (status: string) => {
-    const config: Record<string, { bg: string; text: string; label: string; icon: any }> = {
+    const config: Record<string, { bg: string; text: string; label: string; icon: typeof Edit3 }> = {
       draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit3 },
       pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente", icon: Clock },
       processing: { bg: "bg-blue-50", text: "text-blue-700", label: "Procesando", icon: Send },
@@ -833,8 +808,8 @@ export default function PaymentsPage() {
                                   className="bg-white p-3 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors group"
                                 >
                                   <div className="flex items-start gap-2">
-                                    <div className={`w-7 h-7 rounded-lg bg-${typeInfo.color}-100 flex items-center justify-center flex-shrink-0`}>
-                                      <ItemIcon size={14} className={`text-${typeInfo.color}-600`} />
+                                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                      <ItemIcon size={14} className="text-slate-600" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between">
@@ -876,7 +851,6 @@ export default function PaymentsPage() {
                 })}
               </div>
             ) : (
-              // List view
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -1045,10 +1019,10 @@ export default function PaymentsPage() {
                         key={key}
                         onClick={() => setNewPayment({ ...newPayment, type: key as PaymentType })}
                         className={`p-3 rounded-xl border-2 transition-all text-left ${
-                          newPayment.type === key ? `border-${value.color}-500 bg-${value.color}-50` : "border-slate-200 hover:border-slate-300"
+                          newPayment.type === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"
                         }`}
                       >
-                        <Icon size={16} className={newPayment.type === key ? `text-${value.color}-600` : "text-slate-400"} />
+                        <Icon size={16} className={newPayment.type === key ? "text-slate-900" : "text-slate-400"} />
                         <p className="font-medium text-slate-900 text-sm mt-1">{value.label}</p>
                       </button>
                     );
@@ -1206,7 +1180,7 @@ export default function PaymentsPage() {
                         <p className="text-xs text-emerald-700">{showForecastDetail.bankReceiptName || "Documento bancario"}</p>
                       </div>
                     </div>
-                    
+                    <a
                       href={showForecastDetail.bankReceipt}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1231,8 +1205,8 @@ export default function PaymentsPage() {
                     return (
                       <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                         <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-xl bg-${typeInfo.color}-100 flex items-center justify-center flex-shrink-0`}>
-                            <ItemIcon size={18} className={`text-${typeInfo.color}-600`} />
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                            <ItemIcon size={18} className="text-slate-600" />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
