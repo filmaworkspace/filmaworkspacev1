@@ -23,10 +23,11 @@ import {
   Bell,
   UserPlus,
   Trash2,
+  Clapperboard,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { useUser } from "@/contexts/UserContext";
 import {
   collection,
   getDocs,
@@ -125,29 +126,33 @@ interface Invitation {
 
 interface Notification {
   id: string;
-  type: "team_invite";
+  type: "team_invite" | "phase_change";
   title: string;
   message: string;
   timestamp: Date;
   read: boolean;
   projectName?: string;
+  phase?: string;
 }
 
 export default function Dashboard() {
   const router = useRouter();
+  const { user, isLoading: userLoading } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState("Usuario");
-  const [userEmail, setUserEmail] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showArchived, setShowArchived] = useState(false);
+  
+  // Datos del usuario desde el contexto
+  const userId = user?.uid || null;
+  const userName = user?.name || "Usuario";
+  const userEmail = user?.email || "";
   
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false);
@@ -193,36 +198,17 @@ export default function Dashboard() {
     return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
   };
 
+  // Redirigir si no hay usuario o es admin
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/");
-        return;
-      }
-
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        const userRole = userData?.role || "user";
-
-        if (userRole === "admin") {
-          router.push("/admindashboard");
-          return;
-        }
-
-        setUserId(user.uid);
-        setUserName(userData?.name || user.displayName || user.email?.split("@")[0] || "Usuario");
-        setUserEmail(user.email || "");
-      } catch (error) {
-        console.error("Error verificando usuario:", error);
-        setUserId(user.uid);
-        setUserName(user.displayName || user.email?.split("@")[0] || "Usuario");
-        setUserEmail(user.email || "");
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, [router]);
+    if (!userLoading && !user) {
+      router.push("/");
+      return;
+    }
+    
+    if (!userLoading && user?.role === "admin") {
+      router.push("/admindashboard");
+    }
+  }, [user, userLoading, router]);
 
   useEffect(() => {
     if (!userId) return;
@@ -622,7 +608,7 @@ export default function Dashboard() {
     );
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
@@ -694,8 +680,14 @@ export default function Dashboard() {
                             }`}
                             onClick={() => markAsRead(notification.id)}
                           >
-                            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                              <UserPlus size={14} className="text-blue-600" />
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              notification.type === "team_invite" ? "bg-blue-100" : "bg-amber-100"
+                            }`}>
+                              {notification.type === "team_invite" ? (
+                                <UserPlus size={14} className="text-blue-600" />
+                              ) : (
+                                <Clapperboard size={14} className="text-amber-600" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm ${!notification.read ? "font-medium text-slate-900" : "text-slate-700"}`}>
