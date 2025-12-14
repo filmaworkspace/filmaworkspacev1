@@ -18,6 +18,7 @@ import {
   Building2,
   ChevronDown,
   Shield,
+  User,
 } from "lucide-react";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
@@ -323,7 +324,7 @@ export default function Header() {
             className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
             <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
-              <Users size={14} />
+              <User size={14} />
             </div>
             <span className="hidden sm:inline text-sm font-medium text-slate-700">
               {isLoading ? "..." : userName}
@@ -351,7 +352,7 @@ export default function Header() {
                 </Link>
               )}
               <Link href="/profile" className="flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
-                <Settings size={14} />
+                <User size={14} />
                 Mi cuenta
               </Link>
               <button onClick={handleLogout} className="flex w-full items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
@@ -427,7 +428,7 @@ export default function Header() {
                 )}
                 <div className="border-t border-slate-100 my-2"></div>
                 <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <Settings size={16} />
+                  <User size={16} />
                   Mi cuenta
                 </Link>
                 <button
@@ -457,7 +458,7 @@ export default function Header() {
                   Proyectos
                 </Link>
                 <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <Settings size={16} />
+                  <User size={16} />
                   Mi cuenta
                 </Link>
                 <button
