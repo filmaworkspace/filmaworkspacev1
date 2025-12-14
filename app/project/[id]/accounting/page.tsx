@@ -167,7 +167,7 @@ export default function AccountingPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4.5rem] border-b border-slate-200">
+      <div className="mt-[4rem] border-b border-slate-200">
         {/* Project context banner */}
         <div className="border-b border-slate-100 bg-white">
           <div className="max-w-7xl mx-auto px-6 md:px-12 h-10 flex items-center relative">
@@ -389,6 +389,7 @@ export default function AccountingPage() {
     </div>
   );
 }
+
 
 
 
