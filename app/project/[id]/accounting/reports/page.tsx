@@ -219,11 +219,11 @@ export default function ReportsPage() {
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
               <Link
-                href={`/project/${id}/accounting`}
+                href="/dashboard"
                 className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
               >
                 <ArrowLeft size={12} />
-                Panel
+                Proyectos
               </Link>
               <span className="text-slate-300">·</span>
               <span className="uppercase text-slate-500">
@@ -299,4 +299,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
 
