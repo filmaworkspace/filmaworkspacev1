@@ -204,15 +204,14 @@ export default function ProfilePage() {
 
       {/* Header */}
       <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
           >
-            <ArrowLeft size={12} />
-            Proyectos
-          </Link>
-          <span className="text-slate-300">·</span>
+            <ArrowLeft size={16} />
+            Volver a Proyectos
+          </button>
 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -505,4 +504,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
