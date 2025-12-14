@@ -18,6 +18,7 @@ import {
   Upload,
   Clock,
   AlertCircle,
+  CreditCard,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -50,6 +51,7 @@ export default function AccountingPage() {
   const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState("");
+  const [accountingAccessLevel, setAccountingAccessLevel] = useState<string>("");
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
   useEffect(() => {
@@ -71,7 +73,9 @@ export default function AccountingPage() {
 
         const memberDoc = await getDoc(doc(db, `projects/${id}/members`, userId));
         if (memberDoc.exists()) {
-          setUserRole(memberDoc.data().role || "");
+          const memberData = memberDoc.data();
+          setUserRole(memberData.role || "");
+          setAccountingAccessLevel(memberData.accountingAccessLevel || "user");
         }
 
         // Count pending approvals
@@ -149,6 +153,8 @@ export default function AccountingPage() {
     if (!date) return "";
     return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
   };
+
+  const hasExtendedAccess = accountingAccessLevel === "accounting_extended";
 
   if (loading) {
     return (
@@ -302,9 +308,19 @@ export default function AccountingPage() {
                 </div>
                 <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
               </div>
-              <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1">
-                Ver todas <ChevronRight size={14} />
-              </Link>
+              <div className="flex items-center gap-2">
+                {hasExtendedAccess && (
+                  <Link href={`/project/${id}/accounting/payments`}>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg text-sm font-medium transition-colors">
+                      <CreditCard size={14} />
+                      Pagos
+                    </button>
+                  </Link>
+                )}
+                <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-slate-500 hover:text-emerald-600 font-medium flex items-center gap-1">
+                  Ver todas <ChevronRight size={14} />
+                </Link>
+              </div>
             </div>
 
             <div className="p-4">
@@ -354,4 +370,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
