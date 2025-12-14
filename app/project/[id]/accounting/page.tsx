@@ -167,31 +167,27 @@ export default function AccountingPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4rem] border-b border-slate-200">
-        {/* Project context banner */}
-        <div className="border-b border-slate-100 bg-white">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 h-10 flex items-center relative">
-            {/* Back to projects */}
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
-            >
-              <ArrowLeft size={14} />
-              Proyectos
-            </Link>
-      
-            {/* Project name */}
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <p className="text-[11px] tracking-widest uppercase text-slate-400 font-medium">
+      <div className="mt-[4.5rem]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          {/* Project context badge */}
+          <div className="mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft size={12} />
+                Proyectos
+              </Link>
+              <span className="text-slate-300">·</span>
+              <span className="tracking-widest uppercase text-slate-500">
                 {projectName}
-              </p>
+              </span>
             </div>
           </div>
-        </div>
       
-        {/* Page header */}
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <div className="flex items-start justify-between">
+          {/* Page header */}
+          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <BarChart3 size={24} className="text-indigo-600" />
@@ -389,6 +385,7 @@ export default function AccountingPage() {
     </div>
   );
 }
+
 
 
 
