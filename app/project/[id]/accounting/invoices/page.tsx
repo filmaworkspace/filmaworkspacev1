@@ -425,7 +425,7 @@ export default function InvoicesPage() {
                 <Receipt size={24} className="text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Documentos</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
                 <p className="text-slate-500 text-sm">{projectName}</p>
               </div>
             </div>
