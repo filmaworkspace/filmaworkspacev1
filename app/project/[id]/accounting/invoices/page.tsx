@@ -29,9 +29,53 @@ import {
   Eye,
   ArrowLeft,
   MoreHorizontal,
+  Shield,
+  FileCheck,
+  AlertTriangle,
+  Link as LinkIcon,
+  Clock,
+  Filter,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+
+// Document types configuration
+const DOCUMENT_TYPES = {
+  invoice: {
+    code: "FAC",
+    label: "Factura",
+    icon: Receipt,
+    bgColor: "bg-emerald-50",
+    textColor: "text-emerald-700",
+    borderColor: "border-emerald-200",
+  },
+  proforma: {
+    code: "PRF",
+    label: "Proforma",
+    icon: FileText,
+    bgColor: "bg-violet-50",
+    textColor: "text-violet-700",
+    borderColor: "border-violet-200",
+  },
+  budget: {
+    code: "PRS",
+    label: "Presupuesto",
+    icon: FileCheck,
+    bgColor: "bg-amber-50",
+    textColor: "text-amber-700",
+    borderColor: "border-amber-200",
+  },
+  guarantee: {
+    code: "FNZ",
+    label: "Fianza",
+    icon: Shield,
+    bgColor: "bg-slate-100",
+    textColor: "text-slate-700",
+    borderColor: "border-slate-300",
+  },
+};
+
+type DocumentType = keyof typeof DOCUMENT_TYPES;
 
 interface InvoiceItem {
   id: string;
@@ -51,7 +95,9 @@ interface InvoiceItem {
 
 interface Invoice {
   id: string;
+  documentType: DocumentType;
   number: string;
+  displayNumber: string;
   supplier: string;
   supplierId: string;
   poId?: string;
@@ -75,6 +121,9 @@ interface Invoice {
   rejectedAt?: Date;
   rejectedByName?: string;
   rejectionReason?: string;
+  requiresReplacement?: boolean;
+  replacedByInvoiceId?: string;
+  linkedDocumentId?: string;
 }
 
 export default function InvoicesPage() {
@@ -87,11 +136,15 @@ export default function InvoicesPage() {
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  // Pending replacement alert
+  const [pendingReplacementCount, setPendingReplacementCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -107,7 +160,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     filterInvoices();
-  }, [searchTerm, statusFilter, invoices]);
+  }, [searchTerm, statusFilter, typeFilter, invoices]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -131,23 +184,37 @@ export default function InvoicesPage() {
       }
 
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc")));
-      const invoicesData = invoicesSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        createdAt: docSnap.data().createdAt?.toDate() || new Date(),
-        dueDate: docSnap.data().dueDate?.toDate() || new Date(),
-        paymentDate: docSnap.data().paymentDate?.toDate(),
-        rejectedAt: docSnap.data().rejectedAt?.toDate(),
-      })) as Invoice[];
+      const invoicesData = invoicesSnapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          documentType: data.documentType || "invoice",
+          displayNumber: data.displayNumber || `FAC-${data.number}`,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          dueDate: data.dueDate?.toDate() || new Date(),
+          paymentDate: data.paymentDate?.toDate(),
+          rejectedAt: data.rejectedAt?.toDate(),
+        };
+      }) as Invoice[];
 
       const now = new Date();
+      let pendingCount = 0;
+
       for (const invoice of invoicesData) {
+        // Check for overdue
         if (invoice.status === "pending" && invoice.dueDate < now) {
           await updateDoc(doc(db, `projects/${id}/invoices`, invoice.id), { status: "overdue" });
           invoice.status = "overdue";
         }
+
+        // Count pending replacements
+        if (invoice.requiresReplacement && invoice.status === "paid" && !invoice.replacedByInvoiceId) {
+          pendingCount++;
+        }
       }
 
+      setPendingReplacementCount(pendingCount);
       setInvoices(invoicesData);
     } catch (error) {
       console.error("Error:", error);
@@ -162,12 +229,14 @@ export default function InvoicesPage() {
       const s = searchTerm.toLowerCase();
       filtered = filtered.filter((inv) =>
         inv.number.toLowerCase().includes(s) ||
+        inv.displayNumber.toLowerCase().includes(s) ||
         inv.supplier.toLowerCase().includes(s) ||
         inv.description.toLowerCase().includes(s) ||
         (inv.poNumber && inv.poNumber.toLowerCase().includes(s))
       );
     }
     if (statusFilter !== "all") filtered = filtered.filter((inv) => inv.status === statusFilter);
+    if (typeFilter !== "all") filtered = filtered.filter((inv) => inv.documentType === typeFilter);
     setFilteredInvoices(filtered);
   };
 
@@ -178,7 +247,7 @@ export default function InvoicesPage() {
 
   const handleDeleteInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice || invoice.status === "paid" || !confirm(`¿Eliminar FAC-${invoice.number}?`)) return;
+    if (!invoice || invoice.status === "paid" || !confirm(`¿Eliminar ${invoice.displayNumber}?`)) return;
     try {
       await deleteDoc(doc(db, `projects/${id}/invoices`, invoiceId));
       loadData();
@@ -190,7 +259,7 @@ export default function InvoicesPage() {
 
   const handleMarkAsPaid = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice || invoice.status === "pending_approval" || !confirm(`¿Marcar FAC-${invoice.number} como pagada?`)) return;
+    if (!invoice || invoice.status === "pending_approval" || !confirm(`¿Marcar ${invoice.displayNumber} como pagada?`)) return;
     try {
       await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), {
         status: "paid",
@@ -225,7 +294,7 @@ export default function InvoicesPage() {
   const handleCancelInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
     if (!invoice || invoice.status === "paid") return;
-    const reason = prompt(`¿Motivo de cancelación de FAC-${invoice.number}?`);
+    const reason = prompt(`¿Motivo de cancelación de ${invoice.displayNumber}?`);
     if (!reason) return;
     try {
       await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), {
@@ -239,6 +308,17 @@ export default function InvoicesPage() {
       console.error("Error:", error);
     }
     closeMenu();
+  };
+
+  const getDocumentTypeBadge = (docType: DocumentType) => {
+    const config = DOCUMENT_TYPES[docType] || DOCUMENT_TYPES.invoice;
+    const Icon = config.icon;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${config.bgColor} ${config.textColor}`}>
+        <Icon size={12} />
+        {config.code}
+      </span>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -289,22 +369,33 @@ export default function InvoicesPage() {
   const getDaysUntilDue = (dueDate: Date) => Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
 
   const exportInvoices = () => {
-    const rows = [["NÚMERO", "PROVEEDOR", "PO", "IMPORTE", "ESTADO", "VENCIMIENTO"]];
-    filteredInvoices.forEach((inv) =>
+    const rows = [["TIPO", "NÚMERO", "PROVEEDOR", "PO", "IMPORTE", "ESTADO", "VENCIMIENTO"]];
+    filteredInvoices.forEach((inv) => {
+      const docType = DOCUMENT_TYPES[inv.documentType] || DOCUMENT_TYPES.invoice;
       rows.push([
-        `FAC-${inv.number}`,
+        docType.code,
+        inv.displayNumber,
         inv.supplier,
         inv.poNumber ? `PO-${inv.poNumber}` : "-",
         inv.totalAmount.toString(),
         inv.status,
         formatDate(inv.dueDate),
-      ])
-    );
+      ]);
+    });
     const blob = new Blob(["\uFEFF" + rows.map((r) => r.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Facturas_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `Documentos_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
+  };
+
+  // Stats
+  const stats = {
+    total: invoices.length,
+    invoices: invoices.filter((i) => i.documentType === "invoice").length,
+    proformas: invoices.filter((i) => i.documentType === "proforma").length,
+    budgets: invoices.filter((i) => i.documentType === "budget").length,
+    guarantees: invoices.filter((i) => i.documentType === "guarantee").length,
   };
 
   if (loading) {
@@ -334,7 +425,7 @@ export default function InvoicesPage() {
                 <Receipt size={24} className="text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Documentos</h1>
                 <p className="text-slate-500 text-sm">{projectName}</p>
               </div>
             </div>
@@ -352,14 +443,68 @@ export default function InvoicesPage() {
                 className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
               >
                 <Plus size={18} />
-                Nueva factura
+                Nuevo documento
               </Link>
             </div>
+          </div>
+
+          {/* Type Stats */}
+          <div className="grid grid-cols-4 gap-3 mt-6">
+            {(Object.entries(DOCUMENT_TYPES) as [DocumentType, typeof DOCUMENT_TYPES.invoice][]).map(([key, config]) => {
+              const Icon = config.icon;
+              const count = key === "invoice" ? stats.invoices : key === "proforma" ? stats.proformas : key === "budget" ? stats.budgets : stats.guarantees;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTypeFilter(typeFilter === key ? "all" : key)}
+                  className={`p-3 rounded-xl border transition-all ${
+                    typeFilter === key
+                      ? `${config.borderColor} ${config.bgColor}`
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon size={16} className={typeFilter === key ? config.textColor : "text-slate-400"} />
+                    <span className={`text-sm font-medium ${typeFilter === key ? config.textColor : "text-slate-700"}`}>
+                      {config.label}
+                    </span>
+                    <span className={`ml-auto text-sm font-semibold ${typeFilter === key ? config.textColor : "text-slate-900"}`}>
+                      {count}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+        {/* Pending Replacement Alert */}
+        {pendingReplacementCount > 0 && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900">
+                  {pendingReplacementCount} documento{pendingReplacementCount > 1 ? "s" : ""} pendiente{pendingReplacementCount > 1 ? "s" : ""} de factura definitiva
+                </h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  Hay proformas o presupuestos pagados que necesitan su factura definitiva del proveedor.
+                </p>
+              </div>
+              <Link
+                href={`/project/${id}/accounting/invoices/new`}
+                className="px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 flex-shrink-0"
+              >
+                Subir factura
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
@@ -385,6 +530,15 @@ export default function InvoicesPage() {
             <option value="rejected">Rechazadas</option>
             <option value="cancelled">Canceladas</option>
           </select>
+          {typeFilter !== "all" && (
+            <button
+              onClick={() => setTypeFilter("all")}
+              className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <X size={14} />
+              Limpiar filtro
+            </button>
+          )}
         </div>
 
         {/* Table or Empty State */}
@@ -394,18 +548,18 @@ export default function InvoicesPage() {
               <Receipt size={28} className="text-slate-400" />
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {searchTerm || statusFilter !== "all" ? "No se encontraron resultados" : "Sin facturas"}
+              {searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "No se encontraron resultados" : "Sin documentos"}
             </h3>
             <p className="text-slate-500 text-sm mb-6">
-              {searchTerm || statusFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Crea tu primera factura para empezar"}
+              {searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Sube tu primer documento para empezar"}
             </p>
-            {!searchTerm && statusFilter === "all" && (
+            {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
               <Link
                 href={`/project/${id}/accounting/invoices/new`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
               >
                 <Plus size={18} />
-                Nueva factura
+                Nuevo documento
               </Link>
             )}
           </div>
@@ -415,7 +569,7 @@ export default function InvoicesPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Número</th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Documento</th>
                     <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Proveedor</th>
                     <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Importe</th>
                     <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
@@ -427,9 +581,11 @@ export default function InvoicesPage() {
                   {filteredInvoices.map((invoice) => {
                     const daysUntilDue = getDaysUntilDue(invoice.dueDate);
                     const isDueSoon = daysUntilDue <= 7 && daysUntilDue > 0 && invoice.status === "pending";
+                    const needsReplacement = invoice.requiresReplacement && invoice.status === "paid" && !invoice.replacedByInvoiceId;
+                    const docConfig = DOCUMENT_TYPES[invoice.documentType] || DOCUMENT_TYPES.invoice;
 
                     return (
-                      <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={invoice.id} className={`hover:bg-slate-50 transition-colors ${needsReplacement ? "bg-amber-50/50" : ""}`}>
                         <td className="px-6 py-4">
                           <button
                             onClick={() => {
@@ -438,7 +594,16 @@ export default function InvoicesPage() {
                             }}
                             className="text-left hover:text-emerald-600 transition-colors"
                           >
-                            <p className="font-semibold text-slate-900">FAC-{invoice.number}</p>
+                            <div className="flex items-center gap-2">
+                              {getDocumentTypeBadge(invoice.documentType)}
+                              <p className="font-semibold text-slate-900">{invoice.displayNumber}</p>
+                              {needsReplacement && (
+                                <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                                  <Clock size={10} />
+                                  Pte. factura
+                                </span>
+                              )}
+                            </div>
                             {invoice.poNumber && <p className="text-xs text-slate-500 mt-0.5">PO-{invoice.poNumber}</p>}
                           </button>
                         </td>
@@ -482,7 +647,7 @@ export default function InvoicesPage() {
                                   setMenuPosition(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const menuHeight = 180;
+                                  const menuHeight = 220;
                                   const spaceBelow = window.innerHeight - rect.bottom;
                                   const showAbove = spaceBelow < menuHeight;
                                   
@@ -511,12 +676,14 @@ export default function InvoicesPage() {
         {/* Menu flotante */}
         {openMenuId && menuPosition && (
           <div 
-            className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1"
+            className="fixed w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1"
             style={{ top: menuPosition.top, left: menuPosition.left }}
           >
             {(() => {
               const invoice = filteredInvoices.find(i => i.id === openMenuId);
               if (!invoice) return null;
+              const needsReplacement = invoice.requiresReplacement && invoice.status === "paid" && !invoice.replacedByInvoiceId;
+
               return (
                 <>
                   <button
@@ -541,6 +708,19 @@ export default function InvoicesPage() {
                       <FileText size={15} className="text-slate-400" />
                       Ver adjunto
                     </a>
+                  )}
+                  {needsReplacement && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <Link
+                        href={`/project/${id}/accounting/invoices/new?linkTo=${invoice.id}`}
+                        onClick={closeMenu}
+                        className="w-full px-4 py-2.5 text-left text-sm text-violet-600 hover:bg-violet-50 flex items-center gap-3"
+                      >
+                        <LinkIcon size={15} />
+                        Subir factura definitiva
+                      </Link>
+                    </>
                   )}
                   {(invoice.status === "pending" || invoice.status === "overdue") && (
                     <>
@@ -595,7 +775,10 @@ export default function InvoicesPage() {
           >
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">FAC-{selectedInvoice.number}</h2>
+                <div className="flex items-center gap-2">
+                  {getDocumentTypeBadge(selectedInvoice.documentType)}
+                  <h2 className="text-lg font-semibold text-slate-900">{selectedInvoice.displayNumber}</h2>
+                </div>
                 <p className="text-sm text-slate-500">{selectedInvoice.supplier}</p>
               </div>
               <button
@@ -610,6 +793,42 @@ export default function InvoicesPage() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              {/* Pending replacement warning */}
+              {selectedInvoice.requiresReplacement && selectedInvoice.status === "paid" && !selectedInvoice.replacedByInvoiceId && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">Pendiente de factura definitiva</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Este documento ha sido pagado. Recuerda subir la factura definitiva del proveedor.
+                      </p>
+                    </div>
+                    <Link
+                      href={`/project/${id}/accounting/invoices/new?linkTo=${selectedInvoice.id}`}
+                      className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
+                    >
+                      Subir factura
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {/* Linked document info */}
+              {selectedInvoice.linkedDocumentId && (
+                <div className="mb-6 p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <LinkIcon size={18} className="text-violet-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-violet-800">Factura vinculada</p>
+                      <p className="text-sm text-violet-700">
+                        Esta factura sustituye un documento previo (proforma o presupuesto).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Status and Amount */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-slate-50 rounded-xl p-4">
