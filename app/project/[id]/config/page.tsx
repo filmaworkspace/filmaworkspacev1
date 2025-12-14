@@ -267,7 +267,7 @@ export default function ConfigGeneral() {
               </span>
             </div>
           </div>
-          {/* EL DIV SIGUIENTE FUE MODIFICADO DE py-8 a pt-2 y se eliminó el div de cierre innecesario arriba */}
+          {/* Título principal y Acciones - Contenido corregido dentro del mismo max-w-7xl */}
           <div className="pt-2 flex items-start justify-between"> 
             <div className="flex items-center gap-4">
               {/* Icono gris */}
@@ -403,18 +403,18 @@ export default function ConfigGeneral() {
                             {phase}
                           </button>
                       })}
-                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
-                    <textarea
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Descripción</label>
+                  <textarea
                       value={projectForm.description}
                       onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                       rows={3}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm resize-none"
                     />
-                  </div>
-                  <div className="flex gap-3 pt-2">
+                </div>
+                <div className="flex gap-3 pt-2">
                     <button
                       onClick={handleSaveProject}
                       disabled={saving}
