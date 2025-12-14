@@ -263,57 +263,59 @@ export default function ConfigGeneral() {
               </Link>
               <span className="text-slate-300">·</span>
               <span className="uppercase text-slate-500">
-                {project?.name} {/* CORREGIDO: Usar project?.name en lugar de projectName */}
+                {project?.name}
               </span>
             </div>
           </div>
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            {/* Icono gris */}
-            <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
-              <Settings size={24} className="text-slate-600" />
+          {/* EL DIV SIGUIENTE FUE MODIFICADO DE py-8 a pt-2 y se eliminó el div de cierre innecesario arriba */}
+          <div className="pt-2 flex items-start justify-between"> 
+            <div className="flex items-center gap-4">
+              {/* Icono gris */}
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <Settings size={24} className="text-slate-600" />
+              </div>
+      
+              {/* Título principal */}
+              <h1 className="text-2xl font-semibold text-slate-900">Configuración general</h1>
             </div>
       
-            {/* Título principal */}
-            <h1 className="text-2xl font-semibold text-slate-900">Configuración general</h1>
-          </div>
+            {/* Acciones */}
+            <div className="relative">
+              <button
+                onClick={() => setShowActions(!showActions)}
+                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <MoreHorizontal size={20} className="text-slate-500" />
+              </button>
       
-          {/* Acciones */}
-          <div className="relative">
-            <button
-              onClick={() => setShowActions(!showActions)}
-              className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              <MoreHorizontal size={20} className="text-slate-500" />
-            </button>
+              {showActions && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
       
-            {showActions && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-      
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
-                  <button
-                    onClick={copyProjectId}
-                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
-                  >
-                    <Copy size={15} className="text-slate-400" /> Copiar ID
-                  </button>
-                  <button
-                    onClick={archiveProject}
-                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
-                  >
-                    <Archive size={15} className="text-slate-400" /> {project?.archived ? "Restaurar" : "Archivar"}
-                  </button>
-                  <div className="border-t border-slate-100 my-1" />
-                  <button
-                    onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-                  >
-                    <Trash2 size={15} /> Eliminar proyecto
-                  </button>
-                </div>
-              </>
-            )}
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
+                    <button
+                      onClick={copyProjectId}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
+                    >
+                      <Copy size={15} className="text-slate-400" /> Copiar ID
+                    </button>
+                    <button
+                      onClick={archiveProject}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
+                    >
+                      <Archive size={15} className="text-slate-400" /> {project?.archived ? "Restaurar" : "Archivar"}
+                    </button>
+                    <div className="border-t border-slate-100 my-1" />
+                    <button
+                      onClick={() => { setShowActions(false); setShowDeleteConfirm(true); }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                    >
+                      <Trash2 size={15} /> Eliminar proyecto
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -400,7 +402,6 @@ export default function ConfigGeneral() {
                           >
                             {phase}
                           </button>
-                        );
                       })}
                     </div>
                   </div>
