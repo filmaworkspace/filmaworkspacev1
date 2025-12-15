@@ -85,7 +85,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@correo.com"
                 disabled={loading}
-                className="w-4 h-4 rounded border-slate-300 text-slate-700 focus:ring-slate-400/30 cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 disabled:opacity-50"
               />
             </div>
 
@@ -103,7 +103,7 @@ export default function LoginPage() {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={loading}
-                  className="w-4 h-4 rounded border-slate-300 text-slate-700 focus:ring-slate-400/30 cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400/30 cursor-pointer"
                 />
                 <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors select-none">
                   Recordar mi email
