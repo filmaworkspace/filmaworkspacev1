@@ -85,7 +85,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@correo.com"
                 disabled={loading}
-                className="w-4 h-4 rounded border-slate-300 text-slate-700 focus:ring-slate-400/30 cursor-pointer disabled:opacity-50"
+                className="w-4 h-4 rounded border-slate-300 text-slate-700 focus:ring-slate-400/30 cursor-pointer"
               />
             </div>
 
