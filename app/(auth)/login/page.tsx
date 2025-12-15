@@ -1,4 +1,3 @@
-// src/components/LoginPage.tsx (Súper Minimalista y Profesional)
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
