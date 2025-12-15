@@ -2,7 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { auth, db, storage } from "@/lib/firebase";
 import {
   doc,
@@ -35,6 +35,12 @@ import {
   Wrench,
   Shield,
   CheckCircle,
+  CheckCircle2,
+  Clock,
+  Users,
+  ChevronRight,
+  AlertTriangle,
+  Circle,
 } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -93,6 +99,7 @@ interface ApprovalStepStatus {
   order: number;
   approverType: "fixed" | "role" | "hod" | "coordinator";
   approvers: string[];
+  approverNames: string[];
   roles?: string[];
   department?: string;
   approvedBy: string[];
@@ -103,22 +110,24 @@ interface ApprovalStepStatus {
 
 interface Member {
   userId: string;
+  name?: string;
+  email?: string;
   role?: string;
   department?: string;
   position?: string;
 }
 
 const PO_TYPES = [
-  { value: "rental", label: "Alquiler", icon: ShoppingCart },
-  { value: "purchase", label: "Compra", icon: Package },
-  { value: "service", label: "Servicio", icon: Wrench },
-  { value: "deposit", label: "Fianza", icon: Shield },
+  { value: "rental", label: "Alquiler", icon: ShoppingCart, description: "Equipos, vehículos, espacios" },
+  { value: "purchase", label: "Compra", icon: Package, description: "Material, consumibles" },
+  { value: "service", label: "Servicio", icon: Wrench, description: "Trabajos, honorarios" },
+  { value: "deposit", label: "Fianza", icon: Shield, description: "Depósitos de garantía" },
 ];
 
 const CURRENCIES = [
-  { value: "EUR", label: "EUR (€)", symbol: "€" },
-  { value: "USD", label: "USD ($)", symbol: "$" },
-  { value: "GBP", label: "GBP (£)", symbol: "£" },
+  { value: "EUR", label: "EUR", symbol: "€" },
+  { value: "USD", label: "USD", symbol: "$" },
+  { value: "GBP", label: "GBP", symbol: "£" },
 ];
 
 const VAT_RATES = [
@@ -152,6 +161,7 @@ export default function NewPOPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [nextPONumber, setNextPONumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [successMessage, setSuccessMessage] = useState("");
   const [approvalConfig, setApprovalConfig] = useState<ApprovalStep[]>([]);
 
@@ -161,6 +171,7 @@ export default function NewPOPage() {
   const [accountSearch, setAccountSearch] = useState("");
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [formData, setFormData] = useState({
     supplier: "",
@@ -219,6 +230,13 @@ export default function NewPOPage() {
     calculateTotals();
   }, [items]);
 
+  // Real-time validation
+  useEffect(() => {
+    if (Object.keys(touched).length > 0) {
+      validateForm(true);
+    }
+  }, [formData, items, uploadedFile]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -238,9 +256,29 @@ export default function NewPOPage() {
       }
 
       const membersSnapshot = await getDocs(collection(db, `projects/${id}/members`));
-      setMembers(
-        membersSnapshot.docs.map((doc) => ({ userId: doc.id, ...doc.data() } as Member))
-      );
+      const membersData: Member[] = [];
+      for (const memberDocSnap of membersSnapshot.docs) {
+        const memberData = memberDocSnap.data();
+        // Try to get user name from users collection
+        let name = memberData.name || memberData.email || memberDocSnap.id;
+        try {
+          const userDoc = await getDoc(doc(db, "users", memberDocSnap.id));
+          if (userDoc.exists()) {
+            name = userDoc.data().displayName || userDoc.data().email || name;
+          }
+        } catch (e) {
+          // Use fallback name
+        }
+        membersData.push({
+          userId: memberDocSnap.id,
+          name,
+          email: memberData.email,
+          role: memberData.role,
+          department: memberData.department,
+          position: memberData.position,
+        });
+      }
+      setMembers(membersData);
 
       const approvalConfigDoc = await getDoc(doc(db, `projects/${id}/config/approvals`));
       if (approvalConfigDoc.exists()) {
@@ -297,39 +335,51 @@ export default function NewPOPage() {
     }
   };
 
-  const resolveApprovers = (step: ApprovalStep, dept?: string): string[] => {
+  const resolveApprovers = (step: ApprovalStep, dept?: string): { ids: string[]; names: string[] } => {
+    let approverIds: string[] = [];
     switch (step.approverType) {
       case "fixed":
-        return step.approvers || [];
+        approverIds = step.approvers || [];
+        break;
       case "role":
-        return members.filter((m) => m.role && step.roles?.includes(m.role)).map((m) => m.userId);
+        approverIds = members.filter((m) => m.role && step.roles?.includes(m.role)).map((m) => m.userId);
+        break;
       case "hod":
-        return members
+        approverIds = members
           .filter((m) => m.position === "HOD" && m.department === (step.department || dept))
           .map((m) => m.userId);
+        break;
       case "coordinator":
-        return members
+        approverIds = members
           .filter((m) => m.position === "Coordinator" && m.department === (step.department || dept))
           .map((m) => m.userId);
-      default:
-        return [];
+        break;
     }
+    const approverNames = approverIds.map((id) => {
+      const member = members.find((m) => m.userId === id);
+      return member?.name || member?.email || id;
+    });
+    return { ids: approverIds, names: approverNames };
   };
 
   const generateApprovalSteps = (dept?: string): ApprovalStepStatus[] => {
     if (approvalConfig.length === 0) return [];
-    return approvalConfig.map((step) => ({
-      id: step.id || "",
-      order: step.order || 0,
-      approverType: step.approverType || "fixed",
-      approvers: resolveApprovers(step, dept),
-      roles: step.roles || [],
-      department: step.department || "",
-      approvedBy: [],
-      rejectedBy: [],
-      status: "pending" as const,
-      requireAll: step.requireAll ?? false,
-    }));
+    return approvalConfig.map((step) => {
+      const { ids, names } = resolveApprovers(step, dept);
+      return {
+        id: step.id || "",
+        order: step.order || 0,
+        approverType: step.approverType || "fixed",
+        approvers: ids,
+        approverNames: names,
+        roles: step.roles || [],
+        department: step.department || "",
+        approvedBy: [],
+        rejectedBy: [],
+        status: "pending" as const,
+        requireAll: step.requireAll ?? false,
+      };
+    });
   };
 
   const shouldAutoApprove = (steps: ApprovalStepStatus[]): boolean => {
@@ -349,6 +399,7 @@ export default function NewPOPage() {
     const calc = calculateItemTotal(newItems[index]);
     newItems[index] = { ...newItems[index], ...calc };
     setItems(newItems);
+    setTouched((prev) => ({ ...prev, [`item_${index}_${field}`]: true }));
   };
 
   const addItem = () => {
@@ -394,6 +445,7 @@ export default function NewPOPage() {
       supplierName: supplier.fiscalName,
       paymentTerms: supplier.paymentMethod,
     });
+    setTouched((prev) => ({ ...prev, supplier: true }));
     setShowSupplierModal(false);
     setSupplierSearch("");
   };
@@ -408,13 +460,14 @@ export default function NewPOPage() {
         subAccountDescription: subAccount.description,
       };
       setItems(newItems);
+      setTouched((prev) => ({ ...prev, [`item_${currentItemIndex}_account`]: true }));
     }
     setShowAccountModal(false);
     setAccountSearch("");
     setCurrentItemIndex(null);
   };
 
-  const validateForm = () => {
+  const validateForm = (silent = false) => {
     const newErrors: Record<string, string> = {};
     if (!formData.supplier) newErrors.supplier = "Selecciona un proveedor";
     if (!formData.department) newErrors.department = "Selecciona un departamento";
@@ -425,23 +478,32 @@ export default function NewPOPage() {
       if (item.quantity <= 0) newErrors[`item_${index}_quantity`] = "Debe ser > 0";
       if (item.unitPrice <= 0) newErrors[`item_${index}_unitPrice`] = "Debe ser > 0";
     });
-    setErrors(newErrors);
+    if (!silent) setErrors(newErrors);
+    else setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (
-        !["application/pdf", "image/jpeg", "image/png"].includes(file.type) ||
-        file.size > 10 * 1024 * 1024
-      ) {
-        alert("Solo PDF o imágenes hasta 10MB");
-        return;
-      }
-      setUploadedFile(file);
-    }
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
+
+  const handleFileUpload = (file: File) => {
+    if (
+      !["application/pdf", "image/jpeg", "image/png"].includes(file.type) ||
+      file.size > 10 * 1024 * 1024
+    ) {
+      alert("Solo PDF o imágenes hasta 10MB");
+      return;
+    }
+    setUploadedFile(file);
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  }, []);
 
   const savePO = async (status: "draft" | "pending") => {
     if (status === "pending" && !validateForm()) return;
@@ -537,15 +599,32 @@ export default function NewPOPage() {
 
   const getApprovalPreview = () => {
     if (approvalConfig.length === 0)
-      return { autoApprove: true, message: "Se aprobará automáticamente" };
+      return { autoApprove: true, message: "Se aprobará automáticamente", steps: [] };
     const steps = generateApprovalSteps(formData.department);
     if (steps.every((s) => s.approvers.length === 0))
-      return { autoApprove: true, message: "Se aprobará automáticamente" };
+      return { autoApprove: true, message: "Se aprobará automáticamente", steps: [] };
     return {
       autoApprove: false,
       message: `${steps.length} nivel${steps.length > 1 ? "es" : ""} de aprobación`,
       steps,
     };
+  };
+
+  // Calculate form completion percentage
+  const getCompletionPercentage = () => {
+    let completed = 0;
+    let total = 4; // supplier, department, description, at least one valid item
+
+    if (formData.supplier) completed++;
+    if (formData.department) completed++;
+    if (formData.generalDescription.trim()) completed++;
+    
+    const validItems = items.filter(
+      (item) => item.description.trim() && item.subAccountId && item.quantity > 0 && item.unitPrice > 0
+    );
+    if (validItems.length > 0) completed++;
+
+    return Math.round((completed / total) * 100);
   };
 
   const filteredSuppliers = suppliers.filter(
@@ -562,6 +641,11 @@ export default function NewPOPage() {
   );
 
   const approvalPreview = getApprovalPreview();
+  const completionPercentage = getCompletionPercentage();
+
+  // Check if field has error and was touched
+  const hasError = (field: string) => touched[field] && errors[field];
+  const isValid = (field: string) => touched[field] && !errors[field];
 
   if (loading) {
     return (
@@ -574,17 +658,32 @@ export default function NewPOPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
-      <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <Link
-            href={`/project/${id}/accounting/pos`}
-            className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"
-          >
-            <ArrowLeft size={16} />
-            Volver a Órdenes de compra
-          </Link>
+      <div className="mt-[4.5rem]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          {/* Project context badge */}
+          <div className="mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft size={12} />
+                Proyectos
+              </Link>
+              <span className="text-slate-300">·</span>
+              <Link
+                href={`/project/${id}/accounting/pos`}
+                className="hover:text-slate-900 transition-colors"
+              >
+                Órdenes de compra
+              </Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{projectName}</span>
+            </div>
+          </div>
 
-          <div className="flex items-start justify-between">
+          {/* Page header */}
+          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <FileText size={24} className="text-indigo-600" />
@@ -616,7 +715,7 @@ export default function NewPOPage() {
                   </>
                 ) : (
                   <>
-                    <Send size={16} />
+                    {approvalPreview.autoApprove ? <CheckCircle size={16} /> : <Send size={16} />}
                     {approvalPreview.autoApprove ? "Crear PO" : "Enviar"}
                   </>
                 )}
@@ -650,14 +749,23 @@ export default function NewPOPage() {
                   </label>
                   <button
                     onClick={() => setShowSupplierModal(true)}
+                    onBlur={() => handleBlur("supplier")}
                     className={`w-full px-4 py-3 border ${
-                      errors.supplier ? "border-red-300" : "border-slate-200"
+                      hasError("supplier")
+                        ? "border-red-300 bg-red-50"
+                        : isValid("supplier")
+                        ? "border-emerald-300 bg-emerald-50"
+                        : "border-slate-200"
                     } rounded-xl hover:border-slate-300 transition-colors text-left flex items-center justify-between bg-white`}
                   >
                     {formData.supplierName ? (
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                          <Building2 size={16} className="text-slate-500" />
+                        <div className={`w-8 h-8 ${isValid("supplier") ? "bg-emerald-100" : "bg-slate-100"} rounded-lg flex items-center justify-center`}>
+                          {isValid("supplier") ? (
+                            <CheckCircle2 size={16} className="text-emerald-600" />
+                          ) : (
+                            <Building2 size={16} className="text-slate-500" />
+                          )}
                         </div>
                         <span className="font-medium text-slate-900">{formData.supplierName}</span>
                       </div>
@@ -666,7 +774,7 @@ export default function NewPOPage() {
                     )}
                     <Search size={16} className="text-slate-400" />
                   </button>
-                  {errors.supplier && (
+                  {hasError("supplier") && (
                     <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
                       <AlertCircle size={12} />
                       {errors.supplier}
@@ -679,21 +787,37 @@ export default function NewPOPage() {
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Departamento *
                     </label>
-                    <select
-                      value={formData.department}
-                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      disabled={!!userDepartment && userRole !== "EP" && userRole !== "PM"}
-                      className={`w-full px-4 py-3 border ${
-                        errors.department ? "border-red-300" : "border-slate-200"
-                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-50 text-sm`}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {departments.map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        onBlur={() => handleBlur("department")}
+                        disabled={!!userDepartment && userRole !== "EP" && userRole !== "PM"}
+                        className={`w-full px-4 py-3 border ${
+                          hasError("department")
+                            ? "border-red-300 bg-red-50"
+                            : isValid("department")
+                            ? "border-emerald-300 bg-emerald-50"
+                            : "border-slate-200"
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-50 text-sm pr-10`}
+                      >
+                        <option value="">Seleccionar...</option>
+                        {departments.map((dept) => (
+                          <option key={dept} value={dept}>
+                            {dept}
+                          </option>
+                        ))}
+                      </select>
+                      {isValid("department") && (
+                        <CheckCircle2 size={16} className="absolute right-10 top-1/2 -translate-y-1/2 text-emerald-600" />
+                      )}
+                    </div>
+                    {hasError("department") && (
+                      <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                        <AlertCircle size={12} />
+                        {errors.department}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -713,6 +837,7 @@ export default function NewPOPage() {
                                 ? "border-slate-900 bg-slate-900 text-white"
                                 : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
                             }`}
+                            title={type.description}
                           >
                             <Icon size={14} />
                             {type.label}
@@ -736,7 +861,7 @@ export default function NewPOPage() {
                             : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
                         }`}
                       >
-                        {currency.label}
+                        {currency.symbol} {currency.label}
                       </button>
                     ))}
                   </div>
@@ -746,17 +871,33 @@ export default function NewPOPage() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Descripción general *
                   </label>
-                  <textarea
-                    value={formData.generalDescription}
-                    onChange={(e) =>
-                      setFormData({ ...formData, generalDescription: e.target.value })
-                    }
-                    placeholder="Describe el propósito de esta orden de compra..."
-                    rows={3}
-                    className={`w-full px-4 py-3 border ${
-                      errors.generalDescription ? "border-red-300" : "border-slate-200"
-                    } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm`}
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={formData.generalDescription}
+                      onChange={(e) =>
+                        setFormData({ ...formData, generalDescription: e.target.value })
+                      }
+                      onBlur={() => handleBlur("generalDescription")}
+                      placeholder="Describe el propósito de esta orden de compra..."
+                      rows={3}
+                      className={`w-full px-4 py-3 border ${
+                        hasError("generalDescription")
+                          ? "border-red-300 bg-red-50"
+                          : isValid("generalDescription")
+                          ? "border-emerald-300 bg-emerald-50"
+                          : "border-slate-200"
+                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10`}
+                    />
+                    {isValid("generalDescription") && (
+                      <CheckCircle2 size={16} className="absolute right-4 top-4 text-emerald-600" />
+                    )}
+                  </div>
+                  {hasError("generalDescription") && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.generalDescription}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -780,164 +921,261 @@ export default function NewPOPage() {
               </div>
 
               <div className="p-6 space-y-4">
-                {items.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="border border-slate-200 rounded-xl p-5 bg-slate-50/50"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Hash size={12} />
-                        Item {index + 1}
-                      </span>
-                      {items.length > 1 && (
-                        <button
-                          onClick={() => removeItem(index)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) => updateItem(index, "description", e.target.value)}
-                        placeholder="Descripción del item..."
-                        className={`w-full px-4 py-3 border ${
-                          errors[`item_${index}_description`]
-                            ? "border-red-300"
-                            : "border-slate-200"
-                        } rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white`}
-                      />
-
-                      <button
-                        onClick={() => {
-                          setCurrentItemIndex(index);
-                          setShowAccountModal(true);
-                        }}
-                        className={`w-full px-4 py-3 border ${
-                          errors[`item_${index}_account`] ? "border-red-300" : "border-slate-200"
-                        } rounded-xl text-sm text-left flex items-center justify-between hover:border-slate-300 transition-colors bg-white`}
-                      >
-                        {item.subAccountCode ? (
-                          <span className="font-mono text-slate-900">
-                            {item.subAccountCode} - {item.subAccountDescription}
+                {items.map((item, index) => {
+                  const itemHasAllFields = item.description.trim() && item.subAccountId && item.quantity > 0 && item.unitPrice > 0;
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className={`border rounded-xl p-5 transition-all ${
+                        itemHasAllFields
+                          ? "border-emerald-200 bg-emerald-50/30"
+                          : "border-slate-200 bg-slate-50/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                            {itemHasAllFields ? (
+                              <CheckCircle2 size={12} className="text-emerald-600" />
+                            ) : (
+                              <Hash size={12} />
+                            )}
+                            Item {index + 1}
                           </span>
-                        ) : (
-                          <span className="text-slate-400">Seleccionar cuenta...</span>
+                          {itemHasAllFields && (
+                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-medium">
+                              Completo
+                            </span>
+                          )}
+                        </div>
+                        {items.length > 1 && (
+                          <button
+                            onClick={() => removeItem(index)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
-                        <Search size={14} className="text-slate-400" />
-                      </button>
+                      </div>
 
-                      <div className="grid grid-cols-4 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">Fecha</label>
-                          <input
-                            type="date"
-                            value={item.date}
-                            onChange={(e) => updateItem(index, "date", e.target.value)}
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">Cantidad</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateItem(index, "quantity", parseFloat(e.target.value) || 0)
-                            }
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">Precio unit.</label>
-                          <div className="relative">
+                      <div className="space-y-4">
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) => updateItem(index, "description", e.target.value)}
+                          onBlur={() => handleBlur(`item_${index}_description`)}
+                          placeholder="Descripción del item..."
+                          className={`w-full px-4 py-3 border ${
+                            hasError(`item_${index}_description`)
+                              ? "border-red-300 bg-red-50"
+                              : item.description.trim()
+                              ? "border-emerald-200"
+                              : "border-slate-200"
+                          } rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white`}
+                        />
+
+                        <button
+                          onClick={() => {
+                            setCurrentItemIndex(index);
+                            setShowAccountModal(true);
+                          }}
+                          className={`w-full px-4 py-3 border ${
+                            hasError(`item_${index}_account`)
+                              ? "border-red-300 bg-red-50"
+                              : item.subAccountCode
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "border-slate-200"
+                          } rounded-xl text-sm text-left flex items-center justify-between hover:border-slate-300 transition-colors bg-white`}
+                        >
+                          {item.subAccountCode ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 size={14} className="text-emerald-600" />
+                              <span className="font-mono text-slate-900">
+                                {item.subAccountCode} - {item.subAccountDescription}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">Seleccionar cuenta...</span>
+                          )}
+                          <Search size={14} className="text-slate-400" />
+                        </button>
+
+                        <div className="grid grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">Fecha</label>
+                            <input
+                              type="date"
+                              value={item.date}
+                              onChange={(e) => updateItem(index, "date", e.target.value)}
+                              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">Cantidad</label>
                             <input
                               type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unitPrice}
+                              min="1"
+                              value={item.quantity}
                               onChange={(e) =>
-                                updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
+                                updateItem(index, "quantity", parseFloat(e.target.value) || 0)
                               }
-                              className="w-full pl-6 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                              className={`w-full px-3 py-2.5 border ${
+                                item.quantity > 0 ? "border-emerald-200" : "border-slate-200"
+                              } rounded-xl text-sm bg-white`}
                             />
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                              {getCurrencySymbol()}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">Precio unit.</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unitPrice}
+                                onChange={(e) =>
+                                  updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
+                                }
+                                className={`w-full pl-6 pr-3 py-2.5 border ${
+                                  item.unitPrice > 0 ? "border-emerald-200" : "border-slate-200"
+                                } rounded-xl text-sm bg-white`}
+                              />
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                                {getCurrencySymbol()}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">Base</label>
+                            <div className="px-3 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-900">
+                              {formatCurrency(item.baseAmount)} {getCurrencySymbol()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">IVA</label>
+                            <select
+                              value={item.vatRate}
+                              onChange={(e) =>
+                                updateItem(index, "vatRate", parseFloat(e.target.value))
+                              }
+                              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                            >
+                              {VAT_RATES.map((rate) => (
+                                <option key={rate.value} value={rate.value}>
+                                  {rate.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">IRPF</label>
+                            <select
+                              value={item.irpfRate}
+                              onChange={(e) =>
+                                updateItem(index, "irpfRate", parseFloat(e.target.value))
+                              }
+                              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                            >
+                              {IRPF_RATES.map((rate) => (
+                                <option key={rate.value} value={rate.value}>
+                                  {rate.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">+IVA</label>
+                            <div className="px-3 py-2.5 bg-emerald-50 rounded-xl text-sm font-medium text-emerald-700">
+                              +{formatCurrency(item.vatAmount)}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5">-IRPF</label>
+                            <div className="px-3 py-2.5 bg-red-50 rounded-xl text-sm font-medium text-red-700">
+                              -{formatCurrency(item.irpfAmount)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm">
+                            <span className="text-slate-400">Total:</span>
+                            <span className="ml-2 font-semibold">
+                              {formatCurrency(item.totalAmount)} {getCurrencySymbol()}
                             </span>
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">Base</label>
-                          <div className="px-3 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-900">
-                            {formatCurrency(item.baseAmount)} {getCurrencySymbol()}
-                          </div>
-                        </div>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                      <div className="grid grid-cols-4 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">IVA</label>
-                          <select
-                            value={item.vatRate}
-                            onChange={(e) =>
-                              updateItem(index, "vatRate", parseFloat(e.target.value))
-                            }
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
-                          >
-                            {VAT_RATES.map((rate) => (
-                              <option key={rate.value} value={rate.value}>
-                                {rate.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">IRPF</label>
-                          <select
-                            value={item.irpfRate}
-                            onChange={(e) =>
-                              updateItem(index, "irpfRate", parseFloat(e.target.value))
-                            }
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
-                          >
-                            {IRPF_RATES.map((rate) => (
-                              <option key={rate.value} value={rate.value}>
-                                {rate.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">+IVA</label>
-                          <div className="px-3 py-2.5 bg-emerald-50 rounded-xl text-sm font-medium text-emerald-700">
-                            +{formatCurrency(item.vatAmount)}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5">-IRPF</label>
-                          <div className="px-3 py-2.5 bg-red-50 rounded-xl text-sm font-medium text-red-700">
-                            -{formatCurrency(item.irpfAmount)}
-                          </div>
-                        </div>
-                      </div>
+            {/* File Upload */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900">Adjuntar presupuesto</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Opcional - PDF, JPG o PNG hasta 10MB</p>
+              </div>
 
-                      <div className="flex justify-end">
-                        <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm">
-                          <span className="text-slate-400">Total:</span>
-                          <span className="ml-2 font-semibold">
-                            {formatCurrency(item.totalAmount)} {getCurrencySymbol()}
+              <div className="p-6">
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                    isDragging
+                      ? "border-indigo-400 bg-indigo-50"
+                      : uploadedFile
+                      ? "border-emerald-300 bg-emerald-50"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {uploadedFile ? (
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <FileUp size={18} className="text-emerald-600" />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-sm font-medium text-slate-900 block">
+                            {uploadedFile.name}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {(uploadedFile.size / 1024).toFixed(0)} KB
                           </span>
                         </div>
                       </div>
+                      <button
+                        onClick={() => setUploadedFile(null)}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  ) : (
+                    <label className="cursor-pointer block">
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <Upload size={20} className="text-slate-400" />
+                      </div>
+                      <p className="text-sm font-medium text-slate-700">Arrastra o haz clic para subir</p>
+                      <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG (máx. 10MB)</p>
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file);
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -973,51 +1211,6 @@ export default function NewPOPage() {
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Adjuntar presupuesto
-                  </label>
-                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-slate-300 transition-colors bg-white">
-                    {uploadedFile ? (
-                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                            <FileUp size={18} className="text-indigo-600" />
-                          </div>
-                          <div className="text-left">
-                            <span className="text-sm font-medium text-slate-900 block">
-                              {uploadedFile.name}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {(uploadedFile.size / 1024).toFixed(0)} KB
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setUploadedFile(null)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                          <Upload size={20} className="text-slate-400" />
-                        </div>
-                        <p className="text-sm font-medium text-slate-700">Haz clic para seleccionar</p>
-                        <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG (máx. 10MB)</p>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1025,6 +1218,60 @@ export default function NewPOPage() {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-28 space-y-4">
+              {/* Progress */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-700">Progreso</span>
+                  <span className={`text-sm font-bold ${completionPercentage === 100 ? "text-emerald-600" : "text-slate-900"}`}>
+                    {completionPercentage}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
+                    }`}
+                    style={{ width: `${completionPercentage}%` }}
+                  />
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    {formData.supplier ? (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    ) : (
+                      <Circle size={12} className="text-slate-300" />
+                    )}
+                    <span className={formData.supplier ? "text-slate-700" : "text-slate-400"}>Proveedor</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {formData.department ? (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    ) : (
+                      <Circle size={12} className="text-slate-300" />
+                    )}
+                    <span className={formData.department ? "text-slate-700" : "text-slate-400"}>Departamento</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {formData.generalDescription.trim() ? (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    ) : (
+                      <Circle size={12} className="text-slate-300" />
+                    )}
+                    <span className={formData.generalDescription.trim() ? "text-slate-700" : "text-slate-400"}>Descripción</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    ) : (
+                      <Circle size={12} className="text-slate-300" />
+                    )}
+                    <span className={items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? "text-slate-700" : "text-slate-400"}>
+                      Items válidos
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Totals */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
@@ -1066,59 +1313,86 @@ export default function NewPOPage() {
 
               {/* Approval Preview */}
               <div
-                className={`border rounded-2xl p-5 ${
+                className={`border rounded-2xl overflow-hidden ${
                   approvalPreview.autoApprove
                     ? "bg-emerald-50 border-emerald-200"
                     : "bg-amber-50 border-amber-200"
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  {approvalPreview.autoApprove ? (
-                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CheckCircle size={16} className="text-emerald-600" />
-                    </div>
-                  ) : (
-                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <AlertCircle size={16} className="text-amber-600" />
-                    </div>
-                  )}
-                  <div>
-                    <p
-                      className={`font-semibold text-sm ${
-                        approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800"
-                      }`}
-                    >
-                      {approvalPreview.autoApprove ? "Aprobación automática" : "Requiere aprobación"}
-                    </p>
-                    <p
-                      className={`text-sm mt-1 ${
-                        approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700"
-                      }`}
-                    >
-                      {approvalPreview.message}
-                    </p>
-                    {!approvalPreview.autoApprove && approvalPreview.steps && (
-                      <div className="mt-3 space-y-1.5">
-                        {approvalPreview.steps.map((step, idx) => (
-                          <div
-                            key={step.id}
-                            className="text-xs text-amber-700 flex items-center gap-2"
-                          >
-                            <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-semibold">
-                              {idx + 1}
-                            </span>
-                            <span>
-                              {step.approverType === "role" && step.roles
-                                ? step.roles.join(", ")
-                                : step.approverType}
-                              {step.approvers.length > 0 && ` (${step.approvers.length})`}
-                            </span>
-                          </div>
-                        ))}
+                <div className="px-5 py-4 border-b border-opacity-50" style={{ borderColor: approvalPreview.autoApprove ? "#a7f3d0" : "#fcd34d" }}>
+                  <div className="flex items-center gap-3">
+                    {approvalPreview.autoApprove ? (
+                      <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <CheckCircle size={20} className="text-emerald-600" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                        <Clock size={20} className="text-amber-600" />
                       </div>
                     )}
+                    <div>
+                      <p className={`font-semibold ${approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800"}`}>
+                        {approvalPreview.autoApprove ? "Aprobación automática" : "Requiere aprobación"}
+                      </p>
+                      <p className={`text-sm ${approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700"}`}>
+                        {approvalPreview.message}
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {!approvalPreview.autoApprove && approvalPreview.steps && approvalPreview.steps.length > 0 && (
+                  <div className="px-5 py-4">
+                    <div className="space-y-3">
+                      {approvalPreview.steps.map((step, idx) => (
+                        <div key={step.id} className="flex items-start gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-7 h-7 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center text-xs font-bold">
+                              {idx + 1}
+                            </div>
+                            {idx < approvalPreview.steps!.length - 1 && (
+                              <div className="w-0.5 h-8 bg-amber-200 mt-1" />
+                            )}
+                          </div>
+                          <div className="flex-1 pt-0.5">
+                            <p className="text-sm font-medium text-amber-900">
+                              {step.approverType === "role" && step.roles
+                                ? step.roles.join(", ")
+                                : step.approverType === "hod"
+                                ? "Jefe de departamento"
+                                : step.approverType === "coordinator"
+                                ? "Coordinador"
+                                : "Aprobador fijo"}
+                            </p>
+                            {step.approverNames.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {step.approverNames.slice(0, 3).map((name, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg"
+                                  >
+                                    <Users size={10} />
+                                    {name.split(" ")[0]}
+                                  </span>
+                                ))}
+                                {step.approverNames.length > 3 && (
+                                  <span className="text-xs text-amber-700">
+                                    +{step.approverNames.length - 3} más
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <p className="text-xs text-amber-700 mt-1">
+                              {step.requireAll
+                                ? "Todos deben aprobar"
+                                : `1 de ${step.approvers.length} debe aprobar`}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Info */}
@@ -1128,11 +1402,20 @@ export default function NewPOPage() {
                     <Info size={14} className="text-slate-500" />
                   </div>
                   <div className="text-sm text-slate-600">
-                    <p className="font-medium text-slate-700 mb-2">Proceso de aprobación</p>
-                    <ul className="space-y-1 text-slate-500">
-                      <li>• Borradores no comprometen presupuesto</li>
-                      <li>• POs pendientes requieren aprobación</li>
-                      <li>• Una vez aprobada, se compromete el presupuesto</li>
+                    <p className="font-medium text-slate-700 mb-2">Proceso de la PO</p>
+                    <ul className="space-y-1.5 text-slate-500">
+                      <li className="flex items-start gap-2">
+                        <ChevronRight size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>Los borradores no comprometen presupuesto</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <ChevronRight size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>Una vez aprobada, se compromete el presupuesto</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <ChevronRight size={12} className="mt-0.5 flex-shrink-0" />
+                        <span>Las facturas se vinculan a la PO aprobada</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -1254,67 +1537,92 @@ export default function NewPOPage() {
                     <p className="text-sm text-slate-500">No se encontraron cuentas</p>
                   </div>
                 ) : (
-                  filteredSubAccounts.map((subAccount) => (
-                    <button
-                      key={subAccount.id}
-                      onClick={() => selectAccount(subAccount)}
-                      className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-all"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <p className="font-mono font-semibold text-slate-900">{subAccount.code}</p>
-                          <p className="text-sm text-slate-700">{subAccount.description}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {subAccount.accountCode} - {subAccount.accountDescription}
-                          </p>
+                  filteredSubAccounts.map((subAccount) => {
+                    const isLowBudget = subAccount.available < subAccount.budgeted * 0.1;
+                    const isOverBudget = subAccount.available < 0;
+                    
+                    return (
+                      <button
+                        key={subAccount.id}
+                        onClick={() => selectAccount(subAccount)}
+                        className={`w-full text-left p-4 border rounded-xl hover:bg-slate-50 transition-all ${
+                          isOverBudget
+                            ? "border-red-200 bg-red-50/50"
+                            : isLowBudget
+                            ? "border-amber-200 bg-amber-50/50"
+                            : "border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-mono font-semibold text-slate-900">{subAccount.code}</p>
+                              {isOverBudget && (
+                                <span className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">
+                                  <AlertTriangle size={10} />
+                                  Sin presupuesto
+                                </span>
+                              )}
+                              {!isOverBudget && isLowBudget && (
+                                <span className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-lg">
+                                  <AlertTriangle size={10} />
+                                  Bajo
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-700">{subAccount.description}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {subAccount.accountCode} - {subAccount.accountDescription}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-4 gap-3 text-xs">
-                        <div className="bg-slate-50 rounded-lg p-2">
-                          <p className="text-slate-500">Presupuestado</p>
-                          <p className="font-semibold text-slate-900">
-                            {formatCurrency(subAccount.budgeted)} €
-                          </p>
-                        </div>
-                        <div className="bg-amber-50 rounded-lg p-2">
-                          <p className="text-amber-600">Comprometido</p>
-                          <p className="font-semibold text-amber-700">
-                            {formatCurrency(subAccount.committed)} €
-                          </p>
-                        </div>
-                        <div className="bg-emerald-50 rounded-lg p-2">
-                          <p className="text-emerald-600">Realizado</p>
-                          <p className="font-semibold text-emerald-700">
-                            {formatCurrency(subAccount.actual)} €
-                          </p>
-                        </div>
-                        <div className={`rounded-lg p-2 ${
-                          subAccount.available < 0
-                            ? "bg-red-50"
-                            : subAccount.available < subAccount.budgeted * 0.1
-                            ? "bg-amber-50"
-                            : "bg-emerald-50"
-                        }`}>
-                          <p className={`${
-                            subAccount.available < 0
-                              ? "text-red-600"
-                              : subAccount.available < subAccount.budgeted * 0.1
-                              ? "text-amber-600"
-                              : "text-emerald-600"
-                          }`}>Disponible</p>
-                          <p className={`font-semibold ${
-                            subAccount.available < 0
-                              ? "text-red-700"
-                              : subAccount.available < subAccount.budgeted * 0.1
-                              ? "text-amber-700"
-                              : "text-emerald-700"
+                        <div className="grid grid-cols-4 gap-3 text-xs">
+                          <div className="bg-slate-50 rounded-lg p-2">
+                            <p className="text-slate-500">Presupuestado</p>
+                            <p className="font-semibold text-slate-900">
+                              {formatCurrency(subAccount.budgeted)} €
+                            </p>
+                          </div>
+                          <div className="bg-amber-50 rounded-lg p-2">
+                            <p className="text-amber-600">Comprometido</p>
+                            <p className="font-semibold text-amber-700">
+                              {formatCurrency(subAccount.committed)} €
+                            </p>
+                          </div>
+                          <div className="bg-emerald-50 rounded-lg p-2">
+                            <p className="text-emerald-600">Realizado</p>
+                            <p className="font-semibold text-emerald-700">
+                              {formatCurrency(subAccount.actual)} €
+                            </p>
+                          </div>
+                          <div className={`rounded-lg p-2 ${
+                            isOverBudget
+                              ? "bg-red-50"
+                              : isLowBudget
+                              ? "bg-amber-50"
+                              : "bg-emerald-50"
                           }`}>
-                            {formatCurrency(subAccount.available)} €
-                          </p>
+                            <p className={`${
+                              isOverBudget
+                                ? "text-red-600"
+                                : isLowBudget
+                                ? "text-amber-600"
+                                : "text-emerald-600"
+                            }`}>Disponible</p>
+                            <p className={`font-semibold ${
+                              isOverBudget
+                                ? "text-red-700"
+                                : isLowBudget
+                                ? "text-amber-700"
+                                : "text-emerald-700"
+                            }`}>
+                              {formatCurrency(subAccount.available)} €
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
