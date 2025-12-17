@@ -22,6 +22,9 @@ import {
   Briefcase,
   Shield,
   ArrowLeft,
+  DollarSign,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -47,6 +50,11 @@ interface ApprovalStep {
   roles?: string[];
   department?: string;
   requireAll: boolean;
+  // Nuevos campos para umbral por importe
+  hasAmountThreshold: boolean;
+  amountThreshold?: number;
+  amountCondition?: "above" | "below" | "between";
+  amountThresholdMax?: number;
 }
 
 const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
@@ -62,6 +70,14 @@ const APPROVER_TYPE_ICONS: Record<string, any> = {
   hod: Briefcase,
   coordinator: UserCheck,
 };
+
+const AMOUNT_CONDITIONS: Record<string, { label: string; description: string }> = {
+  above: { label: "Superior a", description: "Se activa cuando el importe supera el umbral" },
+  below: { label: "Inferior a", description: "Se activa cuando el importe es menor al umbral" },
+  between: { label: "Entre", description: "Se activa cuando el importe está en el rango" },
+};
+
+const PRESET_THRESHOLDS = [1000, 2500, 5000, 10000, 25000, 50000];
 
 export default function ConfigApprovals() {
   const { id } = useParams();
@@ -154,14 +170,23 @@ export default function ConfigApprovals() {
       const approvalConfigSnap = await getDoc(approvalConfigRef);
       if (approvalConfigSnap.exists()) {
         const c = approvalConfigSnap.data();
-        setPoApprovals(c.poApprovals || []);
-        setInvoiceApprovals(c.invoiceApprovals || []);
+        // Asegurar que los pasos antiguos tengan los nuevos campos
+        const migrateSteps = (steps: any[]): ApprovalStep[] =>
+          steps.map((s) => ({
+            ...s,
+            hasAmountThreshold: s.hasAmountThreshold || false,
+            amountThreshold: s.amountThreshold || undefined,
+            amountCondition: s.amountCondition || "above",
+            amountThresholdMax: s.amountThresholdMax || undefined,
+          }));
+        setPoApprovals(migrateSteps(c.poApprovals || []));
+        setInvoiceApprovals(migrateSteps(c.invoiceApprovals || []));
       } else {
         setPoApprovals([
-          { id: "default-po-1", order: 1, approverType: "role", roles: ["PM", "EP"], requireAll: false },
+          { id: "default-po-1", order: 1, approverType: "role", roles: ["PM", "EP"], requireAll: false, hasAmountThreshold: false },
         ]);
         setInvoiceApprovals([
-          { id: "default-inv-1", order: 1, approverType: "role", roles: ["Controller", "PM", "EP"], requireAll: false },
+          { id: "default-inv-1", order: 1, approverType: "role", roles: ["Controller", "PM", "EP"], requireAll: false, hasAmountThreshold: false },
         ]);
       }
 
@@ -172,7 +197,7 @@ export default function ConfigApprovals() {
     }
   };
 
-  const addApprovalStep = (type: "po" | "invoice") => {
+  const addApprovalStep = (type: "po" | "invoice", withThreshold: boolean = false) => {
     const current = type === "po" ? poApprovals : invoiceApprovals;
     const newStep: ApprovalStep = {
       id: `step-${Date.now()}`,
@@ -180,6 +205,9 @@ export default function ConfigApprovals() {
       approverType: "fixed",
       approvers: [],
       requireAll: false,
+      hasAmountThreshold: withThreshold,
+      amountThreshold: withThreshold ? 5000 : undefined,
+      amountCondition: "above",
     };
     if (type === "po") setPoApprovals([...current, newStep]);
     else setInvoiceApprovals([...current, newStep]);
@@ -213,6 +241,14 @@ export default function ConfigApprovals() {
       current[idx].approvers = [];
       current[idx].roles = [];
       current[idx].department = undefined;
+    }
+    if (field === "hasAmountThreshold" && value === false) {
+      current[idx].amountThreshold = undefined;
+      current[idx].amountCondition = "above";
+      current[idx].amountThresholdMax = undefined;
+    }
+    if (field === "amountCondition" && value !== "between") {
+      current[idx].amountThresholdMax = undefined;
     }
     if (type === "po") setPoApprovals(current);
     else setInvoiceApprovals(current);
@@ -248,11 +284,22 @@ export default function ConfigApprovals() {
 
   const cleanApprovalSteps = (steps: ApprovalStep[]): any[] =>
     steps.map((s) => {
-      const clean: any = { id: s.id, order: s.order, approverType: s.approverType, requireAll: s.requireAll };
+      const clean: any = {
+        id: s.id,
+        order: s.order,
+        approverType: s.approverType,
+        requireAll: s.requireAll,
+        hasAmountThreshold: s.hasAmountThreshold,
+      };
       if (s.approverType === "fixed") clean.approvers = s.approvers || [];
       if (s.approverType === "role") clean.roles = s.roles || [];
       if ((s.approverType === "hod" || s.approverType === "coordinator") && s.department)
         clean.department = s.department;
+      if (s.hasAmountThreshold) {
+        clean.amountThreshold = s.amountThreshold;
+        clean.amountCondition = s.amountCondition;
+        if (s.amountCondition === "between") clean.amountThresholdMax = s.amountThresholdMax;
+      }
       return clean;
     });
 
@@ -279,14 +326,43 @@ export default function ConfigApprovals() {
 
   const getMembersByRole = (role: string) => members.filter((m) => m.role === role);
 
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
   const getStepSummary = (step: ApprovalStep): string => {
-    if (step.approverType === "role" && step.roles?.length) return step.roles.join(", ");
-    if (step.approverType === "fixed" && step.approvers?.length)
-      return `${step.approvers.length} usuario${step.approvers.length > 1 ? "s" : ""}`;
-    if (step.approverType === "hod") return step.department ? `HOD de ${step.department}` : "HOD del solicitante";
-    if (step.approverType === "coordinator")
-      return step.department ? `Coord. de ${step.department}` : "Coord. del solicitante";
-    return "Sin configurar";
+    let base = "";
+    if (step.approverType === "role" && step.roles?.length) base = step.roles.join(", ");
+    else if (step.approverType === "fixed" && step.approvers?.length)
+      base = `${step.approvers.length} usuario${step.approvers.length > 1 ? "s" : ""}`;
+    else if (step.approverType === "hod") base = step.department ? `HOD de ${step.department}` : "HOD del solicitante";
+    else if (step.approverType === "coordinator")
+      base = step.department ? `Coord. de ${step.department}` : "Coord. del solicitante";
+    else base = "Sin configurar";
+
+    if (step.hasAmountThreshold && step.amountThreshold) {
+      if (step.amountCondition === "above") return `${base} · >${formatCurrency(step.amountThreshold)}€`;
+      if (step.amountCondition === "below") return `${base} · <${formatCurrency(step.amountThreshold)}€`;
+      if (step.amountCondition === "between" && step.amountThresholdMax)
+        return `${base} · ${formatCurrency(step.amountThreshold)}-${formatCurrency(step.amountThresholdMax)}€`;
+    }
+    return base;
+  };
+
+  const getThresholdBadge = (step: ApprovalStep) => {
+    if (!step.hasAmountThreshold || !step.amountThreshold) return null;
+    
+    let text = "";
+    if (step.amountCondition === "above") text = `> ${formatCurrency(step.amountThreshold)} €`;
+    else if (step.amountCondition === "below") text = `< ${formatCurrency(step.amountThreshold)} €`;
+    else if (step.amountCondition === "between" && step.amountThresholdMax)
+      text = `${formatCurrency(step.amountThreshold)} - ${formatCurrency(step.amountThresholdMax)} €`;
+    
+    return (
+      <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-lg font-medium">
+        <DollarSign size={10} />
+        {text}
+      </span>
+    );
   };
 
   const renderApprovalStep = (step: ApprovalStep, type: "po" | "invoice", index: number) => {
@@ -310,16 +386,19 @@ export default function ConfigApprovals() {
             {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+            step.hasAmountThreshold ? "bg-amber-500 text-white" : "bg-slate-900 text-white"
+          }`}>
             {step.order}
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Icon size={14} className="text-slate-500" />
               <span className="text-sm font-medium text-slate-900">
                 {APPROVER_TYPE_LABELS[step.approverType]}
               </span>
+              {getThresholdBadge(step)}
               <span className="text-slate-300">•</span>
               <span className="text-sm text-slate-500 truncate">{getStepSummary(step)}</span>
             </div>
@@ -351,7 +430,138 @@ export default function ConfigApprovals() {
 
         {/* Contenido expandido */}
         {isExpanded && (
-          <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
+          <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-5">
+            {/* Umbral por importe */}
+            <div className={`p-4 rounded-xl border-2 transition-all ${
+              step.hasAmountThreshold ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"
+            }`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={step.hasAmountThreshold}
+                  onChange={(e) => updateStep(type, step.id, "hasAmountThreshold", e.target.checked)}
+                  className="w-4 h-4 mt-0.5 text-amber-600 border-slate-300 rounded focus:ring-amber-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={16} className={step.hasAmountThreshold ? "text-amber-600" : "text-slate-400"} />
+                    <span className={`text-sm font-medium ${step.hasAmountThreshold ? "text-amber-800" : "text-slate-700"}`}>
+                      Activar solo por importe
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Este nivel solo se activará cuando el documento cumpla la condición de importe
+                  </p>
+                </div>
+              </label>
+
+              {step.hasAmountThreshold && (
+                <div className="mt-4 space-y-4 pl-7">
+                  {/* Condición */}
+                  <div>
+                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                      Condición
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(Object.entries(AMOUNT_CONDITIONS) as [string, { label: string; description: string }][]).map(
+                        ([key, { label }]) => (
+                          <button
+                            key={key}
+                            onClick={() => updateStep(type, step.id, "amountCondition", key)}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                              step.amountCondition === key
+                                ? "border-amber-500 bg-amber-100 text-amber-800"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Importe */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                        {step.amountCondition === "between" ? "Importe mínimo" : "Importe"}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={step.amountThreshold || ""}
+                          onChange={(e) => updateStep(type, step.id, "amountThreshold", parseFloat(e.target.value) || 0)}
+                          placeholder="5000"
+                          className="w-full pl-8 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white text-sm"
+                        />
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                      </div>
+                    </div>
+
+                    {step.amountCondition === "between" && (
+                      <div>
+                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                          Importe máximo
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={step.amountThresholdMax || ""}
+                            onChange={(e) => updateStep(type, step.id, "amountThresholdMax", parseFloat(e.target.value) || 0)}
+                            placeholder="10000"
+                            className="w-full pl-8 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white text-sm"
+                          />
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Presets */}
+                  <div>
+                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                      Importes predefinidos
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {PRESET_THRESHOLDS.map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => updateStep(type, step.id, "amountThreshold", amount)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            step.amountThreshold === amount
+                              ? "bg-amber-500 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          {formatCurrency(amount)} €
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="p-3 bg-amber-100 rounded-lg border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <Zap size={14} className="text-amber-600 mt-0.5" />
+                      <p className="text-xs text-amber-800">
+                        {step.amountCondition === "above" && step.amountThreshold && (
+                          <>Este nivel se activará para {type === "po" ? "POs" : "facturas"} con importe <strong>superior a {formatCurrency(step.amountThreshold)} €</strong></>
+                        )}
+                        {step.amountCondition === "below" && step.amountThreshold && (
+                          <>Este nivel se activará para {type === "po" ? "POs" : "facturas"} con importe <strong>inferior a {formatCurrency(step.amountThreshold)} €</strong></>
+                        )}
+                        {step.amountCondition === "between" && step.amountThreshold && step.amountThresholdMax && (
+                          <>Este nivel se activará para {type === "po" ? "POs" : "facturas"} con importe <strong>entre {formatCurrency(step.amountThreshold)} € y {formatCurrency(step.amountThresholdMax)} €</strong></>
+                        )}
+                        {!step.amountThreshold && "Configura un importe para activar este nivel"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Tipo de aprobador */}
             <div>
               <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
@@ -627,7 +837,8 @@ export default function ConfigApprovals() {
             <div className="text-sm text-slate-600">
               <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
               <p className="text-slate-500">
-                Las aprobaciones se procesan en orden secuencial. Si no hay niveles configurados, los documentos se aprueban automáticamente.
+                Las aprobaciones se procesan en orden secuencial. Puedes configurar niveles que solo se activen a partir de cierto importe 
+                (ej: POs mayores de 5.000€ requieren aprobación del EP). Si no hay niveles configurados, los documentos se aprueban automáticamente.
               </p>
             </div>
           </div>
@@ -682,13 +893,24 @@ export default function ConfigApprovals() {
               ) : (
                 poApprovals.map((step, i) => renderApprovalStep(step, "po", i))
               )}
-              <button
-                onClick={() => addApprovalStep("po")}
-                className="w-full flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-              >
-                <Plus size={18} />
-                Añadir nivel de aprobación
-              </button>
+              
+              {/* Botones para añadir */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => addApprovalStep("po", false)}
+                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+                >
+                  <Plus size={18} />
+                  Añadir nivel de aprobación
+                </button>
+                <button
+                  onClick={() => addApprovalStep("po", true)}
+                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
+                >
+                  <DollarSign size={18} />
+                  Añadir nivel por importe
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -701,15 +923,57 @@ export default function ConfigApprovals() {
               ) : (
                 invoiceApprovals.map((step, i) => renderApprovalStep(step, "invoice", i))
               )}
-              <button
-                onClick={() => addApprovalStep("invoice")}
-                className="w-full flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-              >
-                <Plus size={18} />
-                Añadir nivel de aprobación
-              </button>
+              
+              {/* Botones para añadir */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => addApprovalStep("invoice", false)}
+                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+                >
+                  <Plus size={18} />
+                  Añadir nivel de aprobación
+                </button>
+                <button
+                  onClick={() => addApprovalStep("invoice", true)}
+                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
+                >
+                  <DollarSign size={18} />
+                  Añadir nivel por importe
+                </button>
+              </div>
             </>
           )}
+        </div>
+
+        {/* Ejemplo visual */}
+        <div className="mt-8 p-6 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl">
+          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <Info size={16} />
+            Ejemplo de configuración por importes
+          </h3>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">1</div>
+              <div className="flex-1">
+                <p className="text-sm text-slate-700"><strong>PM o Controller</strong> - Todas las POs</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-amber-200">
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">2</div>
+              <div className="flex-1">
+                <p className="text-sm text-slate-700"><strong>EP</strong> - Solo POs <span className="text-amber-600 font-medium">&gt; 5.000 €</span></p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-amber-200">
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">3</div>
+              <div className="flex-1">
+                <p className="text-sm text-slate-700"><strong>Director financiero</strong> - Solo POs <span className="text-amber-600 font-medium">&gt; 25.000 €</span></p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-4">
+            Con esta configuración, una PO de 3.000€ solo requiere aprobación del PM, mientras que una de 30.000€ necesita PM + EP + Director financiero.
+          </p>
         </div>
       </main>
     </div>
