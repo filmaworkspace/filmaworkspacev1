@@ -348,27 +348,65 @@ export default function ApprovalsPage() {
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      <div className="mt-[4.5rem] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm mb-6"><ArrowLeft size={16} />Volver al Panel</Link>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center"><CheckCircle size={24} className="text-teal-600" /></div>
-              <div><h1 className="text-2xl font-semibold text-slate-900">Mis aprobaciones</h1><p className="text-slate-500 text-sm">{projectName}{userRole && <span className="text-slate-400"> · {userRole}</span>}</p></div>
-            </div>
-            <div className="hidden md:flex items-center gap-6">
-              <div className="text-center"><p className="text-2xl font-bold text-slate-900">{userStats.approvedToday}</p><p className="text-xs text-slate-500">Hoy</p></div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center"><p className="text-2xl font-bold text-slate-900">{userStats.approvedThisWeek}</p><p className="text-xs text-slate-500">Esta semana</p></div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-center"><p className="text-2xl font-bold text-emerald-600">{userStats.pendingCount}</p><p className="text-xs text-slate-500">Pendientes</p></div>
+      {/* Header */}
+      <div className="mt-[4.5rem]">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          {/* Project context badge */}
+          <div className="mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
+                <ArrowLeft size={12} />
+                Proyectos
+              </Link>
+              <span className="text-slate-300">·</span>
+              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{projectName}</span>
             </div>
           </div>
-          <div className="flex items-center gap-4 mt-6">
+
+          {/* Page header */}
+          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center">
+                <CheckCircle size={24} className="text-teal-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">Mis aprobaciones</h1>
+                <p className="text-slate-500 text-sm mt-0.5">
+                  {userStats.pendingCount} pendiente{userStats.pendingCount !== 1 ? "s" : ""}
+                  {userRole && <span className="text-slate-400"> · {userRole}</span>}
+                </p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="text-center">
+                  <p className="text-lg font-bold text-slate-900">{userStats.approvedToday}</p>
+                  <p className="text-xs text-slate-500">Hoy</p>
+                </div>
+                <div className="w-px h-8 bg-slate-200" />
+                <div className="text-center">
+                  <p className="text-lg font-bold text-slate-900">{userStats.approvedThisWeek}</p>
+                  <p className="text-xs text-slate-500">Semana</p>
+                </div>
+              </div>
+              {pendingApprovals.some(a => a.isUrgent) && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                  <Flame size={16} className="text-red-500" />
+                  <span className="text-sm font-medium text-red-700">{pendingApprovals.filter(a => a.isUrgent).length} urgente{pendingApprovals.filter(a => a.isUrgent).length > 1 ? "s" : ""}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex items-center gap-4 pt-4">
             <div className="flex items-center gap-1 border border-slate-200 rounded-xl p-1">
               {(["all", "po", "invoice"] as const).map((t) => (<button key={t} onClick={() => setTypeFilter(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${typeFilter === t ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"}`}>{t === "all" ? "Todos" : t === "po" ? "POs" : "Facturas"}<span className="ml-1.5 text-xs opacity-70">({t === "all" ? pendingApprovals.length : pendingApprovals.filter(a => a.type === t).length})</span></button>))}
             </div>
-            {pendingApprovals.some(a => a.isUrgent) && (<div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg"><Flame size={14} className="text-red-500" /><span className="text-xs font-medium text-red-700">{pendingApprovals.filter(a => a.isUrgent).length} urgente{pendingApprovals.filter(a => a.isUrgent).length > 1 ? "s" : ""}</span></div>)}
           </div>
         </div>
       </div>
