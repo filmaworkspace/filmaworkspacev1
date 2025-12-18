@@ -86,11 +86,8 @@ export default function LoginPage() {
           {/* Header - more minimal */}
           <div className="mb-10">
             <h1 className="text-2xl font-semibold text-slate-900">
-              Bienvenido
+              Iniciar sesión
             </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              Introduce tus credenciales para continuar
-            </p>
           </div>
 
           {/* Form */}
