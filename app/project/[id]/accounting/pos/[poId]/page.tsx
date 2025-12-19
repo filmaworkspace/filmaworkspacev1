@@ -433,8 +433,6 @@ export default function PODetailPage() {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
               <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
               <span className="text-slate-300">·</span>
-              <Link href={`/project/${projectId}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
               <Link href={`/project/${projectId}/accounting/pos`} className="hover:text-slate-900 transition-colors">Órdenes de compra</Link>
               <span className="text-slate-300">·</span>
               <span className="uppercase text-slate-500">{projectName}</span>
