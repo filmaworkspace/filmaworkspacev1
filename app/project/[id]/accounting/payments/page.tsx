@@ -208,7 +208,6 @@ export default function PaymentsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Previsiones de pago</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{forecasts.length} previsiones · {formatCurrency(forecasts.reduce((sum, f) => sum + f.totalAmount, 0))} € total</p>
               </div>
             </div>
             <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
