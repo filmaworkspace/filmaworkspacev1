@@ -2,43 +2,17 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy,
-  Timestamp,
-} from "firebase/firestore";
-import {
-  FileText,
-  Plus,
-  Search,
-  Eye,
-  Edit,
-  Trash2,
-  X,
-  FileEdit,
-  Download,
-  Receipt,
-  ArrowLeft,
-  MoreHorizontal,
-  Lock,
-  Unlock,
-  XCircle,
-  ExternalLink,
-  AlertTriangle,
-} from "lucide-react";
+import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, ArrowLeft, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, Clock, CheckCircle2, Ban, Archive, Filter, LayoutGrid, List, Calendar, Building2, Hash, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 type POStatus = "draft" | "pending" | "approved" | "closed" | "cancelled";
+type SortOrder = "desc" | "asc";
+type ViewMode = "table" | "cards";
 
 interface POItem {
   id?: string;
@@ -73,6 +47,14 @@ interface PO {
   createdByName: string;
 }
 
+const STATUS_CONFIG: Record<POStatus, { bg: string; text: string; label: string; icon: typeof Clock; gradient: string }> = {
+  draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit, gradient: "from-slate-500 to-slate-600" },
+  pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente", icon: Clock, gradient: "from-amber-500 to-orange-500" },
+  approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada", icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500" },
+  closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada", icon: Archive, gradient: "from-blue-500 to-indigo-500" },
+  cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada", icon: Ban, gradient: "from-red-500 to-rose-500" },
+};
+
 export default function POsPage() {
   const params = useParams();
   const router = useRouter();
@@ -85,8 +67,13 @@ export default function POsPage() {
   const [filteredPOs, setFilteredPOs] = useState<PO[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | POStatus>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
-  // Quick preview modal (minimal)
+  // Stats
+  const [stats, setStats] = useState({ total: 0, draft: 0, pending: 0, approved: 0, closed: 0, cancelled: 0, totalBase: 0, totalInvoiced: 0 });
+
+  // Quick preview modal
   const [previewPO, setPreviewPO] = useState<PO | null>(null);
 
   // Action modals
@@ -99,7 +86,7 @@ export default function POsPage() {
 
   // Menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const menuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -111,20 +98,14 @@ export default function POsPage() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
-
-  useEffect(() => {
-    filterPOs();
-  }, [searchTerm, statusFilter, pos]);
+  useEffect(() => { if (id) loadData(); }, [id]);
+  useEffect(() => { filterAndSortPOs(); }, [searchTerm, statusFilter, pos, sortOrder]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest(".menu-container")) {
         setOpenMenuId(null);
-        setMenuPosition(null);
       }
     };
     document.addEventListener("click", handleClickOutside);
@@ -135,14 +116,9 @@ export default function POsPage() {
     try {
       setLoading(true);
       const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) {
-        setProjectName(projectDoc.data().name || "Proyecto");
-      }
+      if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
 
-      const posSnapshot = await getDocs(
-        query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc"))
-      );
-
+      const posSnapshot = await getDocs(query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc")));
       const posData = posSnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
@@ -154,6 +130,18 @@ export default function POsPage() {
       })) as PO[];
 
       setPos(posData);
+
+      // Calculate stats
+      const newStats = posData.reduce((acc, po) => {
+        acc.total++;
+        acc[po.status]++;
+        if (po.status !== "cancelled") {
+          acc.totalBase += po.baseAmount || po.totalAmount || 0;
+          acc.totalInvoiced += po.invoicedAmount || 0;
+        }
+        return acc;
+      }, { total: 0, draft: 0, pending: 0, approved: 0, closed: 0, cancelled: 0, totalBase: 0, totalInvoiced: 0 });
+      setStats(newStats);
     } catch (error) {
       console.error("Error cargando POs:", error);
     } finally {
@@ -161,17 +149,15 @@ export default function POsPage() {
     }
   };
 
-  const filterPOs = () => {
+  const filterAndSortPOs = () => {
     let filtered = [...pos];
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (po) =>
-          po.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (po.generalDescription || po.description || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((po) =>
+        po.number.toLowerCase().includes(term) ||
+        po.supplier.toLowerCase().includes(term) ||
+        (po.generalDescription || po.description || "").toLowerCase().includes(term)
       );
     }
 
@@ -179,83 +165,66 @@ export default function POsPage() {
       filtered = filtered.filter((po) => po.status === statusFilter);
     }
 
+    // Sort
+    filtered.sort((a, b) => {
+      const dateA = a.createdAt?.getTime() || 0;
+      const dateB = b.createdAt?.getTime() || 0;
+      return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+    });
+
     setFilteredPOs(filtered);
   };
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat("es-ES", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount || 0);
-  };
+  const toggleSortOrder = () => setSortOrder(sortOrder === "desc" ? "asc" : "desc");
 
-  const formatDate = (date: Date) => {
+  const formatCurrency = (amount: number): string => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+  const formatDate = (date: Date) => date ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date) : "-";
+  const formatDateTime = (date: Date) => date ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date) : "-";
+  const formatDateRelative = (date: Date) => {
     if (!date) return "-";
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return "Hoy";
+    if (diff === 1) return "Ayer";
+    if (diff < 7) return `Hace ${diff} días`;
+    return formatDate(date);
   };
 
-  const formatDateTime = (date: Date) => {
-    if (!date) return "-";
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  };
-
-  const getStatusBadge = (status: POStatus) => {
-    const config: Record<POStatus, { bg: string; text: string; label: string }> = {
-      draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador" },
-      pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
-      approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
-      closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada" },
-      cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada" },
-    };
-    const c = config[status];
+  const getStatusBadge = (status: POStatus, size: "sm" | "md" = "sm") => {
+    const config = STATUS_CONFIG[status];
+    const Icon = config.icon;
+    const sizeClasses = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
     return (
-      <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>
-        {c.label}
+      <span className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}>
+        <Icon size={size === "sm" ? 12 : 14} />
+        {config.label}
       </span>
     );
   };
 
-  // Actions
-  const handleEditDraft = (po: PO) => {
-    closeMenu();
-    router.push(`/project/${id}/accounting/pos/${po.id}/edit`);
+  const getMenuPosition = (poId: string) => {
+    const button = menuButtonRefs.current.get(poId);
+    if (!button) return { top: 0, left: 0 };
+    const rect = button.getBoundingClientRect();
+    return {
+      top: rect.bottom + 4,
+      left: rect.right - 192,
+    };
   };
 
-  const handleCreateInvoice = (po: PO) => {
-    closeMenu();
-    router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`);
-  };
+  // Actions
+  const handleEditDraft = (po: PO) => { closeMenu(); router.push(`/project/${id}/accounting/pos/${po.id}/edit`); };
+  const handleCreateInvoice = (po: PO) => { closeMenu(); router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`); };
 
   const handleClosePO = async (po: PO) => {
     if (po.status !== "approved") return;
     closeMenu();
-
     const pendingBase = (po.baseAmount || po.totalAmount) - po.invoicedAmount;
-    if (
-      pendingBase > 0 &&
-      !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla igualmente?`)
-    ) {
-      return;
-    }
+    if (pendingBase > 0 && !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla igualmente?`)) return;
 
     setProcessing(true);
     try {
-      await updateDoc(doc(db, `projects/${id}/pos`, po.id), {
-        status: "closed",
-        closedAt: Timestamp.now(),
-        closedBy: userId,
-        closedByName: userName,
-      });
+      await updateDoc(doc(db, `projects/${id}/pos`, po.id), { status: "closed", closedAt: Timestamp.now(), closedBy: userId, closedByName: userName });
       await loadData();
     } catch (error) {
       console.error("Error:", error);
@@ -268,17 +237,11 @@ export default function POsPage() {
   const handleReopenPO = async (po: PO) => {
     if (po.status !== "closed") return;
     closeMenu();
-
     if (!confirm("¿Reabrir esta PO? Volverá al estado 'Aprobada'.")) return;
 
     setProcessing(true);
     try {
-      await updateDoc(doc(db, `projects/${id}/pos`, po.id), {
-        status: "approved",
-        closedAt: null,
-        closedBy: null,
-        closedByName: null,
-      });
+      await updateDoc(doc(db, `projects/${id}/pos`, po.id), { status: "approved", closedAt: null, closedBy: null, closedByName: null });
       await loadData();
     } catch (error) {
       console.error("Error:", error);
@@ -297,48 +260,27 @@ export default function POsPage() {
 
   const confirmCancelPO = async () => {
     if (!selectedPO || !cancellationReason.trim()) return;
-
     setProcessing(true);
     try {
-      // Release committed budget if approved
       if (selectedPO.status === "approved") {
         for (const item of selectedPO.items) {
           if (item.subAccountId) {
             const itemBaseAmount = item.baseAmount || item.quantity * item.unitPrice || 0;
             const accountsSnap = await getDocs(collection(db, `projects/${id}/accounts`));
-
             for (const accountDoc of accountsSnap.docs) {
               try {
-                const subAccountRef = doc(
-                  db,
-                  `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
-                  item.subAccountId
-                );
+                const subAccountRef = doc(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`, item.subAccountId);
                 const subAccountSnap = await getDoc(subAccountRef);
-
                 if (subAccountSnap.exists()) {
-                  await updateDoc(subAccountRef, {
-                    committed: Math.max(0, (subAccountSnap.data().committed || 0) - itemBaseAmount),
-                  });
+                  await updateDoc(subAccountRef, { committed: Math.max(0, (subAccountSnap.data().committed || 0) - itemBaseAmount) });
                   break;
                 }
-              } catch (e) {
-                continue;
-              }
+              } catch (e) { continue; }
             }
           }
         }
       }
-
-      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
-        status: "cancelled",
-        cancelledAt: Timestamp.now(),
-        cancelledBy: userId,
-        cancelledByName: userName,
-        cancellationReason: cancellationReason.trim(),
-        committedAmount: 0,
-      });
-
+      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), { status: "cancelled", cancelledAt: Timestamp.now(), cancelledBy: userId, cancelledByName: userName, cancellationReason: cancellationReason.trim(), committedAmount: 0 });
       await loadData();
       setShowCancelModal(false);
       setSelectedPO(null);
@@ -361,31 +303,15 @@ export default function POsPage() {
 
   const confirmModifyPO = async () => {
     if (!selectedPO || !modificationReason.trim()) return;
-
     setProcessing(true);
     try {
       const newVersion = (selectedPO.version || 1) + 1;
-
       await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
         version: newVersion,
         status: "draft",
-        modificationHistory: [
-          ...(selectedPO as any).modificationHistory || [],
-          {
-            date: Timestamp.now(),
-            userId: userId || "",
-            userName: userName,
-            reason: modificationReason.trim(),
-            previousVersion: selectedPO.version || 1,
-          },
-        ],
-        approvedAt: null,
-        approvedBy: null,
-        approvedByName: null,
-        approvalSteps: null,
-        currentApprovalStep: null,
+        modificationHistory: [...(selectedPO as any).modificationHistory || [], { date: Timestamp.now(), userId: userId || "", userName, reason: modificationReason.trim(), previousVersion: selectedPO.version || 1 }],
+        approvedAt: null, approvedBy: null, approvedByName: null, approvalSteps: null, currentApprovalStep: null,
       });
-
       setShowModifyModal(false);
       router.push(`/project/${id}/accounting/pos/${selectedPO.id}/edit`);
     } catch (error) {
@@ -399,9 +325,7 @@ export default function POsPage() {
   const handleDeleteDraft = async (po: PO) => {
     if (po.status !== "draft") return;
     closeMenu();
-
     if (!confirm(`¿Eliminar PO-${po.number}? Esta acción no se puede deshacer.`)) return;
-
     setProcessing(true);
     try {
       await deleteDoc(doc(db, `projects/${id}/pos`, po.id));
@@ -414,19 +338,15 @@ export default function POsPage() {
     }
   };
 
-  const closeMenu = () => {
-    setOpenMenuId(null);
-    setMenuPosition(null);
-  };
+  const closeMenu = () => setOpenMenuId(null);
 
-  // PDF Generation (simplified)
+  // PDF Generation
   const generatePDF = (po: PO) => {
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 20;
     let y = margin;
 
-    // Header
     pdf.setFillColor(30, 41, 59);
     pdf.rect(0, 0, pageWidth, 45, "F");
     pdf.setTextColor(255, 255, 255);
@@ -442,8 +362,6 @@ export default function POsPage() {
     }
 
     y = 55;
-
-    // Supplier
     pdf.setFillColor(248, 250, 252);
     pdf.roundedRect(margin, y, pageWidth - margin * 2, 25, 3, 3, "F");
     pdf.setTextColor(100, 116, 139);
@@ -455,8 +373,6 @@ export default function POsPage() {
     pdf.text(po.supplier, margin + 5, y + 18);
 
     y += 35;
-
-    // Amount
     pdf.setFillColor(248, 250, 252);
     pdf.roundedRect(margin, y, pageWidth - margin * 2, 25, 3, 3, "F");
     pdf.setTextColor(100, 116, 139);
@@ -468,8 +384,6 @@ export default function POsPage() {
     pdf.text(formatCurrency(po.totalAmount) + " €", margin + 5, y + 18);
 
     y += 35;
-
-    // Items
     pdf.setTextColor(30, 41, 59);
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "bold");
@@ -489,7 +403,6 @@ export default function POsPage() {
       y += 12;
     });
 
-    // Footer
     y += 10;
     pdf.setTextColor(100, 116, 139);
     pdf.setFontSize(8);
@@ -533,18 +446,13 @@ export default function POsPage() {
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <FileText size={24} className="text-indigo-600" />
               </div>
-
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Órdenes de compra
-                </h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{stats.total} órdenes · {formatCurrency(stats.totalBase)} € base imponible</p>
               </div>
             </div>
 
-            <Link
-              href={`/project/${id}/accounting/pos/new`}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
-            >
+            <Link href={`/project/${id}/accounting/pos/new`} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
               <Plus size={18} />
               Nueva PO
             </Link>
@@ -553,173 +461,314 @@ export default function POsPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        {/* Filters */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+          {(["draft", "pending", "approved", "closed", "cancelled"] as POStatus[]).map((status) => {
+            const config = STATUS_CONFIG[status];
+            const Icon = config.icon;
+            const count = stats[status];
+            const isActive = statusFilter === status;
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(isActive ? "all" : status)}
+                className={`relative p-4 rounded-2xl border-2 transition-all text-left group overflow-hidden ${isActive ? "border-slate-900 bg-slate-50" : "border-slate-100 hover:border-slate-200 bg-white"}`}
+              >
+                <div className={`absolute top-0 right-0 w-16 h-16 rounded-full blur-2xl opacity-20 bg-gradient-to-br ${config.gradient} group-hover:opacity-30 transition-opacity`} />
+                <div className="relative">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${config.bg}`}>
+                    <Icon size={16} className={config.text} />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{count}</p>
+                  <p className="text-xs text-slate-500">{config.label}</p>
+                </div>
+                {isActive && <div className="absolute top-2 right-2 w-2 h-2 bg-slate-900 rounded-full" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filters & Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
-            <Search
-              size={18}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"
-            />
+            <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar por número, proveedor o descripción..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm"
+              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm bg-white"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm min-w-[180px]"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="draft">Borradores</option>
-            <option value="pending">Pendientes</option>
-            <option value="approved">Aprobadas</option>
-            <option value="closed">Cerradas</option>
-            <option value="cancelled">Anuladas</option>
-          </select>
+
+          <div className="flex gap-2">
+            {/* Sort Order Button */}
+            <button
+              onClick={toggleSortOrder}
+              className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl hover:border-slate-300 bg-white text-sm transition-colors group"
+              title={sortOrder === "desc" ? "Más recientes primero" : "Más antiguas primero"}
+            >
+              <div className="relative w-4 h-4">
+                <ArrowUp size={14} className={`absolute inset-0 transition-all ${sortOrder === "asc" ? "opacity-100 text-slate-900" : "opacity-30 text-slate-400"}`} />
+                <ArrowDown size={14} className={`absolute inset-0 transition-all ${sortOrder === "desc" ? "opacity-100 text-slate-900" : "opacity-30 text-slate-400"}`} />
+              </div>
+              <span className="text-slate-700 hidden sm:inline">
+                {sortOrder === "desc" ? "Recientes" : "Antiguas"}
+              </span>
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-4 py-3 text-sm transition-colors ${viewMode === "table" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                <List size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode("cards")}
+                className={`px-4 py-3 text-sm transition-colors border-l border-slate-200 ${viewMode === "cards" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                <LayoutGrid size={18} />
+              </button>
+            </div>
+
+            {/* Clear filters */}
+            {(statusFilter !== "all" || searchTerm) && (
+              <button
+                onClick={() => { setStatusFilter("all"); setSearchTerm(""); }}
+                className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl hover:border-red-300 hover:bg-red-50 text-sm text-slate-600 hover:text-red-600 transition-colors"
+              >
+                <X size={16} />
+                <span className="hidden sm:inline">Limpiar</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Table or Empty State */}
+        {/* Results count */}
+        {(statusFilter !== "all" || searchTerm) && filteredPOs.length > 0 && (
+          <div className="mb-4 text-sm text-slate-500">
+            Mostrando {filteredPOs.length} de {stats.total} órdenes
+          </div>
+        )}
+
+        {/* Content */}
         {filteredPOs.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <FileText size={28} className="text-slate-400" />
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {searchTerm || statusFilter !== "all"
-                ? "No se encontraron resultados"
-                : "Sin órdenes de compra"}
+              {searchTerm || statusFilter !== "all" ? "No se encontraron resultados" : "Sin órdenes de compra"}
             </h3>
             <p className="text-slate-500 text-sm mb-6">
-              {searchTerm || statusFilter !== "all"
-                ? "Prueba a ajustar los filtros de búsqueda"
-                : "Crea tu primera orden de compra para empezar"}
+              {searchTerm || statusFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Crea tu primera orden de compra para empezar"}
             </p>
             {!searchTerm && statusFilter === "all" && (
-              <Link
-                href={`/project/${id}/accounting/pos/new`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
-              >
+              <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
                 <Plus size={18} />
                 Nueva PO
               </Link>
             )}
           </div>
-        ) : (
+        ) : viewMode === "table" ? (
+          /* Table View */
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Número
+                    <div className="flex items-center gap-2">
+                      <Hash size={12} />
+                      Número
+                    </div>
                   </th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Proveedor
+                    <div className="flex items-center gap-2">
+                      <Building2 size={12} />
+                      Proveedor
+                    </div>
                   </th>
                   <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Importe
+                    Base Imponible
                   </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="w-16"></th>
+                  <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <div className="flex items-center justify-center gap-2">
+                      <Calendar size={12} />
+                      Fecha
+                    </div>
+                  </th>
+                  <th className="w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredPOs.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => setPreviewPO(po)}
-                        className="text-left hover:text-indigo-600 transition-colors"
-                      >
-                        <p className="font-semibold text-slate-900 group-hover:text-indigo-600">
-                          PO-{po.number}
-                          {po.version > 1 && (
-                            <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">
-                              V{String(po.version).padStart(2, "0")}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">{formatDate(po.createdAt)}</p>
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-slate-900 font-medium">{po.supplier}</p>
-                      <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
-                        {po.generalDescription || po.description}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {formatCurrency(po.totalAmount)} €
-                      </p>
-                      {po.status === "approved" && po.invoicedAmount > 0 && (
-                        <p className="text-xs text-emerald-600 mt-0.5">
-                          Fact: {formatCurrency(po.invoicedAmount)} €
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
-                    <td className="px-6 py-4">
-                      <div className="relative menu-container">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (openMenuId === po.id) {
-                              closeMenu();
-                            } else {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const menuHeight = 200;
-                              const spaceBelow = window.innerHeight - rect.bottom;
-                              const showAbove = spaceBelow < menuHeight;
-
-                              setMenuPosition({
-                                top: showAbove ? rect.top - menuHeight : rect.bottom + 4,
-                                left: rect.right - 192,
-                              });
-                              setOpenMenuId(po.id);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                        >
-                          <MoreHorizontal size={18} />
+                {filteredPOs.map((po, index) => {
+                  const baseAmount = po.baseAmount || po.totalAmount || 0;
+                  const invoiceProgress = po.status === "approved" && baseAmount > 0 ? Math.min(100, (po.invoicedAmount / baseAmount) * 100) : 0;
+                  
+                  return (
+                    <tr key={po.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <button onClick={() => setPreviewPO(po)} className="text-left hover:text-indigo-600 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900 group-hover:text-indigo-600">
+                              PO-{po.number}
+                            </p>
+                            {po.version > 1 && (
+                              <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">
+                                V{String(po.version).padStart(2, "0")}
+                              </span>
+                            )}
+                          </div>
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-slate-900 font-medium">{po.supplier}</p>
+                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 max-w-[200px]">
+                          {po.generalDescription || po.description}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-sm font-semibold text-slate-900">{formatCurrency(baseAmount)} €</p>
+                        {po.status === "approved" && po.invoicedAmount > 0 && (
+                          <div className="mt-1.5">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${invoiceProgress}%` }} />
+                              </div>
+                              <span className="text-xs text-emerald-600 font-medium">{Math.round(invoiceProgress)}%</span>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {getStatusBadge(po.status)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <p className="text-sm text-slate-600">{formatDateRelative(po.createdAt)}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="relative menu-container">
+                          <button
+                            ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === po.id ? null : po.id);
+                            }}
+                            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <MoreHorizontal size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        ) : (
+          /* Cards View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPOs.map((po) => {
+              const baseAmount = po.baseAmount || po.totalAmount || 0;
+              const invoiceProgress = po.status === "approved" && baseAmount > 0 ? Math.min(100, (po.invoicedAmount / baseAmount) * 100) : 0;
+              const config = STATUS_CONFIG[po.status];
+
+              return (
+                <div
+                  key={po.id}
+                  className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-slate-300 transition-all group relative overflow-hidden"
+                >
+                  {/* Status gradient accent */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.gradient}`} />
+
+                  <div className="flex items-start justify-between mb-4">
+                    <button onClick={() => setPreviewPO(po)} className="text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          PO-{po.number}
+                        </p>
+                        {po.version > 1 && (
+                          <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">
+                            V{String(po.version).padStart(2, "0")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 font-medium">{po.supplier}</p>
+                    </button>
+
+                    <div className="relative menu-container">
+                      <button
+                        ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === po.id ? null : po.id);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {(po.generalDescription || po.description) && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-4">
+                      {po.generalDescription || po.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Base imponible</p>
+                      <p className="text-lg font-bold text-slate-900">{formatCurrency(baseAmount)} €</p>
+                    </div>
+                    {getStatusBadge(po.status)}
+                  </div>
+
+                  {/* Invoice progress for approved */}
+                  {po.status === "approved" && po.invoicedAmount > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-slate-500">Facturado</span>
+                        <span className="text-emerald-600 font-medium">{formatCurrency(po.invoicedAmount)} €</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all" style={{ width: `${invoiceProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>{formatDateRelative(po.createdAt)}</span>
+                    <span>{po.items?.length || 0} items</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
-        {/* Floating Menu */}
-        {openMenuId && menuPosition && (
+        {/* Floating Menu - Now positioned directly below button */}
+        {openMenuId && (
           <div
             className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1"
-            style={{ top: menuPosition.top, left: menuPosition.left }}
+            style={getMenuPosition(openMenuId)}
           >
             {(() => {
               const po = filteredPOs.find((p) => p.id === openMenuId);
               if (!po) return null;
               return (
                 <>
-                  <Link
-                    href={`/project/${id}/accounting/pos/${po.id}`}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                    onClick={closeMenu}
-                  >
+                  <Link href={`/project/${id}/accounting/pos/${po.id}`} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3" onClick={closeMenu}>
                     <Eye size={15} className="text-slate-400" />
                     Ver detalle
                   </Link>
-                  <button
-                    onClick={() => generatePDF(po)}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                  >
+                  <button onClick={() => generatePDF(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                     <Download size={15} className="text-slate-400" />
                     Descargar PDF
                   </button>
@@ -727,17 +776,11 @@ export default function POsPage() {
                   {po.status === "draft" && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
-                      <button
-                        onClick={() => handleEditDraft(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleEditDraft(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                         <Edit size={15} className="text-slate-400" />
                         Editar borrador
                       </button>
-                      <button
-                        onClick={() => handleDeleteDraft(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleDeleteDraft(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
                         <Trash2 size={15} />
                         Eliminar
                       </button>
@@ -747,32 +790,20 @@ export default function POsPage() {
                   {po.status === "approved" && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
-                      <button
-                        onClick={() => handleCreateInvoice(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleCreateInvoice(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                         <Receipt size={15} className="text-slate-400" />
                         Crear factura
                       </button>
-                      <button
-                        onClick={() => handleModifyPO(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleModifyPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                         <FileEdit size={15} className="text-slate-400" />
                         Modificar PO
                       </button>
-                      <button
-                        onClick={() => handleClosePO(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleClosePO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                         <Lock size={15} className="text-slate-400" />
                         Cerrar PO
                       </button>
                       {po.invoicedAmount === 0 && (
-                        <button
-                          onClick={() => handleCancelPO(po)}
-                          className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-                        >
+                        <button onClick={() => handleCancelPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
                           <XCircle size={15} />
                           Anular PO
                         </button>
@@ -783,10 +814,7 @@ export default function POsPage() {
                   {po.status === "closed" && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
-                      <button
-                        onClick={() => handleReopenPO(po)}
-                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
-                      >
+                      <button onClick={() => handleReopenPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                         <Unlock size={15} className="text-slate-400" />
                         Reabrir PO
                       </button>
@@ -799,87 +827,100 @@ export default function POsPage() {
         )}
       </main>
 
-      {/* Quick Preview Modal (minimal) */}
+      {/* Quick Preview Modal */}
       {previewPO && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setPreviewPO(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-slate-900">
-                  PO-{previewPO.number}
-                  {previewPO.version > 1 && (
-                    <span className="ml-2 text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg">
-                      V{String(previewPO.version).padStart(2, "0")}
-                    </span>
-                  )}
-                </h3>
-                <p className="text-sm text-slate-500">{previewPO.supplier}</p>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewPO(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header with gradient */}
+            <div className={`bg-gradient-to-r ${STATUS_CONFIG[previewPO.status].gradient} px-6 py-4`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-white text-lg">PO-{previewPO.number}</h3>
+                    {previewPO.version > 1 && (
+                      <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-lg backdrop-blur-sm">
+                        V{String(previewPO.version).padStart(2, "0")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-white/80 text-sm mt-0.5">{previewPO.supplier}</p>
+                </div>
+                <button onClick={() => setPreviewPO(null)} className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-colors">
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                onClick={() => setPreviewPO(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                <X size={18} />
-              </button>
             </div>
 
             <div className="p-6">
               {/* Quick stats */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1">Importe total</p>
-                  <p className="text-lg font-bold text-slate-900">
-                    {formatCurrency(previewPO.totalAmount)} €
-                  </p>
+                  <p className="text-xs text-slate-500 mb-1">Base imponible</p>
+                  <p className="text-xl font-bold text-slate-900">{formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1">Estado</p>
-                  <div className="mt-1">{getStatusBadge(previewPO.status)}</div>
+                  <p className="text-xs text-slate-500 mb-1">Total con IVA</p>
+                  <p className="text-xl font-bold text-slate-900">{formatCurrency(previewPO.totalAmount)} €</p>
                 </div>
               </div>
+
+              {/* Invoice progress for approved */}
+              {previewPO.status === "approved" && (
+                <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-emerald-700 font-medium">Progreso de facturación</span>
+                    <span className="text-sm text-emerald-700 font-bold">
+                      {formatCurrency(previewPO.invoicedAmount)} / {formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, ((previewPO.invoicedAmount || 0) / (previewPO.baseAmount || previewPO.totalAmount || 1)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Description preview */}
               {(previewPO.generalDescription || previewPO.description) && (
                 <div className="mb-6">
-                  <p className="text-xs text-slate-500 uppercase mb-2">Descripción</p>
-                  <p className="text-sm text-slate-700 line-clamp-3">
-                    {previewPO.generalDescription || previewPO.description}
-                  </p>
+                  <p className="text-xs text-slate-500 uppercase mb-2 font-medium">Descripción</p>
+                  <p className="text-sm text-slate-700 line-clamp-3">{previewPO.generalDescription || previewPO.description}</p>
                 </div>
               )}
 
-              {/* Items count */}
-              <div className="mb-6 flex items-center justify-between text-sm">
-                <span className="text-slate-500">Items</span>
-                <span className="font-medium text-slate-900">{previewPO.items?.length || 0}</span>
+              {/* Items count with icon */}
+              <div className="mb-6 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <FileText size={16} className="text-indigo-600" />
+                  </div>
+                  <span className="text-sm text-slate-600">Items incluidos</span>
+                </div>
+                <span className="font-bold text-slate-900">{previewPO.items?.length || 0}</span>
               </div>
 
               {/* Quick info */}
-              <div className="text-xs text-slate-500 space-y-1 mb-6">
-                <div className="flex justify-between">
-                  <span>Fecha</span>
-                  <span className="text-slate-700">{formatDate(previewPO.createdAt)}</span>
+              <div className="text-xs text-slate-500 space-y-2">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span>Fecha de creación</span>
+                  <span className="text-slate-700 font-medium">{formatDate(previewPO.createdAt)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
                   <span>Creado por</span>
-                  <span className="text-slate-700">{previewPO.createdByName}</span>
+                  <span className="text-slate-700 font-medium">{previewPO.createdByName}</span>
                 </div>
                 {previewPO.department && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center py-2">
                     <span>Departamento</span>
-                    <span className="text-slate-700">{previewPO.department}</span>
+                    <span className="text-slate-700 font-medium">{previewPO.department}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
               <Link
                 href={`/project/${id}/accounting/pos/${previewPO.id}`}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
@@ -895,26 +936,20 @@ export default function POsPage() {
 
       {/* Cancel Modal */}
       {showCancelModal && selectedPO && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => {
-            setShowCancelModal(false);
-            setSelectedPO(null);
-            setCancellationReason("");
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="text-lg font-semibold text-slate-900">Anular PO-{selectedPO.number}</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); setSelectedPO(null); setCancellationReason(""); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <XCircle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Anular PO-{selectedPO.number}</h3>
+                <p className="text-xs text-slate-500">Esta acción no se puede deshacer</p>
+              </div>
             </div>
             <div className="p-6">
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Motivo de anulación *
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de anulación *</label>
                 <textarea
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
@@ -923,27 +958,14 @@ export default function POsPage() {
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm"
                 />
                 {selectedPO.status === "approved" && (
-                  <p className="text-xs text-slate-500 mt-2">
-                    Se liberará el presupuesto comprometido ({formatCurrency(selectedPO.committedAmount)} €)
-                  </p>
+                  <p className="text-xs text-slate-500 mt-2">Se liberará el presupuesto comprometido ({formatCurrency(selectedPO.committedAmount)} €)</p>
                 )}
               </div>
               <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowCancelModal(false);
-                    setSelectedPO(null);
-                    setCancellationReason("");
-                  }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
-                >
+                <button onClick={() => { setShowCancelModal(false); setSelectedPO(null); setCancellationReason(""); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
-                <button
-                  onClick={confirmCancelPO}
-                  disabled={processing || !cancellationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                >
+                <button onClick={confirmCancelPO} disabled={processing || !cancellationReason.trim()} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
                   {processing ? "Anulando..." : "Confirmar anulación"}
                 </button>
               </div>
@@ -954,39 +976,29 @@ export default function POsPage() {
 
       {/* Modify Modal */}
       {showModifyModal && selectedPO && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => {
-            setShowModifyModal(false);
-            setSelectedPO(null);
-            setModificationReason("");
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="text-lg font-semibold text-slate-900">Modificar PO-{selectedPO.number}</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowModifyModal(false); setSelectedPO(null); setModificationReason(""); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <FileEdit size={20} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Modificar PO-{selectedPO.number}</h3>
+                <p className="text-xs text-slate-500">Crear nueva versión para editar</p>
+              </div>
             </div>
             <div className="p-6">
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <div className="flex items-start gap-3">
                   <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-amber-800">
-                    <p className="font-medium">
-                      Pasará a V{String((selectedPO.version || 1) + 1).padStart(2, "0")} en borrador
-                    </p>
-                    <p className="text-xs mt-1">
-                      Deberás editarla y enviarla nuevamente para aprobación.
-                    </p>
+                    <p className="font-medium">Pasará a V{String((selectedPO.version || 1) + 1).padStart(2, "0")} en borrador</p>
+                    <p className="text-xs mt-1">Deberás editarla y enviarla nuevamente para aprobación.</p>
                   </div>
                 </div>
               </div>
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Motivo de la modificación *
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de la modificación *</label>
                 <textarea
                   value={modificationReason}
                   onChange={(e) => setModificationReason(e.target.value)}
@@ -996,21 +1008,10 @@ export default function POsPage() {
                 />
               </div>
               <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowModifyModal(false);
-                    setSelectedPO(null);
-                    setModificationReason("");
-                  }}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
-                >
+                <button onClick={() => { setShowModifyModal(false); setSelectedPO(null); setModificationReason(""); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
-                <button
-                  onClick={confirmModifyPO}
-                  disabled={processing || !modificationReason.trim()}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                >
+                <button onClick={confirmModifyPO} disabled={processing || !modificationReason.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
                   {processing ? "Modificando..." : "Modificar"}
                 </button>
               </div>
