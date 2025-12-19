@@ -950,37 +950,6 @@ export default function ConfigApprovals() {
             </>
           )}
         </div>
-
-        {/* Ejemplo visual */}
-        <div className="mt-8 p-6 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-            <Info size={16} />
-            Ejemplo de configuración por importes
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">1</div>
-              <div className="flex-1">
-                <p className="text-sm text-slate-700"><strong>PM o Controller</strong> - Todas las POs</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-amber-200">
-              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">2</div>
-              <div className="flex-1">
-                <p className="text-sm text-slate-700"><strong>EP</strong> - Solo POs <span className="text-amber-600 font-medium">&gt; 5.000 €</span></p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-amber-200">
-              <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">3</div>
-              <div className="flex-1">
-                <p className="text-sm text-slate-700"><strong>Director financiero</strong> - Solo POs <span className="text-amber-600 font-medium">&gt; 25.000 €</span></p>
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mt-4">
-            Con esta configuración, una PO de 3.000€ solo requiere aprobación del PM, mientras que una de 30.000€ necesita PM + EP + Director financiero.
-          </p>
-        </div>
       </main>
     </div>
   );
