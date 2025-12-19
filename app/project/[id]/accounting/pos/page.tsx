@@ -448,7 +448,6 @@ export default function POsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{stats.total} órdenes · {formatCurrency(stats.totalBase)} € base imponible</p>
               </div>
             </div>
 
@@ -591,7 +590,7 @@ export default function POsPage() {
                     </div>
                   </th>
                   <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Base Imponible
+                    Importe
                   </th>
                   <th className="text-center px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Estado
