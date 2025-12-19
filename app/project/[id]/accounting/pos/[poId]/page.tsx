@@ -4,14 +4,9 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import {
-  doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy,
-} from "firebase/firestore";
-import {
-  FileText, ArrowLeft, Download, Edit, Trash2, FileEdit, Receipt, History, AlertTriangle,
-  MoreHorizontal, Lock, Unlock, XCircle, Building2, Calendar, User, Tag, CreditCard,
-  FileUp, ExternalLink, CheckCircle, Clock, AlertCircle, ChevronLeft, ChevronRight,
-} from "lucide-react";
+import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy } from "firebase/firestore";
+import { FileText, ArrowLeft, Download, Edit, Trash2, FileEdit, Receipt, History, AlertTriangle, MoreHorizontal, Lock, Unlock, XCircle, Building2, Calendar, User, Tag, CreditCard, FileUp, ExternalLink, CheckCircle, Clock, AlertCircle, ChevronLeft, ChevronRight, Eye, KeyRound } from "lucide-react";
 import jsPDF from "jspdf";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -36,14 +31,24 @@ export default function PODetailPage() {
   const [projectName, setProjectName] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [po, setPo] = useState<PO | null>(null);
   const [linkedInvoices, setLinkedInvoices] = useState<LinkedInvoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [itemsWithInvoiced, setItemsWithInvoiced] = useState<POItemWithInvoiced[]>([]);
+  
+  // Modals
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // Form state
   const [cancellationReason, setCancellationReason] = useState("");
   const [modificationReason, setModificationReason] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [processing, setProcessing] = useState(false);
   const [openMenu, setOpenMenu] = useState(false);
 
@@ -51,7 +56,17 @@ export default function PODetailPage() {
   const [allPOs, setAllPOs] = useState<{id: string; number: string}[]>([]);
   const [currentPOIndex, setCurrentPOIndex] = useState(-1);
 
-  useEffect(() => { const unsubscribe = auth.onAuthStateChanged((user) => { if (user) { setUserId(user.uid); setUserName(user.displayName || user.email || "Usuario"); } }); return () => unsubscribe(); }, []);
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+        setUserName(user.displayName || user.email || "Usuario");
+        setUserEmail(user.email || "");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => { if (projectId && poId) loadData(); }, [projectId, poId]);
   useEffect(() => { const handleClickOutside = () => setOpenMenu(false); document.addEventListener("click", handleClickOutside); return () => document.removeEventListener("click", handleClickOutside); }, []);
 
@@ -61,7 +76,6 @@ export default function PODetailPage() {
       const projectDoc = await getDoc(doc(db, "projects", projectId));
       if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
 
-      // Load all POs for navigation
       const allPOsSnap = await getDocs(query(collection(db, `projects/${projectId}/pos`), orderBy("number", "desc")));
       const posList = allPOsSnap.docs.map(d => ({ id: d.id, number: d.data().number }));
       setAllPOs(posList);
@@ -107,9 +121,36 @@ export default function PODetailPage() {
 
   const navigateToPO = (direction: "prev" | "next") => {
     const newIndex = direction === "prev" ? currentPOIndex - 1 : currentPOIndex + 1;
-    if (newIndex >= 0 && newIndex < allPOs.length) {
-      router.push(`/project/${projectId}/accounting/pos/${allPOs[newIndex].id}`);
+    if (newIndex >= 0 && newIndex < allPOs.length) router.push(`/project/${projectId}/accounting/pos/${allPOs[newIndex].id}`);
+  };
+
+  // Password verification
+  const verifyPassword = async (): Promise<boolean> => {
+    if (!passwordInput.trim()) { setPasswordError("Introduce tu contraseña"); return false; }
+    
+    const user = auth.currentUser;
+    if (!user || !user.email) { setPasswordError("No hay usuario autenticado"); return false; }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, passwordInput);
+      await reauthenticateWithCredential(user, credential);
+      setPasswordError("");
+      return true;
+    } catch (error: any) {
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        setPasswordError("Contraseña incorrecta");
+      } else {
+        setPasswordError("Error de autenticación");
+      }
+      return false;
     }
+  };
+
+  const resetModalState = () => {
+    setPasswordInput("");
+    setPasswordError("");
+    setCancellationReason("");
+    setModificationReason("");
   };
 
   const formatCurrency = (amount: number): string => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
@@ -140,36 +181,67 @@ export default function PODetailPage() {
     return <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
   };
 
-  const handleEditDraft = () => router.push(`/project/${projectId}/accounting/pos/${poId}/edit`);
-  const handleCreateInvoice = () => router.push(`/project/${projectId}/accounting/invoices/new?poId=${poId}`);
+  // Actions
+  const handleEditDraft = () => { setOpenMenu(false); router.push(`/project/${projectId}/accounting/pos/${poId}/edit`); };
+  const handleCreateInvoice = () => { setOpenMenu(false); router.push(`/project/${projectId}/accounting/invoices/new?poId=${poId}`); };
 
-  const handleClosePO = async () => {
+  const handleClosePO = () => {
     if (!po || po.status !== "approved") return;
     setOpenMenu(false);
-    const pendingBase = (po.baseAmount || po.totalAmount) - po.invoicedAmount;
-    if (pendingBase > 0 && !confirm(`Esta PO tiene ${formatCurrency(pendingBase)} € sin facturar. ¿Cerrarla igualmente?`)) return;
+    resetModalState();
+    setShowCloseModal(true);
+  };
+
+  const confirmClosePO = async () => {
+    if (!po) return;
+    
+    const verified = await verifyPassword();
+    if (!verified) return;
+
     setProcessing(true);
     try {
       await updateDoc(doc(db, `projects/${projectId}/pos`, poId), { status: "closed", closedAt: Timestamp.now(), closedBy: userId, closedByName: userName });
+      setShowCloseModal(false);
+      resetModalState();
       await loadData();
     } catch (error) { console.error("Error:", error); alert("Error al cerrar la PO"); } finally { setProcessing(false); }
   };
 
-  const handleReopenPO = async () => {
+  const handleReopenPO = () => {
     if (!po || po.status !== "closed") return;
     setOpenMenu(false);
-    if (!confirm("¿Reabrir esta PO? Volverá al estado 'Aprobada'.")) return;
+    resetModalState();
+    setShowReopenModal(true);
+  };
+
+  const confirmReopenPO = async () => {
+    if (!po) return;
+
+    const verified = await verifyPassword();
+    if (!verified) return;
+
     setProcessing(true);
     try {
       await updateDoc(doc(db, `projects/${projectId}/pos`, poId), { status: "approved", closedAt: null, closedBy: null, closedByName: null });
+      setShowReopenModal(false);
+      resetModalState();
       await loadData();
     } catch (error) { console.error("Error:", error); alert("Error al reabrir la PO"); } finally { setProcessing(false); }
   };
 
-  const handleCancelPO = () => { if (!po || (po.status !== "approved" && po.status !== "draft") || po.invoicedAmount > 0) return; setShowCancelModal(true); setOpenMenu(false); };
+  const handleCancelPO = () => {
+    if (!po || (po.status !== "approved" && po.status !== "draft") || po.invoicedAmount > 0) return;
+    setOpenMenu(false);
+    resetModalState();
+    setShowCancelModal(true);
+  };
 
   const confirmCancelPO = async () => {
     if (!po || !cancellationReason.trim()) return;
+
+    const verified = await verifyPassword();
+    if (!verified) return;
+
     setProcessing(true);
     try {
       if (po.status === "approved") {
@@ -188,11 +260,18 @@ export default function PODetailPage() {
         }
       }
       await updateDoc(doc(db, `projects/${projectId}/pos`, poId), { status: "cancelled", cancelledAt: Timestamp.now(), cancelledBy: userId, cancelledByName: userName, cancellationReason: cancellationReason.trim(), committedAmount: 0 });
-      setShowCancelModal(false); setCancellationReason(""); await loadData();
+      setShowCancelModal(false);
+      resetModalState();
+      await loadData();
     } catch (error) { console.error("Error:", error); alert("Error al anular la PO"); } finally { setProcessing(false); }
   };
 
-  const handleModifyPO = () => { if (!po || po.status !== "approved") return; setModificationReason(""); setShowModifyModal(true); setOpenMenu(false); };
+  const handleModifyPO = () => {
+    if (!po || po.status !== "approved") return;
+    setOpenMenu(false);
+    resetModalState();
+    setShowModifyModal(true);
+  };
 
   const confirmModifyPO = async () => {
     if (!po || !modificationReason.trim()) return;
@@ -206,16 +285,25 @@ export default function PODetailPage() {
         approvedAt: null, approvedBy: null, approvedByName: null, approvalSteps: null, currentApprovalStep: null,
       });
       setShowModifyModal(false);
+      resetModalState();
       router.push(`/project/${projectId}/accounting/pos/${poId}/edit`);
     } catch (error) { console.error("Error:", error); alert("Error al modificar la PO"); } finally { setProcessing(false); }
   };
 
-  const handleDeleteDraft = async () => {
+  const handleDeleteDraft = () => {
     if (!po || po.status !== "draft") return;
     setOpenMenu(false);
-    if (!confirm(`¿Eliminar PO-${po.number}? Esta acción no se puede deshacer.`)) return;
+    resetModalState();
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDraft = async () => {
+    if (!po) return;
     setProcessing(true);
-    try { await deleteDoc(doc(db, `projects/${projectId}/pos`, poId)); router.push(`/project/${projectId}/accounting/pos`); } catch (error) { console.error("Error:", error); alert("Error al eliminar la PO"); } finally { setProcessing(false); }
+    try {
+      await deleteDoc(doc(db, `projects/${projectId}/pos`, poId));
+      router.push(`/project/${projectId}/accounting/pos`);
+    } catch (error) { console.error("Error:", error); alert("Error al eliminar la PO"); } finally { setProcessing(false); }
   };
 
   const generatePDF = () => {
@@ -318,6 +406,7 @@ export default function PODetailPage() {
     pdf.setDrawColor(226, 232, 240); pdf.setLineWidth(0.3); pdf.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
     pdf.setTextColor(...secondaryColor); pdf.setFontSize(8); pdf.setFont("helvetica", "normal"); pdf.text(`Generado el ${formatDateTime(new Date())}`, margin, footerY);
     pdf.save(`PO-${po.number}${po.version > 1 ? `-V${String(po.version).padStart(2, "0")}` : ""}.pdf`);
+    setOpenMenu(false);
   };
 
   if (loading) return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>);
@@ -340,13 +429,11 @@ export default function PODetailPage() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
+              <span className="text-slate-300">·</span>
+              <Link href={`/project/${projectId}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
               <span className="text-slate-300">·</span>
               <Link href={`/project/${projectId}/accounting/pos`} className="hover:text-slate-900 transition-colors">Órdenes de compra</Link>
               <span className="text-slate-300">·</span>
@@ -354,7 +441,6 @@ export default function PODetailPage() {
             </div>
           </div>
 
-          {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
@@ -363,46 +449,20 @@ export default function PODetailPage() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-semibold text-slate-900">PO-{po.number}</h1>
-                  {po.version > 1 && (
-                    <span className="text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg font-medium">V{String(po.version).padStart(2, "0")}</span>
-                  )}
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${statusConfig.bg} ${statusConfig.text} flex items-center gap-1.5`}>
-                    <StatusIcon size={12} />
-                    {statusConfig.label}
-                  </span>
+                  {po.version > 1 && (<span className="text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg font-medium">V{String(po.version).padStart(2, "0")}</span>)}
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${statusConfig.bg} ${statusConfig.text} flex items-center gap-1.5`}><StatusIcon size={12} />{statusConfig.label}</span>
                 </div>
-                <p className="text-slate-500 text-sm mt-0.5">{po.supplier}</p>
+                <p className="text-slate-500 text-sm mt-0.5">{po.supplier} · {formatCurrency(po.totalAmount)} €</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               {/* Navigation arrows */}
               <div className="flex items-center gap-1 border border-slate-200 rounded-xl p-1">
-                <button
-                  onClick={() => navigateToPO("prev")}
-                  disabled={currentPOIndex <= 0}
-                  className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
-                  title="PO anterior"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <span className="px-2 text-xs text-slate-500 min-w-[60px] text-center">
-                  {currentPOIndex + 1} / {allPOs.length}
-                </span>
-                <button
-                  onClick={() => navigateToPO("next")}
-                  disabled={currentPOIndex >= allPOs.length - 1}
-                  className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors"
-                  title="PO siguiente"
-                >
-                  <ChevronRight size={18} />
-                </button>
+                <button onClick={() => navigateToPO("prev")} disabled={currentPOIndex <= 0} className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors" title="PO anterior"><ChevronLeft size={18} /></button>
+                <span className="px-2 text-xs text-slate-500 min-w-[60px] text-center">{currentPOIndex + 1} / {allPOs.length}</span>
+                <button onClick={() => navigateToPO("next")} disabled={currentPOIndex >= allPOs.length - 1} className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-colors" title="PO siguiente"><ChevronRight size={18} /></button>
               </div>
-
-              <button onClick={generatePDF} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
-                <Download size={16} />
-                PDF
-              </button>
 
               <div className="relative">
                 <button onClick={(e) => { e.stopPropagation(); setOpenMenu(!openMenu); }} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-medium transition-colors">
@@ -412,22 +472,58 @@ export default function PODetailPage() {
 
                 {openMenu && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                    <button onClick={generatePDF} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                      <Download size={15} className="text-slate-400" />
+                      Descargar PDF
+                    </button>
+
                     {po.status === "draft" && (
                       <>
-                        <button onClick={handleEditDraft} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Edit size={15} className="text-slate-400" />Editar borrador</button>
-                        <button onClick={handleDeleteDraft} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><Trash2 size={15} />Eliminar</button>
+                        <div className="border-t border-slate-100 my-1" />
+                        <button onClick={handleEditDraft} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                          <Edit size={15} className="text-slate-400" />
+                          Editar borrador
+                        </button>
+                        <button onClick={handleDeleteDraft} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
+                          <Trash2 size={15} />
+                          Eliminar
+                        </button>
                       </>
                     )}
+
                     {po.status === "approved" && (
                       <>
-                        <button onClick={handleCreateInvoice} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Receipt size={15} className="text-slate-400" />Crear factura</button>
-                        <button onClick={handleModifyPO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><FileEdit size={15} className="text-slate-400" />Modificar PO</button>
-                        <button onClick={handleClosePO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Lock size={15} className="text-slate-400" />Cerrar PO</button>
-                        {po.invoicedAmount === 0 && (<button onClick={handleCancelPO} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><XCircle size={15} />Anular PO</button>)}
+                        <div className="border-t border-slate-100 my-1" />
+                        <button onClick={handleCreateInvoice} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                          <Receipt size={15} className="text-slate-400" />
+                          Crear factura
+                        </button>
+                        <button onClick={handleModifyPO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                          <FileEdit size={15} className="text-slate-400" />
+                          Modificar PO
+                        </button>
+                        <button onClick={handleClosePO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                          <Lock size={15} className="text-slate-400" />
+                          Cerrar PO
+                        </button>
+                        {po.invoicedAmount === 0 && (
+                          <button onClick={handleCancelPO} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
+                            <XCircle size={15} />
+                            Anular PO
+                          </button>
+                        )}
                       </>
                     )}
-                    {po.status === "closed" && (<button onClick={handleReopenPO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Unlock size={15} className="text-slate-400" />Reabrir PO</button>)}
-                    {(po.status === "pending" || po.status === "cancelled") && (<p className="px-4 py-2.5 text-sm text-slate-400">Sin acciones disponibles</p>)}
+
+                    {po.status === "closed" && (
+                      <>
+                        <div className="border-t border-slate-100 my-1" />
+                        <button onClick={handleReopenPO} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+                          <Unlock size={15} className="text-slate-400" />
+                          Reabrir PO
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -616,45 +712,233 @@ export default function PODetailPage() {
         </div>
       </main>
 
-      {/* Cancel Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); setCancellationReason(""); }}>
+      {/* Close PO Modal - Requires Password */}
+      {showCloseModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCloseModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200"><h3 className="text-lg font-semibold text-slate-900">Anular PO-{po.number}</h3></div>
-            <div className="p-6">
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de anulación *</label>
-                <textarea value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} placeholder="Explica por qué se anula esta PO..." rows={4} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm" />
-                {po.status === "approved" && (<p className="text-xs text-slate-500 mt-2">Se liberará el presupuesto comprometido ({formatCurrency(po.committedAmount)} €)</p>)}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Lock size={20} className="text-blue-600" />
               </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Cerrar PO-{po.number}</h3>
+                <p className="text-xs text-slate-500">Esta acción requiere confirmación</p>
+              </div>
+            </div>
+            <div className="p-6">
+              {(po.baseAmount || po.totalAmount) - po.invoicedAmount > 0 && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-amber-800">
+                      <p className="font-medium">Esta PO tiene importe sin facturar</p>
+                      <p className="text-xs mt-1">Pendiente: {formatCurrency((po.baseAmount || po.totalAmount) - po.invoicedAmount)} €</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <KeyRound size={14} />
+                  Confirma tu contraseña
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+                  placeholder="Tu contraseña de usuario"
+                  className={`w-full px-4 py-3 border ${passwordError ? "border-red-300 bg-red-50" : "border-slate-200"} rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm`}
+                  autoFocus
+                />
+                {passwordError && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} />{passwordError}</p>}
+                <p className="text-xs text-slate-500 mt-2">Usuario: {userEmail}</p>
+              </div>
+
               <div className="flex gap-3">
-                <button onClick={() => { setShowCancelModal(false); setCancellationReason(""); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
-                <button onClick={confirmCancelPO} disabled={processing || !cancellationReason.trim()} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">{processing ? "Anulando..." : "Confirmar anulación"}</button>
+                <button onClick={() => { setShowCloseModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmClosePO} disabled={processing || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                  {processing ? "Cerrando..." : "Cerrar PO"}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modify Modal */}
-      {showModifyModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowModifyModal(false); setModificationReason(""); }}>
+      {/* Reopen PO Modal - Requires Password */}
+      {showReopenModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowReopenModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200"><h3 className="text-lg font-semibold text-slate-900">Modificar PO-{po.number}</h3></div>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <Unlock size={20} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Reabrir PO-{po.number}</h3>
+                <p className="text-xs text-slate-500">Volverá al estado "Aprobada"</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <KeyRound size={14} />
+                  Confirma tu contraseña
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+                  placeholder="Tu contraseña de usuario"
+                  className={`w-full px-4 py-3 border ${passwordError ? "border-red-300 bg-red-50" : "border-slate-200"} rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm`}
+                  autoFocus
+                />
+                {passwordError && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} />{passwordError}</p>}
+                <p className="text-xs text-slate-500 mt-2">Usuario: {userEmail}</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => { setShowReopenModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmReopenPO} disabled={processing || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                  {processing ? "Reabriendo..." : "Reabrir PO"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel PO Modal - Requires Password + Reason */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); resetModalState(); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <XCircle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Anular PO-{po.number}</h3>
+                <p className="text-xs text-slate-500">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <div className="p-6">
+              {po.status === "approved" && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-amber-800">
+                      <p className="font-medium">Se liberará el presupuesto comprometido</p>
+                      <p className="text-xs mt-1">{formatCurrency(po.committedAmount)} € volverán a estar disponibles</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de anulación *</label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Explica por qué se anula esta PO..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <KeyRound size={14} />
+                  Confirma tu contraseña
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+                  placeholder="Tu contraseña de usuario"
+                  className={`w-full px-4 py-3 border ${passwordError ? "border-red-300 bg-red-50" : "border-slate-200"} rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm`}
+                />
+                {passwordError && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} />{passwordError}</p>}
+                <p className="text-xs text-slate-500 mt-2">Usuario: {userEmail}</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => { setShowCancelModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmCancelPO} disabled={processing || !cancellationReason.trim() || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                  {processing ? "Anulando..." : "Anular PO"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modify Modal - No password required */}
+      {showModifyModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowModifyModal(false); resetModalState(); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <FileEdit size={20} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Modificar PO-{po.number}</h3>
+                <p className="text-xs text-slate-500">Crear nueva versión para editar</p>
+              </div>
+            </div>
             <div className="p-6">
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <div className="flex items-start gap-3">
                   <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-amber-800"><p className="font-medium">Pasará a V{String((po.version || 1) + 1).padStart(2, "0")} en borrador</p><p className="text-xs mt-1">Deberás editarla y enviarla nuevamente para aprobación.</p></div>
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium">Pasará a V{String((po.version || 1) + 1).padStart(2, "0")} en borrador</p>
+                    <p className="text-xs mt-1">Deberás editarla y enviarla nuevamente para aprobación.</p>
+                  </div>
                 </div>
               </div>
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Motivo de la modificación *</label>
-                <textarea value={modificationReason} onChange={(e) => setModificationReason(e.target.value)} placeholder="Explica por qué se modifica esta PO..." rows={4} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none bg-white text-sm" />
+                <textarea
+                  value={modificationReason}
+                  onChange={(e) => setModificationReason(e.target.value)}
+                  placeholder="Explica por qué se modifica esta PO..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm"
+                />
               </div>
+
               <div className="flex gap-3">
-                <button onClick={() => { setShowModifyModal(false); setModificationReason(""); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
-                <button onClick={confirmModifyPO} disabled={processing || !modificationReason.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">{processing ? "Modificando..." : "Modificar"}</button>
+                <button onClick={() => { setShowModifyModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmModifyPO} disabled={processing || !modificationReason.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                  {processing ? "Modificando..." : "Modificar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Draft Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowDeleteModal(false); resetModalState(); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <Trash2 size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Eliminar PO-{po.number}</h3>
+                <p className="text-xs text-slate-500">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-600 mb-6">¿Estás seguro de que quieres eliminar este borrador? Esta acción es permanente.</p>
+
+              <div className="flex gap-3">
+                <button onClick={() => { setShowDeleteModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">Cancelar</button>
+                <button onClick={confirmDeleteDraft} disabled={processing} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                  {processing ? "Eliminando..." : "Eliminar"}
+                </button>
               </div>
             </div>
           </div>
