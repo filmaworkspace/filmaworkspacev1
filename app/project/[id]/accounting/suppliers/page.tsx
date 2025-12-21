@@ -706,7 +706,6 @@ export default function SuppliersPage() {
                       <td className="px-6 py-4">
                         <button onClick={() => setPreviewSupplier(supplier)} className="text-left hover:text-indigo-600 transition-colors">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{countryInfo.flag}</span>
                             <div>
                               <p className="font-semibold text-slate-900 group-hover:text-indigo-600">{supplier.fiscalName}</p>
                               {supplier.commercialName && <p className="text-xs text-slate-500">{supplier.commercialName}</p>}
@@ -758,7 +757,6 @@ export default function SuppliersPage() {
                   <div className="flex items-start justify-between mb-4">
                     <button onClick={() => setPreviewSupplier(supplier)} className="text-left flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xl">{countryInfo.flag}</span>
                         <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{supplier.fiscalName}</p>
                       </div>
                       {supplier.commercialName && <p className="text-sm text-slate-500">{supplier.commercialName}</p>}
@@ -835,7 +833,9 @@ export default function SuppliersPage() {
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{getCountryInfo(previewSupplier.country).flag}</span>
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Building2 size={24} className="text-white" />
+                  </div>
                   <div>
                     <h3 className="font-bold text-white text-lg">{previewSupplier.fiscalName}</h3>
                     {previewSupplier.commercialName && <p className="text-white/80 text-sm">{previewSupplier.commercialName}</p>}
@@ -1008,7 +1008,7 @@ export default function SuppliersPage() {
                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
                       >
                         {COUNTRIES.map((country) => (
-                          <option key={country.code} value={country.code}>{country.flag} {country.name}</option>
+                          <option key={country.code} value={country.code}>{country.name}</option>
                         ))}
                       </select>
                     </div>
