@@ -563,10 +563,10 @@ export default function SuppliersPage() {
     const config: Record<string, { bg: string; text: string; label: string }> = {
       valid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Válido" },
       expiring: { bg: "bg-amber-50", text: "text-amber-700", label: "Por caducar" },
-      expired: { bg: "bg-red-50", text: "text-red-700", label: "Acción requerida" },
+      expired: { bg: "bg-red-50", text: "text-red-700", label: "Acción req." },
     };
     const c = config[status] || config.valid;
-    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
+    return <span className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap ${c.bg} ${c.text}`}>{c.label}</span>;
   };
 
   const getMenuPosition = (supplierId: string) => {
@@ -688,13 +688,13 @@ export default function SuppliersPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Proveedor</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">NIF/CIF</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">Proveedor</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">NIF/CIF</th>
                   <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Titularidad</th>
-                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Contratistas</th>
-                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Estado</th>
-                  <th className="text-right px-4 py-2.5 w-20"></th>
+                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">Titular.</th>
+                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">Contrat.</th>
+                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-36 whitespace-nowrap">Estado</th>
+                  <th className="text-right px-4 py-2.5 w-24"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -721,13 +721,13 @@ export default function SuppliersPage() {
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="px-2 py-2 text-center">
                         {getCertificateBadge(supplier.certificates.bankOwnership)}
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="px-2 py-2 text-center">
                         {getCertificateBadge(supplier.certificates.contractorsCertificate)}
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="px-2 py-2 text-center">
                         {getStatusBadge(status)}
                       </td>
                       <td className="px-4 py-2">
