@@ -1,67 +1,17 @@
 "use client";
+import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy,
-  Timestamp,
-} from "firebase/firestore";
-import {
-  Plus,
-  ChevronDown,
-  ChevronRight,
-  Edit,
-  Trash2,
-  X,
-  Search,
-  Download,
-  Upload,
-  AlertCircle,
-  CheckCircle,
-  FileSpreadsheet,
-  Eye,
-  EyeOff,
-  Wallet,
-  ArrowLeft,
-} from "lucide-react";
+import { doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { Plus, ChevronDown, ChevronRight, Edit, Trash2, X, Search, Download, Upload, AlertCircle, CheckCircle, FileSpreadsheet, Eye, EyeOff, Wallet, ArrowLeft, TrendingUp, AlertTriangle, MoreHorizontal } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-interface SubAccount {
-  id: string;
-  code: string;
-  description: string;
-  budgeted: number;
-  committed: number;
-  actual: number;
-  accountId: string;
-  createdAt: Date;
-}
-
-interface Account {
-  id: string;
-  code: string;
-  description: string;
-  subAccounts: SubAccount[];
-  createdAt: Date;
-}
-
-interface BudgetSummary {
-  totalBudgeted: number;
-  totalCommitted: number;
-  totalActual: number;
-  totalAvailable: number;
-}
+interface SubAccount { id: string; code: string; description: string; budgeted: number; committed: number; actual: number; accountId: string; createdAt: Date; }
+interface Account { id: string; code: string; description: string; subAccounts: SubAccount[]; createdAt: Date; }
+interface BudgetSummary { totalBudgeted: number; totalCommitted: number; totalActual: number; totalAvailable: number; }
 
 export default function BudgetPage() {
   const params = useParams();
@@ -82,44 +32,23 @@ export default function BudgetPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    code: "",
-    description: "",
-    budgeted: 0,
-  });
-
-  const [summary, setSummary] = useState<BudgetSummary>({
-    totalBudgeted: 0,
-    totalCommitted: 0,
-    totalActual: 0,
-    totalAvailable: 0,
-  });
+  const [formData, setFormData] = useState({ code: "", description: "", budgeted: 0 });
+  const [summary, setSummary] = useState<BudgetSummary>({ totalBudgeted: 0, totalCommitted: 0, totalActual: 0, totalAvailable: 0 });
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) setUserId(user.uid);
-    });
+    const unsubscribe = auth.onAuthStateChanged((user) => { if (user) setUserId(user.uid); });
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (userId && id) loadData();
-  }, [userId, id]);
-
-  useEffect(() => {
-    calculateSummary();
-  }, [accounts]);
+  useEffect(() => { if (userId && id) loadData(); }, [userId, id]);
+  useEffect(() => { calculateSummary(); }, [accounts]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setErrorMessage("");
-
-      // Cargar nombre del proyecto
       const projectDoc = await getDoc(doc(db, "projects", id));
-      if (projectDoc.exists()) {
-        setProjectName(projectDoc.data().name || "Proyecto");
-      }
+      if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
 
       const accountsRef = collection(db, `projects/${id}/accounts`);
       const accountsQuery = query(accountsRef, orderBy("code", "asc"));
@@ -130,16 +59,13 @@ export default function BudgetPage() {
           const subAccountsRef = collection(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`);
           const subAccountsQuery = query(subAccountsRef, orderBy("code", "asc"));
           const subAccountsSnapshot = await getDocs(subAccountsQuery);
-
           const subAccounts = subAccountsSnapshot.docs.map((subDoc) => ({
-            id: subDoc.id,
-            ...subDoc.data(),
+            id: subDoc.id, ...subDoc.data(),
             budgeted: subDoc.data().budgeted || 0,
             committed: subDoc.data().committed || 0,
             actual: subDoc.data().actual || 0,
             createdAt: subDoc.data().createdAt?.toDate() || new Date(),
           })) as SubAccount[];
-
           return {
             id: accountDoc.id,
             code: accountDoc.data().code || "",
@@ -149,8 +75,9 @@ export default function BudgetPage() {
           } as Account;
         })
       );
-
       setAccounts(accountsData);
+      // Expandir todas por defecto
+      setExpandedAccounts(new Set(accountsData.map(a => a.id)));
     } catch (error: any) {
       setErrorMessage(`Error cargando datos: ${error.message}`);
     } finally {
@@ -159,10 +86,7 @@ export default function BudgetPage() {
   };
 
   const calculateSummary = () => {
-    let totalBudgeted = 0;
-    let totalCommitted = 0;
-    let totalActual = 0;
-
+    let totalBudgeted = 0, totalCommitted = 0, totalActual = 0;
     accounts.forEach((account) => {
       account.subAccounts.forEach((sub) => {
         totalBudgeted += sub.budgeted || 0;
@@ -170,382 +94,184 @@ export default function BudgetPage() {
         totalActual += sub.actual || 0;
       });
     });
-
-    setSummary({
-      totalBudgeted,
-      totalCommitted,
-      totalActual,
-      totalAvailable: totalBudgeted - totalCommitted - totalActual,
-    });
+    setSummary({ totalBudgeted, totalCommitted, totalActual, totalAvailable: totalBudgeted - totalCommitted - totalActual });
   };
 
   const getAccountTotals = (account: Account) => {
     const budgeted = account.subAccounts.reduce((sum, sub) => sum + (sub.budgeted || 0), 0);
     const committed = account.subAccounts.reduce((sum, sub) => sum + (sub.committed || 0), 0);
     const actual = account.subAccounts.reduce((sum, sub) => sum + (sub.actual || 0), 0);
-    const available = budgeted - committed - actual;
-
-    return { budgeted, committed, actual, available };
+    return { budgeted, committed, actual, available: budgeted - committed - actual, executed: committed + actual };
   };
 
   const toggleAccount = (accountId: string) => {
     const newExpanded = new Set(expandedAccounts);
-    if (newExpanded.has(accountId)) {
-      newExpanded.delete(accountId);
-    } else {
-      newExpanded.add(accountId);
-    }
+    if (newExpanded.has(accountId)) newExpanded.delete(accountId);
+    else newExpanded.add(accountId);
     setExpandedAccounts(newExpanded);
   };
 
   const handleCreateAccount = async () => {
-    if (!formData.code.trim() || !formData.description.trim()) {
-      setErrorMessage("El código y la descripción son obligatorios");
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
+    if (!formData.code.trim() || !formData.description.trim()) { setErrorMessage("El código y la descripción son obligatorios"); return; }
+    setSaving(true); setErrorMessage("");
     try {
-      await addDoc(collection(db, `projects/${id}/accounts`), {
-        code: formData.code.trim(),
-        description: formData.description.trim(),
-        createdAt: Timestamp.now(),
-        createdBy: userId || "",
-      });
-
-      setSuccessMessage("Cuenta creada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      resetForm();
-      setShowModal(false);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error creando cuenta: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
+      await addDoc(collection(db, `projects/${id}/accounts`), { code: formData.code.trim(), description: formData.description.trim(), createdAt: Timestamp.now(), createdBy: userId || "" });
+      setSuccessMessage("Cuenta creada correctamente"); setTimeout(() => setSuccessMessage(""), 3000);
+      resetForm(); setShowModal(false); await loadData();
+    } catch (error: any) { setErrorMessage(`Error creando cuenta: ${error.message}`); } finally { setSaving(false); }
   };
 
   const handleUpdateAccount = async () => {
     if (!selectedAccount) return;
-    
-    if (!formData.code.trim() || !formData.description.trim()) {
-      setErrorMessage("El código y la descripción son obligatorios");
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
+    if (!formData.code.trim() || !formData.description.trim()) { setErrorMessage("El código y la descripción son obligatorios"); return; }
+    setSaving(true); setErrorMessage("");
     try {
-      await updateDoc(doc(db, `projects/${id}/accounts`, selectedAccount.id), {
-        code: formData.code.trim(),
-        description: formData.description.trim(),
-      });
-
-      setSuccessMessage("Cuenta actualizada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      resetForm();
-      setShowModal(false);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error actualizando cuenta: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
+      await updateDoc(doc(db, `projects/${id}/accounts`, selectedAccount.id), { code: formData.code.trim(), description: formData.description.trim() });
+      setSuccessMessage("Cuenta actualizada correctamente"); setTimeout(() => setSuccessMessage(""), 3000);
+      resetForm(); setShowModal(false); await loadData();
+    } catch (error: any) { setErrorMessage(`Error actualizando cuenta: ${error.message}`); } finally { setSaving(false); }
   };
 
   const handleCreateSubAccount = async () => {
-    if (!selectedAccount) {
-      setErrorMessage("Debes seleccionar una cuenta padre");
-      return;
-    }
-
-    if (!formData.code.trim() || !formData.description.trim()) {
-      setErrorMessage("El código y la descripción son obligatorios");
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
+    if (!selectedAccount) { setErrorMessage("Debes seleccionar una cuenta padre"); return; }
+    if (!formData.code.trim() || !formData.description.trim()) { setErrorMessage("El código y la descripción son obligatorios"); return; }
+    setSaving(true); setErrorMessage("");
     try {
       await addDoc(collection(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`), {
-        code: formData.code.trim(),
-        description: formData.description.trim(),
-        budgeted: formData.budgeted || 0,
-        committed: 0,
-        actual: 0,
-        accountId: selectedAccount.id,
-        createdAt: Timestamp.now(),
-        createdBy: userId || "",
+        code: formData.code.trim(), description: formData.description.trim(), budgeted: formData.budgeted || 0,
+        committed: 0, actual: 0, accountId: selectedAccount.id, createdAt: Timestamp.now(), createdBy: userId || "",
       });
-
-      setSuccessMessage("Subcuenta creada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      resetForm();
-      setShowModal(false);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error creando subcuenta: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
+      setSuccessMessage("Subcuenta creada correctamente"); setTimeout(() => setSuccessMessage(""), 3000);
+      resetForm(); setShowModal(false); await loadData();
+    } catch (error: any) { setErrorMessage(`Error creando subcuenta: ${error.message}`); } finally { setSaving(false); }
   };
 
   const handleUpdateSubAccount = async () => {
-    if (!selectedAccount || !selectedSubAccount) {
-      setErrorMessage("Error: No se encontró la subcuenta");
-      return;
-    }
-
-    setSaving(true);
-    setErrorMessage("");
-
+    if (!selectedAccount || !selectedSubAccount) { setErrorMessage("Error: No se encontró la subcuenta"); return; }
+    setSaving(true); setErrorMessage("");
     try {
       await updateDoc(doc(db, `projects/${id}/accounts/${selectedAccount.id}/subaccounts`, selectedSubAccount.id), {
-        code: formData.code.trim(),
-        description: formData.description.trim(),
-        budgeted: formData.budgeted || 0,
+        code: formData.code.trim(), description: formData.description.trim(), budgeted: formData.budgeted || 0,
       });
-
-      setSuccessMessage("Subcuenta actualizada correctamente");
-      setTimeout(() => setSuccessMessage(""), 3000);
-
-      resetForm();
-      setShowModal(false);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error actualizando subcuenta: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
+      setSuccessMessage("Subcuenta actualizada correctamente"); setTimeout(() => setSuccessMessage(""), 3000);
+      resetForm(); setShowModal(false); await loadData();
+    } catch (error: any) { setErrorMessage(`Error actualizando subcuenta: ${error.message}`); } finally { setSaving(false); }
   };
 
   const handleDeleteAccount = async (accountId: string) => {
     const account = accounts.find((a) => a.id === accountId);
-    if (account && account.subAccounts.length > 0) {
-      setErrorMessage("No se puede eliminar una cuenta con subcuentas");
-      setTimeout(() => setErrorMessage(""), 5000);
-      return;
-    }
-
+    if (account && account.subAccounts.length > 0) { setErrorMessage("No se puede eliminar una cuenta con subcuentas"); setTimeout(() => setErrorMessage(""), 5000); return; }
     if (!confirm("¿Eliminar esta cuenta?")) return;
-
     try {
       await deleteDoc(doc(db, `projects/${id}/accounts`, accountId));
-      setSuccessMessage("Cuenta eliminada");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error eliminando cuenta: ${error.message}`);
-    }
+      setSuccessMessage("Cuenta eliminada"); setTimeout(() => setSuccessMessage(""), 3000); await loadData();
+    } catch (error: any) { setErrorMessage(`Error eliminando cuenta: ${error.message}`); }
   };
 
   const handleDeleteSubAccount = async (accountId: string, subAccountId: string) => {
     if (!confirm("¿Eliminar esta subcuenta?")) return;
-
     try {
       await deleteDoc(doc(db, `projects/${id}/accounts/${accountId}/subaccounts`, subAccountId));
-      setSuccessMessage("Subcuenta eliminada");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      await loadData();
-    } catch (error: any) {
-      setErrorMessage(`Error eliminando subcuenta: ${error.message}`);
-    }
+      setSuccessMessage("Subcuenta eliminada"); setTimeout(() => setSuccessMessage(""), 3000); await loadData();
+    } catch (error: any) { setErrorMessage(`Error eliminando subcuenta: ${error.message}`); }
   };
 
-  const resetForm = () => {
-    setFormData({ code: "", description: "", budgeted: 0 });
-    setSelectedAccount(null);
-    setSelectedSubAccount(null);
-    setEditMode(false);
-    setErrorMessage("");
-  };
+  const resetForm = () => { setFormData({ code: "", description: "", budgeted: 0 }); setSelectedAccount(null); setSelectedSubAccount(null); setEditMode(false); setErrorMessage(""); };
 
-  const openCreateAccountModal = () => {
-    resetForm();
-    setModalMode("account");
-    setEditMode(false);
-    setShowModal(true);
-  };
-
-  const openEditAccountModal = (account: Account) => {
-    setSelectedAccount(account);
-    setFormData({
-      code: account.code,
-      description: account.description,
-      budgeted: 0,
-    });
-    setModalMode("account");
-    setEditMode(true);
-    setShowModal(true);
-  };
-
-  const openCreateSubAccountModal = (account: Account) => {
-    resetForm();
-    setSelectedAccount(account);
-    setFormData({ code: "", description: "", budgeted: 0 });
-    setModalMode("subaccount");
-    setEditMode(false);
-    setShowModal(true);
-  };
-
-  const openEditSubAccountModal = (account: Account, subAccount: SubAccount) => {
-    setSelectedAccount(account);
-    setSelectedSubAccount(subAccount);
-    setFormData({
-      code: subAccount.code,
-      description: subAccount.description,
-      budgeted: subAccount.budgeted,
-    });
-    setModalMode("subaccount");
-    setEditMode(true);
-    setShowModal(true);
-  };
+  const openCreateAccountModal = () => { resetForm(); setModalMode("account"); setEditMode(false); setShowModal(true); };
+  const openEditAccountModal = (account: Account) => { setSelectedAccount(account); setFormData({ code: account.code, description: account.description, budgeted: 0 }); setModalMode("account"); setEditMode(true); setShowModal(true); };
+  const openCreateSubAccountModal = (account: Account) => { resetForm(); setSelectedAccount(account); setFormData({ code: "", description: "", budgeted: 0 }); setModalMode("subaccount"); setEditMode(false); setShowModal(true); };
+  const openEditSubAccountModal = (account: Account, subAccount: SubAccount) => { setSelectedAccount(account); setSelectedSubAccount(subAccount); setFormData({ code: subAccount.code, description: subAccount.description, budgeted: subAccount.budgeted }); setModalMode("subaccount"); setEditMode(true); setShowModal(true); };
 
   const downloadTemplate = () => {
-    const template = [
-      ["CÓDIGO", "DESCRIPCIÓN", "TIPO", "PRESUPUESTADO"],
-      ["01", "GUION Y MÚSICA", "CUENTA", ""],
-      ["01.01", "Derechos de autor", "SUBCUENTA", "5000"],
-      ["01.02", "Música original", "SUBCUENTA", "3000"],
-      ["02", "PRODUCCIÓN", "CUENTA", ""],
-      ["02.01", "Equipo técnico", "SUBCUENTA", "10000"],
-    ];
+    const template = [["CÓDIGO", "DESCRIPCIÓN", "TIPO", "PRESUPUESTADO"], ["01", "GUION Y MÚSICA", "CUENTA", ""], ["01.01", "Derechos de autor", "SUBCUENTA", "5000"], ["01.02", "Música original", "SUBCUENTA", "3000"], ["02", "PRODUCCIÓN", "CUENTA", ""], ["02.01", "Equipo técnico", "SUBCUENTA", "10000"]];
     const csvContent = template.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.setAttribute("href", URL.createObjectURL(blob));
-    link.setAttribute("download", "plantilla_presupuesto.csv");
-    link.click();
+    const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", "plantilla_presupuesto.csv"); link.click();
   };
 
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setSaving(true);
-    setErrorMessage("");
-
+    const file = event.target.files?.[0]; if (!file) return;
+    setSaving(true); setErrorMessage("");
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
       const lines = text.split("\n").slice(1);
-
       try {
         const accountsMap = new Map<string, string>();
-        let accountsCreated = 0;
-        let subAccountsCreated = 0;
-
+        let accountsCreated = 0, subAccountsCreated = 0;
         for (const line of lines) {
           const [code, description, type, budgeted] = line.split(",").map((s) => s.trim());
           if (!code || !description || !type) continue;
-
           if (type.toUpperCase() === "CUENTA") {
-            const accountRef = await addDoc(collection(db, `projects/${id}/accounts`), {
-              code: code.trim(),
-              description,
-              createdAt: Timestamp.now(),
-              createdBy: userId || "",
-            });
-            accountsMap.set(code, accountRef.id);
-            accountsCreated++;
+            const accountRef = await addDoc(collection(db, `projects/${id}/accounts`), { code: code.trim(), description, createdAt: Timestamp.now(), createdBy: userId || "" });
+            accountsMap.set(code, accountRef.id); accountsCreated++;
           } else if (type.toUpperCase() === "SUBCUENTA") {
-            // Buscar la cuenta padre por el código base (antes del primer punto o guión)
             const accountCode = code.split(/[.\-]/)[0];
             let accountId = accountsMap.get(accountCode);
-
-            // Si no está en el mapa, buscar en las cuentas existentes
-            if (!accountId) {
-              const existingAccount = accounts.find(a => a.code === accountCode);
-              if (existingAccount) {
-                accountId = existingAccount.id;
-              }
-            }
-
+            if (!accountId) { const existingAccount = accounts.find(a => a.code === accountCode); if (existingAccount) accountId = existingAccount.id; }
             if (accountId) {
-              await addDoc(collection(db, `projects/${id}/accounts/${accountId}/subaccounts`), {
-                code: code.trim(),
-                description,
-                budgeted: parseFloat(budgeted) || 0,
-                committed: 0,
-                actual: 0,
-                accountId,
-                createdAt: Timestamp.now(),
-                createdBy: userId || "",
-              });
+              await addDoc(collection(db, `projects/${id}/accounts/${accountId}/subaccounts`), { code: code.trim(), description, budgeted: parseFloat(budgeted) || 0, committed: 0, actual: 0, accountId, createdAt: Timestamp.now(), createdBy: userId || "" });
               subAccountsCreated++;
             }
           }
         }
-
         setSuccessMessage(`Importación completada: ${accountsCreated} cuentas y ${subAccountsCreated} subcuentas`);
-        setTimeout(() => setSuccessMessage(""), 5000);
-
-        setShowImportModal(false);
-        await loadData();
-      } catch (error: any) {
-        setErrorMessage(`Error al importar: ${error.message}`);
-      } finally {
-        setSaving(false);
-      }
+        setTimeout(() => setSuccessMessage(""), 5000); setShowImportModal(false); await loadData();
+      } catch (error: any) { setErrorMessage(`Error al importar: ${error.message}`); } finally { setSaving(false); }
     };
     reader.readAsText(file);
   };
 
   const exportBudget = () => {
     const rows = [["CÓDIGO", "DESCRIPCIÓN", "TIPO", "PRESUPUESTADO", "COMPROMETIDO", "REALIZADO", "DISPONIBLE"]];
-
     accounts.forEach((account) => {
       const totals = getAccountTotals(account);
       rows.push([account.code, account.description, "CUENTA", totals.budgeted.toString(), totals.committed.toString(), totals.actual.toString(), totals.available.toString()]);
-
       account.subAccounts.forEach((sub) => {
         const available = sub.budgeted - sub.committed - sub.actual;
         rows.push([sub.code, sub.description, "SUBCUENTA", sub.budgeted.toString(), sub.committed.toString(), sub.actual.toString(), available.toString()]);
       });
     });
-
     const csvContent = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.setAttribute("href", URL.createObjectURL(blob));
-    link.setAttribute("download", `presupuesto_${new Date().toISOString().split("T")[0]}.csv`);
-    link.click();
+    const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `presupuesto_${new Date().toISOString().split("T")[0]}.csv`); link.click();
   };
 
   const filteredAccounts = accounts.filter((account) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
-    const accountMatch = account.code.toLowerCase().includes(searchLower) || account.description.toLowerCase().includes(searchLower);
-    const subAccountMatch = account.subAccounts.some((sub) => sub.code.toLowerCase().includes(searchLower) || sub.description.toLowerCase().includes(searchLower));
-    return accountMatch || subAccountMatch;
+    return account.code.toLowerCase().includes(searchLower) || account.description.toLowerCase().includes(searchLower) || account.subAccounts.some((sub) => sub.code.toLowerCase().includes(searchLower) || sub.description.toLowerCase().includes(searchLower));
   });
 
   const expandAll = () => setExpandedAccounts(new Set(accounts.map((a) => a.id)));
   const collapseAll = () => setExpandedAccounts(new Set());
 
-  const getAvailableColor = (available: number, budgeted: number) => {
-    if (budgeted === 0) return "text-slate-600";
-    const percentage = (available / budgeted) * 100;
-    if (percentage < 10) return "text-red-600 font-bold";
-    if (percentage < 25) return "text-amber-600 font-semibold";
-    return "text-emerald-600";
+  const formatCurrency = (amount: number): string => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+
+  const getExecutionPercent = (executed: number, budgeted: number): number => budgeted > 0 ? (executed / budgeted) * 100 : 0;
+
+  const getStatusIndicator = (available: number, budgeted: number) => {
+    if (budgeted === 0) return { color: "bg-slate-300", text: "text-slate-600" };
+    const percent = (available / budgeted) * 100;
+    if (available < 0) return { color: "bg-red-500", text: "text-red-700 font-bold" };
+    if (percent < 10) return { color: "bg-red-400", text: "text-red-600 font-semibold" };
+    if (percent < 25) return { color: "bg-amber-400", text: "text-amber-600 font-medium" };
+    return { color: "bg-emerald-400", text: "text-emerald-600" };
   };
 
-  const budgetedPercent = summary.totalBudgeted > 0 ? ((summary.totalCommitted + summary.totalActual) / summary.totalBudgeted) * 100 : 0;
+  const getProgressColor = (percent: number) => {
+    if (percent > 100) return "bg-red-500";
+    if (percent > 90) return "bg-red-400";
+    if (percent > 75) return "bg-amber-400";
+    return "bg-emerald-500";
+  };
+
+  const totalExecuted = summary.totalCommitted + summary.totalActual;
+  const totalExecutionPercent = summary.totalBudgeted > 0 ? (totalExecuted / summary.totalBudgeted) * 100 : 0;
 
   if (loading) {
-    return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
-      </div>
-    );
+    return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>);
   }
 
   return (
@@ -553,135 +279,93 @@ export default function BudgetPage() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
+          {/* Breadcrumb */}
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-              >
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
               <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">
-                {projectName}
-              </span>
+              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{projectName}</span>
             </div>
           </div>
-      
+
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <Wallet size={24} className="text-indigo-600" />
               </div>
-      
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Presupuesto
-                </h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
               </div>
             </div>
-      
+
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"
-              >
-                <Upload size={16} />
-                Importar
+              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                <Upload size={16} />Importar
               </button>
-      
-              <button
-                onClick={openCreateAccountModal}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
-              >
-                <Plus size={18} />
-                Nueva cuenta
+              <button onClick={openCreateAccountModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+                <Plus size={18} />Nueva cuenta
               </button>
             </div>
           </div>
-      
-          {/* Summary Stats */}
-          <div className="grid grid-cols-4 gap-4 mt-6">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <p className="text-xs text-slate-500 mb-1">Presupuestado</p>
-              <p className="text-lg font-bold text-slate-900">{(summary.totalBudgeted || 0).toLocaleString()} €</p>
+
+          {/* Summary Stats - Compacto */}
+          <div className="grid grid-cols-5 gap-3 mt-6">
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Presupuestado</p>
+              <p className="text-base font-bold text-slate-900 font-mono tabular-nums">{formatCurrency(summary.totalBudgeted)} €</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <p className="text-xs text-slate-500 mb-1">Comprometido</p>
-              <p className="text-lg font-bold text-amber-600">{(summary.totalCommitted || 0).toLocaleString()} €</p>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Comprometido</p>
+              <p className="text-base font-bold text-amber-600 font-mono tabular-nums">{formatCurrency(summary.totalCommitted)} €</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <p className="text-xs text-slate-500 mb-1">Realizado</p>
-              <p className="text-lg font-bold text-emerald-600">{(summary.totalActual || 0).toLocaleString()} €</p>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Realizado</p>
+              <p className="text-base font-bold text-blue-600 font-mono tabular-nums">{formatCurrency(summary.totalActual)} €</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <p className="text-xs text-slate-500 mb-1">Disponible</p>
-              <p className="text-lg font-bold text-blue-600">{(summary.totalAvailable || 0).toLocaleString()} €</p>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Disponible</p>
+              <p className={`text-base font-bold font-mono tabular-nums ${summary.totalAvailable < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(summary.totalAvailable)} €</p>
             </div>
-          </div>
-      
-          {/* Progress bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-              <span>Ejecución del presupuesto</span>
-              <span>{budgetedPercent.toFixed(1)}%</span>
-            </div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all"
-                style={{ width: `${Math.min(budgetedPercent, 100)}%` }}
-              />
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">% Ejecución</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-base font-bold font-mono tabular-nums ${totalExecutionPercent > 100 ? 'text-red-600' : totalExecutionPercent > 90 ? 'text-amber-600' : 'text-slate-900'}`}>{totalExecutionPercent.toFixed(1)}%</p>
+                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${getProgressColor(totalExecutionPercent)}`} style={{ width: `${Math.min(totalExecutionPercent, 100)}%` }} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
         {/* Messages */}
         {errorMessage && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-            <AlertCircle size={20} />
-            <span className="flex-1">{errorMessage}</span>
-            <button onClick={() => setErrorMessage("")}><X size={16} /></button>
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-sm">
+            <AlertCircle size={18} /><span className="flex-1">{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")}><X size={14} /></button>
           </div>
         )}
-
         {successMessage && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
-            <CheckCircle size={20} />
-            <span>{successMessage}</span>
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700 text-sm">
+            <CheckCircle size={18} /><span>{successMessage}</span>
           </div>
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 items-center mb-6">
+        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
           <div className="flex-1 relative w-full">
-            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por código o descripción..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
-            />
+            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar por código o descripción..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
-
           <div className="flex gap-2">
-            <button onClick={expandAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-              <Eye size={14} />
-              Expandir
-            </button>
-            <button onClick={collapseAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-              <EyeOff size={14} />
-              Colapsar
-            </button>
-            <button onClick={exportBudget} className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2 font-medium">
-              <Download size={16} />
-              Exportar
-            </button>
+            <button onClick={expandAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Eye size={14} />Expandir</button>
+            <button onClick={collapseAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><EyeOff size={14} />Colapsar</button>
+            <button onClick={exportBudget} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Download size={14} />Exportar</button>
           </div>
         </div>
 
@@ -689,22 +373,12 @@ export default function BudgetPage() {
         {filteredAccounts.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center">
             <FileSpreadsheet size={32} className="text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">
-              {searchTerm ? "No se encontraron cuentas" : "No hay cuentas presupuestarias"}
-            </h3>
-            <p className="text-slate-500 text-sm mb-4">
-              {searchTerm ? "Intenta ajustar la búsqueda" : "Crea tu primera cuenta o importa un presupuesto"}
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">{searchTerm ? "No se encontraron cuentas" : "No hay cuentas presupuestarias"}</h3>
+            <p className="text-slate-500 text-sm mb-4">{searchTerm ? "Intenta ajustar la búsqueda" : "Crea tu primera cuenta o importa un presupuesto"}</p>
             {!searchTerm && (
               <div className="flex gap-3 justify-center">
-                <button onClick={openCreateAccountModal} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
-                  <Plus size={16} />
-                  Crear cuenta
-                </button>
-                <button onClick={() => setShowImportModal(true)} className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50">
-                  <Upload size={16} />
-                  Importar
-                </button>
+                <button onClick={openCreateAccountModal} className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><Plus size={16} />Crear cuenta</button>
+                <button onClick={() => setShowImportModal(true)} className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50"><Upload size={16} />Importar</button>
               </div>
             )}
           </div>
@@ -713,82 +387,119 @@ export default function BudgetPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-10"></th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Código</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Descripción</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Presupuestado</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Comprometido</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Realizado</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Disponible</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase w-28"></th>
+                  <th className="text-left pl-4 pr-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-8"></th>
+                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-20">Código</th>
+                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Descripción</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Presupuesto</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Comprometido</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Realizado</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Disponible</th>
+                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-20">% Ejec.</th>
+                  <th className="text-right px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredAccounts.map((account) => {
                   const totals = getAccountTotals(account);
                   const isExpanded = expandedAccounts.has(account.id);
+                  const execPercent = getExecutionPercent(totals.executed, totals.budgeted);
+                  const status = getStatusIndicator(totals.available, totals.budgeted);
 
                   return (
-                    <>
-                      <tr key={account.id} className="bg-slate-50 hover:bg-slate-100 transition-colors font-medium">
-                        <td className="px-4 py-3">
-                          <button onClick={() => toggleAccount(account.id)} className="text-slate-600 hover:text-slate-900">
-                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    <React.Fragment key={account.id}>
+                      {/* Account Row */}
+                      <tr className="bg-slate-50/80 hover:bg-slate-100/80 transition-colors border-l-4 border-l-indigo-400">
+                        <td className="pl-4 pr-2 py-2">
+                          <button onClick={() => toggleAccount(account.id)} className="text-slate-500 hover:text-slate-900 p-0.5">
+                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           </button>
                         </td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">{account.code}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-900">{account.description}</td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-900">{(totals.budgeted || 0).toLocaleString()} €</td>
-                        <td className="px-4 py-3 text-right font-bold text-amber-600">{(totals.committed || 0).toLocaleString()} €</td>
-                        <td className="px-4 py-3 text-right font-bold text-emerald-600">{(totals.actual || 0).toLocaleString()} €</td>
-                        <td className={`px-4 py-3 text-right font-bold ${getAvailableColor(totals.available || 0, totals.budgeted || 0)}`}>
-                          {(totals.available || 0).toLocaleString()} €
+                        <td className="px-2 py-2 font-bold text-slate-900 text-xs">{account.code}</td>
+                        <td className="px-2 py-2 font-semibold text-slate-900 text-xs">{account.description}</td>
+                        <td className="px-2 py-2 text-right font-bold text-slate-900 font-mono tabular-nums text-xs">{formatCurrency(totals.budgeted)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-amber-600 font-mono tabular-nums text-xs">{formatCurrency(totals.committed)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-blue-600 font-mono tabular-nums text-xs">{formatCurrency(totals.actual)}</td>
+                        <td className="px-2 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${status.color}`}></span>
+                            <span className={`font-bold font-mono tabular-nums text-xs ${status.text}`}>{formatCurrency(totals.available)}</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => openCreateSubAccountModal(account)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg" title="Añadir subcuenta">
-                              <Plus size={14} />
-                            </button>
-                            <button onClick={() => openEditAccountModal(account)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
-                              <Edit size={14} />
-                            </button>
-                            <button onClick={() => handleDeleteAccount(account.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
-                              <Trash2 size={14} />
-                            </button>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${getProgressColor(execPercent)}`} style={{ width: `${Math.min(execPercent, 100)}%` }} />
+                            </div>
+                            <span className={`text-[10px] font-bold tabular-nums w-8 text-right ${execPercent > 100 ? 'text-red-600' : 'text-slate-600'}`}>{execPercent.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center justify-end gap-0.5">
+                            <button onClick={() => openCreateSubAccountModal(account)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Añadir subcuenta"><Plus size={14} /></button>
+                            <button onClick={() => openEditAccountModal(account)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
+                            <button onClick={() => handleDeleteAccount(account.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar"><Trash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
 
-                      {isExpanded && account.subAccounts.map((subAccount) => {
+                      {/* SubAccount Rows */}
+                      {isExpanded && account.subAccounts.map((subAccount, subIndex) => {
                         const available = subAccount.budgeted - subAccount.committed - subAccount.actual;
+                        const executed = subAccount.committed + subAccount.actual;
+                        const subExecPercent = getExecutionPercent(executed, subAccount.budgeted);
+                        const subStatus = getStatusIndicator(available, subAccount.budgeted);
+                        const isLast = subIndex === account.subAccounts.length - 1;
 
                         return (
-                          <tr key={subAccount.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-2.5"></td>
-                            <td className="px-4 py-2.5 pl-10 text-slate-600">{subAccount.code}</td>
-                            <td className="px-4 py-2.5 text-slate-700">{subAccount.description}</td>
-                            <td className="px-4 py-2.5 text-right text-slate-900">{(subAccount.budgeted || 0).toLocaleString()} €</td>
-                            <td className="px-4 py-2.5 text-right text-amber-600">{(subAccount.committed || 0).toLocaleString()} €</td>
-                            <td className="px-4 py-2.5 text-right text-emerald-600">{(subAccount.actual || 0).toLocaleString()} €</td>
-                            <td className={`px-4 py-2.5 text-right ${getAvailableColor(available || 0, subAccount.budgeted || 0)}`}>
-                              {(available || 0).toLocaleString()} €
+                          <tr key={subAccount.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="pl-4 pr-2 py-1.5">
+                              <div className="flex items-center h-full">
+                                <div className={`w-4 border-l-2 border-b-2 border-slate-200 ${isLast ? 'h-3 rounded-bl' : 'h-full'}`}></div>
+                              </div>
                             </td>
-                            <td className="px-4 py-2.5">
-                              <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar">
-                                  <Edit size={14} />
-                                </button>
-                                <button onClick={() => handleDeleteSubAccount(account.id, subAccount.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Eliminar">
-                                  <Trash2 size={14} />
-                                </button>
+                            <td className="px-2 py-1.5 text-slate-500 text-xs font-medium">{subAccount.code}</td>
+                            <td className="px-2 py-1.5 text-slate-700 text-xs">{subAccount.description}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-900 font-mono tabular-nums text-xs">{formatCurrency(subAccount.budgeted)}</td>
+                            <td className="px-2 py-1.5 text-right text-amber-600 font-mono tabular-nums text-xs">{formatCurrency(subAccount.committed)}</td>
+                            <td className="px-2 py-1.5 text-right text-blue-600 font-mono tabular-nums text-xs">{formatCurrency(subAccount.actual)}</td>
+                            <td className="px-2 py-1.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${subStatus.color}`}></span>
+                                <span className={`font-mono tabular-nums text-xs ${subStatus.text}`}>{formatCurrency(available)}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <div className="flex items-center gap-1">
+                                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${getProgressColor(subExecPercent)}`} style={{ width: `${Math.min(subExecPercent, 100)}%` }} />
+                                </div>
+                                <span className={`text-[10px] tabular-nums w-8 text-right ${subExecPercent > 100 ? 'text-red-600' : 'text-slate-500'}`}>{subExecPercent.toFixed(0)}%</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-1.5">
+                              <div className="flex items-center justify-end gap-0.5">
+                                <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={12} /></button>
+                                <button onClick={() => handleDeleteSubAccount(account.id, subAccount.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar"><Trash2 size={12} /></button>
                               </div>
                             </td>
                           </tr>
                         );
                       })}
-                    </>
+                    </React.Fragment>
                   );
                 })}
+
+                {/* Total Row */}
+                <tr className="bg-slate-900 text-white">
+                  <td className="pl-4 pr-2 py-3"></td>
+                  <td className="px-2 py-3 font-bold text-xs" colSpan={2}>TOTAL PRESUPUESTO</td>
+                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs">{formatCurrency(summary.totalBudgeted)}</td>
+                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-amber-300">{formatCurrency(summary.totalCommitted)}</td>
+                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-blue-300">{formatCurrency(summary.totalActual)}</td>
+                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-emerald-300">{formatCurrency(summary.totalAvailable)}</td>
+                  <td className="px-2 py-3 text-center font-bold text-xs">{totalExecutionPercent.toFixed(1)}%</td>
+                  <td className="px-4 py-3"></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -801,21 +512,15 @@ export default function BudgetPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">
-                {modalMode === "account" 
-                  ? (editMode ? "Editar cuenta" : "Nueva cuenta")
-                  : (editMode ? "Editar subcuenta" : "Nueva subcuenta")
-                }
+                {modalMode === "account" ? (editMode ? "Editar cuenta" : "Nueva cuenta") : (editMode ? "Editar subcuenta" : "Nueva subcuenta")}
               </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
-                <X size={18} />
-              </button>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
             </div>
 
             <div className="p-6">
               {errorMessage && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-                  <AlertCircle size={16} />
-                  {errorMessage}
+                  <AlertCircle size={16} />{errorMessage}
                 </div>
               )}
 
@@ -829,55 +534,23 @@ export default function BudgetPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Código</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    placeholder={modalMode === "account" ? "Ej: 01, 02, A1..." : "Ej: 01.01, 02-A, 1.1.1..."}
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Puedes usar cualquier formato de código</p>
+                  <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder={modalMode === "account" ? "Ej: 01, 02, A1..." : "Ej: 01.01, 02-A, 1.1.1..."} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Descripción</label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Nombre de la cuenta o subcuenta"
-                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
+                  <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Nombre de la cuenta o subcuenta" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
                 </div>
-
                 {modalMode === "subaccount" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Presupuesto (€)</label>
-                    <input
-                      type="number"
-                      value={formData.budgeted}
-                      onChange={(e) => setFormData({ ...formData, budgeted: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      min="0"
-                      step="0.01"
-                    />
+                    <input type="number" value={formData.budgeted} onChange={(e) => setFormData({ ...formData, budgeted: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" min="0" step="0.01" />
                   </div>
                 )}
               </div>
 
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-200">
-                <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
-                  Cancelar
-                </button>
-                <button
-                  onClick={
-                    modalMode === "account"
-                      ? (editMode ? handleUpdateAccount : handleCreateAccount)
-                      : (editMode ? handleUpdateSubAccount : handleCreateSubAccount)
-                  }
-                  disabled={saving}
-                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50 flex items-center gap-2"
-                >
+                <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">Cancelar</button>
+                <button onClick={modalMode === "account" ? (editMode ? handleUpdateAccount : handleCreateAccount) : (editMode ? handleUpdateSubAccount : handleCreateSubAccount)} disabled={saving} className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium disabled:opacity-50 flex items-center gap-2">
                   {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   {editMode ? "Guardar cambios" : (modalMode === "account" ? "Crear cuenta" : "Crear subcuenta")}
                 </button>
@@ -893,18 +566,15 @@ export default function BudgetPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Importar presupuesto</h2>
-              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowImportModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
             </div>
 
             <div className="p-6 space-y-6">
               <div>
                 <h3 className="font-medium text-slate-900 mb-2">1. Descarga la plantilla</h3>
-                <p className="text-sm text-slate-500 mb-3">La plantilla incluye ejemplos de formato. Puedes usar cualquier sistema de códigos.</p>
+                <p className="text-sm text-slate-500 mb-3">La plantilla incluye ejemplos de formato.</p>
                 <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
-                  <Download size={16} />
-                  Descargar plantilla
+                  <Download size={16} />Descargar plantilla
                 </button>
               </div>
 
@@ -914,8 +584,7 @@ export default function BudgetPage() {
                   <FileSpreadsheet size={32} className="text-slate-400 mx-auto mb-2" />
                   <label className="cursor-pointer">
                     <span className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
-                      <Upload size={16} />
-                      {saving ? "Importando..." : "Seleccionar archivo"}
+                      <Upload size={16} />{saving ? "Importando..." : "Seleccionar archivo"}
                     </span>
                     <input type="file" accept=".csv" onChange={handleImportCSV} disabled={saving} className="hidden" />
                   </label>
@@ -923,16 +592,12 @@ export default function BudgetPage() {
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Formato libre:</strong> Puedes usar códigos como 01, 01.01, 01-01-01, A1, etc. El sistema detectará automáticamente la cuenta padre basándose en el primer segmento del código.
-                </p>
+                <p className="text-sm text-blue-800"><strong>Formato libre:</strong> Puedes usar códigos como 01, 01.01, A1, etc.</p>
               </div>
             </div>
 
             <div className="px-6 pb-6">
-              <button onClick={() => setShowImportModal(false)} className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">
-                Cerrar
-              </button>
+              <button onClick={() => setShowImportModal(false)} className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium">Cerrar</button>
             </div>
           </div>
         </div>
@@ -940,6 +605,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
-
-
