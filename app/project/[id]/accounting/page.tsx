@@ -218,10 +218,10 @@ export default function AccountingPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {recentPOs.map((po) => (
                     <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`}>
-                      <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex-shrink-0">
                             <p className="text-sm font-bold text-slate-900">PO-{po.number}</p>
@@ -281,12 +281,12 @@ export default function AccountingPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {recentInvoices.map((invoice) => {
                     const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
                     return (
                       <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`}>
-                        <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex-shrink-0">
                               <div className="flex items-center gap-1.5">
