@@ -685,58 +685,56 @@ export default function SuppliersPage() {
           </div>
         ) : viewMode === "table" ? (
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Proveedor</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">NIF</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Certificados</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
-                  <th className="w-12"></th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Proveedor</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">NIF/CIF</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
+                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Titularidad</th>
+                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Contratistas</th>
+                  <th className="text-center px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Estado</th>
+                  <th className="text-right px-4 py-2.5 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredSuppliers.map((supplier) => {
                   const status = getCertificateStatus(supplier);
-                  const countryInfo = getCountryInfo(supplier.country);
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-2">
                         <button onClick={() => setPreviewSupplier(supplier)} className="text-left hover:text-indigo-600 transition-colors">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <p className="font-semibold text-slate-900 group-hover:text-indigo-600">{supplier.fiscalName}</p>
-                              {supplier.commercialName && <p className="text-xs text-slate-500">{supplier.commercialName}</p>}
-                            </div>
-                          </div>
+                          <p className="font-semibold text-slate-900 group-hover:text-indigo-600 text-xs">{supplier.fiscalName}</p>
+                          {supplier.commercialName && <p className="text-[11px] text-slate-500">{supplier.commercialName}</p>}
                         </button>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-mono text-slate-900">{supplier.taxId}</span>
+                      <td className="px-4 py-2">
+                        <span className="text-xs font-mono text-slate-700">{supplier.taxId}</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-2">
                         {supplier.contact?.name ? (
                           <div>
-                            <p className="text-sm text-slate-900">{supplier.contact.name}</p>
-                            {supplier.contact.email && <p className="text-xs text-slate-500">{supplier.contact.email}</p>}
+                            <p className="text-xs text-slate-900">{supplier.contact.name}</p>
+                            {supplier.contact.email && <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{supplier.contact.email}</p>}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400">Sin contacto</span>
+                          <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          {getCertificateBadge(supplier.certificates.bankOwnership)}
-                          {getCertificateBadge(supplier.certificates.contractorsCertificate)}
-                        </div>
+                      <td className="px-4 py-2 text-center">
+                        {getCertificateBadge(supplier.certificates.bankOwnership)}
                       </td>
-                      <td className="px-6 py-4">{getStatusBadge(status)}</td>
-                      <td className="px-6 py-4">
-                        <div className="relative menu-container">
-                          <button ref={(el) => { if (el) menuButtonRefs.current.set(supplier.id, el); }} onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === supplier.id ? null : supplier.id); }} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                            <MoreHorizontal size={18} />
-                          </button>
+                      <td className="px-4 py-2 text-center">
+                        {getCertificateBadge(supplier.certificates.contractorsCertificate)}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        {getStatusBadge(status)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button onClick={() => setPreviewSupplier(supplier)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Ver"><Eye size={14} /></button>
+                          <button onClick={() => openEditModal(supplier)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
+                          <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed" title="Eliminar"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1205,4 +1203,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-
