@@ -218,22 +218,22 @@ export default function AccountingPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {recentPOs.map((po) => (
                     <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`} className="block">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex-shrink-0">
-                            <p className="text-sm font-bold text-slate-900">PO-{po.number}</p>
+                            <p className="text-sm font-semibold text-slate-900">PO-{po.number}</p>
                             <p className="text-xs text-slate-500 truncate max-w-[160px]">{po.supplier || "Sin proveedor"}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-sm font-bold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
-                            <div className="mt-1">{getStatusBadge(po.status)}</div>
+                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
+                            {getStatusBadge(po.status)}
                           </div>
-                          <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
                         </div>
                       </div>
                     </Link>
@@ -281,27 +281,27 @@ export default function AccountingPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {recentInvoices.map((invoice) => {
                     const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
                     return (
                       <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`} className="block">
-                        <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex-shrink-0">
                               <div className="flex items-center gap-1.5">
-                                <p className="text-sm font-bold text-slate-900">FAC-{invoice.number}</p>
-                                {isOverdue && <AlertCircle size={14} className="text-red-500" />}
+                                <p className="text-sm font-semibold text-slate-900">FAC-{invoice.number}</p>
+                                {isOverdue && <AlertCircle size={12} className="text-red-500" />}
                               </div>
                               <p className="text-xs text-slate-500 truncate max-w-[160px]">{invoice.supplier || "Sin proveedor"}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-sm font-bold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
-                              <div className="mt-1">{getStatusBadge(invoice.status)}</div>
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
+                              {getStatusBadge(invoice.status)}
                             </div>
-                            <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
                           </div>
                         </div>
                       </Link>
