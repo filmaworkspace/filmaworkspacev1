@@ -298,7 +298,6 @@ export default function BudgetPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{accounts.length} cuentas · {accounts.reduce((sum, a) => sum + a.subAccounts.length, 0)} subcuentas</p>
               </div>
             </div>
 
@@ -606,3 +605,4 @@ export default function BudgetPage() {
     </div>
   );
 }
+
