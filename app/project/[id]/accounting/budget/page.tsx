@@ -298,6 +298,7 @@ export default function BudgetPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{accounts.length} cuentas · {accounts.reduce((sum, a) => sum + a.subAccounts.length, 0)} subcuentas</p>
               </div>
             </div>
 
@@ -315,24 +316,24 @@ export default function BudgetPage() {
           <div className="grid grid-cols-5 gap-3 mt-6">
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Presupuestado</p>
-              <p className="text-base font-bold text-slate-900 font-mono tabular-nums">{formatCurrency(summary.totalBudgeted)} €</p>
+              <p className="text-base font-bold text-slate-900 tabular-nums">{formatCurrency(summary.totalBudgeted)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Comprometido</p>
-              <p className="text-base font-bold text-amber-600 font-mono tabular-nums">{formatCurrency(summary.totalCommitted)} €</p>
+              <p className="text-base font-bold text-amber-600 tabular-nums">{formatCurrency(summary.totalCommitted)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Realizado</p>
-              <p className="text-base font-bold text-blue-600 font-mono tabular-nums">{formatCurrency(summary.totalActual)} €</p>
+              <p className="text-base font-bold text-blue-600 tabular-nums">{formatCurrency(summary.totalActual)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Disponible</p>
-              <p className={`text-base font-bold font-mono tabular-nums ${summary.totalAvailable < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(summary.totalAvailable)} €</p>
+              <p className={`text-base font-bold tabular-nums ${summary.totalAvailable < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(summary.totalAvailable)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">% Ejecución</p>
               <div className="flex items-center gap-2">
-                <p className={`text-base font-bold font-mono tabular-nums ${totalExecutionPercent > 100 ? 'text-red-600' : totalExecutionPercent > 90 ? 'text-amber-600' : 'text-slate-900'}`}>{totalExecutionPercent.toFixed(1)}%</p>
+                <p className={`text-base font-bold tabular-nums ${totalExecutionPercent > 100 ? 'text-red-600' : totalExecutionPercent > 90 ? 'text-amber-600' : 'text-slate-900'}`}>{totalExecutionPercent.toFixed(1)}%</p>
                 <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${getProgressColor(totalExecutionPercent)}`} style={{ width: `${Math.min(totalExecutionPercent, 100)}%` }} />
                 </div>
@@ -416,13 +417,13 @@ export default function BudgetPage() {
                         </td>
                         <td className="px-2 py-2 font-bold text-slate-900 text-xs">{account.code}</td>
                         <td className="px-2 py-2 font-semibold text-slate-900 text-xs">{account.description}</td>
-                        <td className="px-2 py-2 text-right font-bold text-slate-900 font-mono tabular-nums text-xs">{formatCurrency(totals.budgeted)}</td>
-                        <td className="px-2 py-2 text-right font-bold text-amber-600 font-mono tabular-nums text-xs">{formatCurrency(totals.committed)}</td>
-                        <td className="px-2 py-2 text-right font-bold text-blue-600 font-mono tabular-nums text-xs">{formatCurrency(totals.actual)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-slate-900 tabular-nums text-xs">{formatCurrency(totals.budgeted)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-amber-600 tabular-nums text-xs">{formatCurrency(totals.committed)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-blue-600 tabular-nums text-xs">{formatCurrency(totals.actual)}</td>
                         <td className="px-2 py-2 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${status.color}`}></span>
-                            <span className={`font-bold font-mono tabular-nums text-xs ${status.text}`}>{formatCurrency(totals.available)}</span>
+                            <span className={`font-bold tabular-nums text-xs ${status.text}`}>{formatCurrency(totals.available)}</span>
                           </div>
                         </td>
                         <td className="px-2 py-2">
@@ -459,13 +460,13 @@ export default function BudgetPage() {
                             </td>
                             <td className="px-2 py-1.5 text-slate-500 text-xs font-medium">{subAccount.code}</td>
                             <td className="px-2 py-1.5 text-slate-700 text-xs">{subAccount.description}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-900 font-mono tabular-nums text-xs">{formatCurrency(subAccount.budgeted)}</td>
-                            <td className="px-2 py-1.5 text-right text-amber-600 font-mono tabular-nums text-xs">{formatCurrency(subAccount.committed)}</td>
-                            <td className="px-2 py-1.5 text-right text-blue-600 font-mono tabular-nums text-xs">{formatCurrency(subAccount.actual)}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-900 tabular-nums text-xs">{formatCurrency(subAccount.budgeted)}</td>
+                            <td className="px-2 py-1.5 text-right text-amber-600 tabular-nums text-xs">{formatCurrency(subAccount.committed)}</td>
+                            <td className="px-2 py-1.5 text-right text-blue-600 tabular-nums text-xs">{formatCurrency(subAccount.actual)}</td>
                             <td className="px-2 py-1.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span className={`w-1.5 h-1.5 rounded-full ${subStatus.color}`}></span>
-                                <span className={`font-mono tabular-nums text-xs ${subStatus.text}`}>{formatCurrency(available)}</span>
+                                <span className={`tabular-nums text-xs ${subStatus.text}`}>{formatCurrency(available)}</span>
                               </div>
                             </td>
                             <td className="px-2 py-1.5">
@@ -493,10 +494,10 @@ export default function BudgetPage() {
                 <tr className="bg-slate-900 text-white">
                   <td className="pl-4 pr-2 py-3"></td>
                   <td className="px-2 py-3 font-bold text-xs" colSpan={2}>TOTAL PRESUPUESTO</td>
-                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs">{formatCurrency(summary.totalBudgeted)}</td>
-                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-amber-300">{formatCurrency(summary.totalCommitted)}</td>
-                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-blue-300">{formatCurrency(summary.totalActual)}</td>
-                  <td className="px-2 py-3 text-right font-bold font-mono tabular-nums text-xs text-emerald-300">{formatCurrency(summary.totalAvailable)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs">{formatCurrency(summary.totalBudgeted)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-amber-300">{formatCurrency(summary.totalCommitted)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-blue-300">{formatCurrency(summary.totalActual)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-emerald-300">{formatCurrency(summary.totalAvailable)}</td>
                   <td className="px-2 py-3 text-center font-bold text-xs">{totalExecutionPercent.toFixed(1)}%</td>
                   <td className="px-4 py-3"></td>
                 </tr>
@@ -534,7 +535,7 @@ export default function BudgetPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Código</label>
-                  <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder={modalMode === "account" ? "Ej: 01, 02, A1..." : "Ej: 01.01, 02-A, 1.1.1..."} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                  <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder={modalMode === "account" ? "Ej: 01, 02, A1..." : "Ej: 01.01, 02-A, 1.1.1..."} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 " />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Descripción</label>
@@ -543,7 +544,7 @@ export default function BudgetPage() {
                 {modalMode === "subaccount" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Presupuesto (€)</label>
-                    <input type="number" value={formData.budgeted} onChange={(e) => setFormData({ ...formData, budgeted: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" min="0" step="0.01" />
+                    <input type="number" value={formData.budgeted} onChange={(e) => setFormData({ ...formData, budgeted: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 " min="0" step="0.01" />
                   </div>
                 )}
               </div>
