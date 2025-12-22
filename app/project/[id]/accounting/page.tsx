@@ -220,7 +220,7 @@ export default function AccountingPage() {
               ) : (
                 <div className="space-y-3">
                   {recentPOs.map((po) => (
-                    <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`}>
+                    <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`} className="block">
                       <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex-shrink-0">
@@ -285,7 +285,7 @@ export default function AccountingPage() {
                   {recentInvoices.map((invoice) => {
                     const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
                     return (
-                      <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`}>
+                      <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`} className="block">
                         <div className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex-shrink-0">
