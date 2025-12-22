@@ -594,7 +594,6 @@ export default function SuppliersPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{suppliers.length} proveedores registrados</p>
               </div>
             </div>
 
@@ -1099,3 +1098,4 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
