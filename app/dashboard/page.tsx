@@ -213,53 +213,51 @@ export default function Dashboard() {
     const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
 
     return (
-      <div key={project.id} className="group bg-white hover:bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 transition-all hover:shadow-md">
+      <div key={project.id} className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 hover:shadow-md transition-all">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${phaseStyle.dot}`}></div>
-            <h2 className="text-base font-semibold text-slate-900 group-hover:text-slate-800">{project.name}</h2>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${phaseStyle.dot}`}></div>
+            <h2 className="text-sm font-semibold text-slate-900 truncate">{project.name}</h2>
           </div>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} border ${phaseStyle.border}`}>{project.phase}</span>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text} ml-2`}>{project.phase}</span>
         </div>
 
-        {project.description && <p className="text-xs text-slate-600 mb-3 line-clamp-2">{project.description}</p>}
-
-        {project.producerNames && project.producerNames.length > 0 && (
-          <div className="flex items-center gap-1.5 mb-3">
-            <Building2 size={12} className="text-amber-600" />
-            <span className="text-xs text-slate-600">{project.producerNames.join(", ")}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 mb-4">
-          {project.role && <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">{project.role}</span>}
-          {project.position && <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1">{project.position}</span>}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {project.role && <span className="text-[10px] text-slate-600 bg-slate-100 rounded px-2 py-0.5">{project.role}</span>}
+          {project.position && <span className="text-[10px] text-slate-600 bg-slate-100 rounded px-2 py-0.5">{project.position}</span>}
           {project.memberCount !== undefined && (
-            <span className="text-xs text-slate-500 flex items-center gap-1 ml-auto">
-              <Users size={12} />{project.memberCount}
+            <span className="text-[10px] text-slate-500 flex items-center gap-1 ml-auto">
+              <Users size={10} />{project.memberCount}
             </span>
           )}
         </div>
 
-        <div className="flex gap-2 pt-3 border-t border-slate-200">
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-slate-100">
           {hasConfig && (
             <Link href={`/project/${project.id}/config`} className="flex-1">
-              <div className="flex items-center justify-center gap-2 p-2.5 bg-white border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all text-slate-600 hover:text-slate-900">
-                <Settings size={14} /><span className="text-xs font-medium">Config</span>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all text-slate-600 text-xs font-medium">
+                <Settings size={12} />Config
               </div>
             </Link>
           )}
           {hasAccounting && (
             <Link href={`/project/${project.id}/accounting`} className="flex-1">
-              <div className="flex items-center justify-center gap-2 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:shadow-sm transition-all text-indigo-700">
-                <BarChart3 size={14} /><span className="text-xs font-medium">Accounting</span>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-all text-indigo-700 text-xs font-medium">
+                <BarChart3 size={12} />Accounting
               </div>
             </Link>
           )}
           {hasTeam && (
             <Link href={`/project/${project.id}/team`} className="flex-1">
-              <div className="flex items-center justify-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:shadow-sm transition-all text-amber-700">
-                <Users size={14} /><span className="text-xs font-medium">Team</span>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-all text-amber-700 text-xs font-medium">
+                <Users size={12} />Team
               </div>
             </Link>
           )}
