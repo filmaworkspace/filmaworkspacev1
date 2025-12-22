@@ -214,7 +214,7 @@ export default function Dashboard() {
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-slate-900">Proyectos</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">Panel de proyectos</h1>
 
             {/* Notifications */}
             <div className="relative" ref={notificationRef}>
