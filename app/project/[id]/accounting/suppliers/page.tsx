@@ -2,10 +2,10 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, Timestamp, orderBy } from "firebase/firestore";
-import { Plus, Search, Download, Edit, Trash2, X, FileCheck, FileX, AlertCircle, CheckCircle, Building2, MapPin, CreditCard, Globe, FileText, Clock, Eye, ArrowLeft, MoreHorizontal, User, Mail, Phone, ShieldCheck, LayoutGrid, List, ExternalLink, Hash, Calendar, AlertTriangle, Lock } from "lucide-react";
+import { Plus, Search, Download, Edit, Trash2, X, FileCheck, FileX, AlertCircle, CheckCircle, Building2, MapPin, CreditCard, Globe, FileText, Clock, Eye, ArrowLeft, User, Mail, Phone, ShieldCheck, Hash, Lock } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -15,8 +15,6 @@ interface Certificate { url?: string; expiryDate?: Date; uploaded: boolean; file
 interface Supplier { id: string; fiscalName: string; commercialName: string; country: string; taxId: string; address: Address; contact: Contact; paymentMethod: string; bankAccount: string; certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate & { aeatVerified?: boolean }; }; createdAt: Date; createdBy: string; hasAssignedPOs: boolean; hasAssignedInvoices: boolean; }
 
 type PaymentMethod = "transferencia" | "tb30" | "tb60" | "tarjeta" | "efectivo";
-type ViewMode = "table" | "cards";
-
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "transferencia", label: "Transferencia bancaria" },
   { value: "tb30", label: "Transferencia 30 días" },
@@ -121,16 +119,13 @@ export default function SuppliersPage() {
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired">("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [userAccountingLevel, setUserAccountingLevel] = useState<string>("");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [previewSupplier, setPreviewSupplier] = useState<Supplier | null>(null);
   const [taxIdError, setTaxIdError] = useState("");
-  const menuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const [formData, setFormData] = useState({
     fiscalName: "",
@@ -169,15 +164,6 @@ export default function SuppliersPage() {
 
   useEffect(() => { if (userId && id) loadData(); }, [userId, id]);
   useEffect(() => { filterSuppliers(); }, [searchTerm, filterStatus, suppliers]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.menu-container')) { setOpenMenuId(null); }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   const loadData = async () => {
     try {
@@ -475,19 +461,16 @@ export default function SuppliersPage() {
     if (supplier.hasAssignedPOs || supplier.hasAssignedInvoices) {
       setErrorMessage("No se puede eliminar un proveedor con POs o facturas asignadas");
       setTimeout(() => setErrorMessage(""), 5000);
-      setOpenMenuId(null);
       return;
     }
-    if (!confirm(`¿Eliminar a ${supplier.fiscalName}?`)) { setOpenMenuId(null); return; }
+    if (!confirm(`¿Eliminar a ${supplier.fiscalName}?`)) return;
     try {
       await deleteDoc(doc(db, `projects/${id}/suppliers`, supplier.id));
       setSuccessMessage("Proveedor eliminado");
       setTimeout(() => setSuccessMessage(""), 3000);
-      setOpenMenuId(null);
       await loadData();
     } catch (error: any) {
       setErrorMessage(`Error eliminando proveedor: ${error.message}`);
-      setOpenMenuId(null);
     }
   };
 
@@ -535,7 +518,6 @@ export default function SuppliersPage() {
     });
     setModalMode("edit");
     setShowModal(true);
-    setOpenMenuId(null);
   };
 
   const getCertificateBadge = (cert: Certificate) => {
@@ -567,13 +549,6 @@ export default function SuppliersPage() {
     };
     const c = config[status] || config.valid;
     return <span className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap ${c.bg} ${c.text}`}>{c.label}</span>;
-  };
-
-  const getMenuPosition = (supplierId: string) => {
-    const button = menuButtonRefs.current.get(supplierId);
-    if (!button) return { top: 0, left: 0 };
-    const rect = button.getBoundingClientRect();
-    return { top: rect.bottom + 4, left: rect.right - 192 };
   };
 
   const exportSuppliers = () => {
@@ -619,6 +594,7 @@ export default function SuppliersPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{suppliers.length} proveedores registrados</p>
               </div>
             </div>
 
@@ -654,22 +630,18 @@ export default function SuppliersPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
+          <div className="flex-1 relative w-full">
+            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
           <div className="flex gap-2">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm">
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm">
               <option value="all">Todos los estados</option>
               <option value="valid">Certificados válidos</option>
               <option value="expiring">Próximos a caducar</option>
               <option value="expired">Acción requerida</option>
             </select>
-            <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <button onClick={() => setViewMode("table")} className={`px-4 py-3 text-sm transition-colors ${viewMode === "table" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={18} /></button>
-              <button onClick={() => setViewMode("cards")} className={`px-4 py-3 text-sm transition-colors border-l border-slate-200 ${viewMode === "cards" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={18} /></button>
-            </div>
           </div>
         </div>
 
@@ -683,18 +655,18 @@ export default function SuppliersPage() {
               <button onClick={openCreateModal} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><Plus size={18} />Añadir proveedor</button>
             )}
           </div>
-        ) : viewMode === "table" ? (
+        ) : (
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">Proveedor</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Proveedor</th>
                   <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">NIF/CIF</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
-                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">Titular.</th>
-                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24">Contrat.</th>
-                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-36 whitespace-nowrap">Estado</th>
-                  <th className="text-right px-4 py-2.5 w-24"></th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-44">Contacto</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Titularidad</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Contratistas</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Estado</th>
+                  <th className="text-right px-4 py-2.5 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -721,13 +693,13 @@ export default function SuppliersPage() {
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-2 text-center">
                         {getCertificateBadge(supplier.certificates.bankOwnership)}
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-2 text-center">
                         {getCertificateBadge(supplier.certificates.contractorsCertificate)}
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-2 text-center">
                         {getStatusBadge(status)}
                       </td>
                       <td className="px-4 py-2">
@@ -742,82 +714,6 @@ export default function SuppliersPage() {
                 })}
               </tbody>
             </table>
-          </div>
-        ) : (
-          /* Cards View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSuppliers.map((supplier) => {
-              const status = getCertificateStatus(supplier);
-              const countryInfo = getCountryInfo(supplier.country);
-              return (
-                <div key={supplier.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-slate-300 transition-all group relative">
-                  <div className="flex items-start justify-between mb-4">
-                    <button onClick={() => setPreviewSupplier(supplier)} className="text-left flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{supplier.fiscalName}</p>
-                      </div>
-                      {supplier.commercialName && <p className="text-sm text-slate-500">{supplier.commercialName}</p>}
-                    </button>
-                    <div className="relative menu-container">
-                      <button ref={(el) => { if (el) menuButtonRefs.current.set(supplier.id, el); }} onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === supplier.id ? null : supplier.id); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Hash size={14} className="text-slate-400" />
-                      <span className="font-mono text-slate-700">{supplier.taxId}</span>
-                    </div>
-                    {supplier.contact?.name && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <User size={14} className="text-slate-400" />
-                        <span className="text-slate-700">{supplier.contact.name}</span>
-                      </div>
-                    )}
-                    {supplier.bankAccount && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <CreditCard size={14} className="text-slate-400" />
-                        <span className="font-mono text-slate-700 text-xs">{formatIBAN(supplier.bankAccount)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {getCertificateBadge(supplier.certificates.bankOwnership)}
-                        {getCertificateBadge(supplier.certificates.contractorsCertificate)}
-                      </div>
-                      {getStatusBadge(status)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Floating Menu */}
-        {openMenuId && (
-          <div className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1" style={getMenuPosition(openMenuId)}>
-            {(() => {
-              const supplier = filteredSuppliers.find((s) => s.id === openMenuId);
-              if (!supplier) return null;
-              return (
-                <>
-                  <button onClick={() => { setPreviewSupplier(supplier); setOpenMenuId(null); }} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Eye size={15} className="text-slate-400" />Ver detalles</button>
-                  <button onClick={() => openEditModal(supplier)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Edit size={15} className="text-slate-400" />Editar</button>
-                  <div className="border-t border-slate-100 my-1" />
-                  <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <Trash2 size={15} />
-                    Eliminar
-                    {(supplier.hasAssignedPOs || supplier.hasAssignedInvoices) && <Lock size={12} className="ml-auto text-slate-400" />}
-                  </button>
-                </>
-              );
-            })()}
           </div>
         )}
       </main>
