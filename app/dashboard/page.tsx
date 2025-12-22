@@ -215,11 +215,8 @@ export default function Dashboard() {
     return (
       <div key={project.id} className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 hover:shadow-md transition-all">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${phaseStyle.dot}`}></div>
-            <h2 className="text-sm font-semibold text-slate-900 truncate">{project.name}</h2>
-          </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text} ml-2`}>{project.phase}</span>
+          <h2 className="text-base font-semibold text-slate-900 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text} ml-2 flex-shrink-0`}>{project.phase}</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
@@ -275,11 +272,8 @@ export default function Dashboard() {
     return (
       <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-3 h-3 rounded-full flex-shrink-0 bg-slate-400"></div>
-            <h2 className="text-sm font-semibold text-slate-700 truncate">{project.name}</h2>
-          </div>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-200 text-slate-600 ml-2">Archivado</span>
+          <h2 className="text-base font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-200 text-slate-600 ml-2 flex-shrink-0">Archivado</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
