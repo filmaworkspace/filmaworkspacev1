@@ -253,10 +253,9 @@ export default function Dashboard() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-              <Folder size={20} />
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center px-5 py-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white">
               <span className="text-lg font-semibold">Panel de proyectos</span>
             </div>
 
@@ -446,26 +445,57 @@ export default function Dashboard() {
 
             {/* Archivados */}
             {archivedProjects.length > 0 && (
-              <div className="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <button onClick={() => setShowArchived(!showArchived)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Archive size={18} className="text-slate-400" />
-                    <span className="font-medium text-slate-700">Archivados</span>
-                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{archivedProjects.length}</span>
-                  </div>
-                  <ChevronDown size={18} className={`text-slate-400 transition-transform ${showArchived ? "rotate-180" : ""}`} />
+              <div className="mt-8 pt-8 border-t border-slate-200">
+                <button onClick={() => setShowArchived(!showArchived)} className="flex items-center gap-2 mb-4 text-slate-500 hover:text-slate-700 transition-colors">
+                  <Archive size={16} />
+                  <span className="text-sm font-medium">Archivados</span>
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{archivedProjects.length}</span>
+                  <ChevronDown size={14} className={`transition-transform ${showArchived ? "rotate-180" : ""}`} />
                 </button>
                 {showArchived && (
-                  <div className="p-4 pt-0 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {archivedProjects.map((project) => {
                       const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
                       return (
-                        <div key={project.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 opacity-60">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-                            <h3 className="text-sm font-medium text-slate-700 truncate">{project.name}</h3>
+                        <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 transition-all">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-3 h-3 rounded-full flex-shrink-0 bg-slate-400"></div>
+                              <h2 className="text-sm font-semibold text-slate-700 truncate">{project.name}</h2>
+                            </div>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-200 text-slate-600">Archivado</span>
                           </div>
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text}`}>{project.phase}</span>
+
+                          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${phaseStyle.bg} ${phaseStyle.text}`}>{project.phase}</span>
+                            {project.role && <span className="text-[10px] text-slate-600 bg-slate-100 rounded px-2 py-0.5">{project.role}</span>}
+                            {project.position && <span className="text-[10px] text-slate-600 bg-slate-100 rounded px-2 py-0.5">{project.position}</span>}
+                          </div>
+
+                          {project.producerNames && project.producerNames.length > 0 && (
+                            <div className="flex items-center gap-1.5 mb-3">
+                              <Building2 size={11} className="text-slate-400" />
+                              <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 pt-3 border-t border-slate-200">
+                            {project.permissions.config && (
+                              <Link href={`/project/${project.id}/config`} className="flex-1">
+                                <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium"><Settings size={12} />Config</div>
+                              </Link>
+                            )}
+                            {project.permissions.accounting && (
+                              <Link href={`/project/${project.id}/accounting`} className="flex-1">
+                                <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium"><BarChart3 size={12} />Accounting</div>
+                              </Link>
+                            )}
+                            {project.permissions.team && (
+                              <Link href={`/project/${project.id}/team`} className="flex-1">
+                                <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium"><Users size={12} />Team</div>
+                              </Link>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
