@@ -9,8 +9,8 @@ import { FileText, Receipt, ArrowRight, ArrowLeft, Settings, Bell, ChevronRight,
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-interface PO { id: string; number: string; supplier: string; totalAmount: number; status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled"; createdAt: Date | null; }
-interface Invoice { id: string; number: string; supplier: string; totalAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled"; dueDate: Date | null; createdAt: Date | null; }
+interface PO { id: string; number: string; supplier: string; baseAmount: number; status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled"; createdAt: Date | null; }
+interface Invoice { id: string; number: string; supplier: string; baseAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled"; dueDate: Date | null; createdAt: Date | null; }
 
 export default function AccountingPage() {
   const params = useParams();
@@ -71,14 +71,14 @@ export default function AccountingPage() {
         const posRecentSnapshot = await getDocs(posRecentQuery);
         setRecentPOs(posRecentSnapshot.docs.map(doc => {
           const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
+          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
         }));
 
         const invoicesRecentQuery = query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc"), limit(5));
         const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
         setRecentInvoices(invoicesRecentSnapshot.docs.map(doc => {
           const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", totalAmount: data.totalAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
+          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
         }));
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -198,6 +198,7 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+                  <p className="text-xs text-slate-500">Órdenes de compra recientes</p>
                 </div>
               </div>
               <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
@@ -229,7 +230,7 @@ export default function AccountingPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
+                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.baseAmount)} €</p>
                             {getStatusBadge(po.status)}
                           </div>
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
@@ -251,6 +252,7 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
+                  <p className="text-xs text-slate-500">Facturas recientes</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -296,7 +298,7 @@ export default function AccountingPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.baseAmount)} €</p>
                               {getStatusBadge(invoice.status)}
                             </div>
                             <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
@@ -314,4 +316,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
