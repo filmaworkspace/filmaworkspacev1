@@ -198,7 +198,6 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas POs</h3>
-                  <p className="text-xs text-slate-500">Órdenes de compra recientes</p>
                 </div>
               </div>
               <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
@@ -252,7 +251,6 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
-                  <p className="text-xs text-slate-500">Facturas recientes</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -316,3 +314,4 @@ export default function AccountingPage() {
     </div>
   );
 }
+
