@@ -230,7 +230,7 @@ export default function AccountingPage() {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <p className="text-sm font-bold text-slate-900 font-mono">{formatCurrency(po.totalAmount)} €</p>
+                            <p className="text-sm font-bold text-slate-900">{formatCurrency(po.totalAmount)} €</p>
                             <div className="mt-1">{getStatusBadge(po.status)}</div>
                           </div>
                           <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
@@ -298,7 +298,7 @@ export default function AccountingPage() {
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className="text-sm font-bold text-slate-900 font-mono">{formatCurrency(invoice.totalAmount)} €</p>
+                              <p className="text-sm font-bold text-slate-900">{formatCurrency(invoice.totalAmount)} €</p>
                               <div className="mt-1">{getStatusBadge(invoice.status)}</div>
                             </div>
                             <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
