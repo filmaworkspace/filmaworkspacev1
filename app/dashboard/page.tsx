@@ -529,56 +529,6 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-
-          {/* Stats Cards */}
-          {globalStats.activeProjects > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <Folder size={18} className="text-indigo-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-900">{globalStats.activeProjects}</p>
-                    <p className="text-xs text-slate-500">Proyectos activos</p>
-                  </div>
-                </div>
-              </div>
-              <div className={`rounded-xl p-4 border ${globalStats.totalPendingApprovals > 0 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${globalStats.totalPendingApprovals > 0 ? "bg-amber-100" : "bg-slate-100"}`}>
-                    <Clock size={18} className={globalStats.totalPendingApprovals > 0 ? "text-amber-600" : "text-slate-400"} />
-                  </div>
-                  <div>
-                    <p className={`text-2xl font-bold ${globalStats.totalPendingApprovals > 0 ? "text-amber-700" : "text-slate-900"}`}>{globalStats.totalPendingApprovals}</p>
-                    <p className="text-xs text-slate-500">Aprobaciones pend.</p>
-                  </div>
-                </div>
-              </div>
-              <div className={`rounded-xl p-4 border ${globalStats.totalOverdueInvoices > 0 ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${globalStats.totalOverdueInvoices > 0 ? "bg-red-100" : "bg-slate-100"}`}>
-                    <AlertCircle size={18} className={globalStats.totalOverdueInvoices > 0 ? "text-red-600" : "text-slate-400"} />
-                  </div>
-                  <div>
-                    <p className={`text-2xl font-bold ${globalStats.totalOverdueInvoices > 0 ? "text-red-700" : "text-slate-900"}`}>{globalStats.totalOverdueInvoices}</p>
-                    <p className="text-xs text-slate-500">Facturas vencidas</p>
-                  </div>
-                </div>
-              </div>
-              <div className={`rounded-xl p-4 border ${globalStats.totalExpiringCerts > 0 ? "bg-purple-50 border-purple-200" : "bg-slate-50 border-slate-200"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${globalStats.totalExpiringCerts > 0 ? "bg-purple-100" : "bg-slate-100"}`}>
-                    <FileText size={18} className={globalStats.totalExpiringCerts > 0 ? "text-purple-600" : "text-slate-400"} />
-                  </div>
-                  <div>
-                    <p className={`text-2xl font-bold ${globalStats.totalExpiringCerts > 0 ? "text-purple-700" : "text-slate-900"}`}>{globalStats.totalExpiringCerts}</p>
-                    <p className="text-xs text-slate-500">Cert. por caducar</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
