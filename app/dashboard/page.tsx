@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, Bell, AlertCircle, FileText, Star, ChevronRight, AlertTriangle, Zap, TrendingUp, ArrowUpRight, Filter } from "lucide-react";
+import { Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, Bell, AlertCircle, FileText, Star, ChevronRight, AlertTriangle, Filter } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
@@ -45,7 +45,6 @@ export default function Dashboard() {
   const [showArchived, setShowArchived] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [quickAccessProject, setQuickAccessProject] = useState<Project | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const userId = user?.uid || null;
@@ -151,15 +150,6 @@ export default function Dashboard() {
 
         setProjects(projectsData);
         setNotifications(newNotifications);
-        
-        // Proyecto con más alertas para quick access
-        const withAlerts = projectsData.filter(p => !p.archived && ((p.alerts?.pendingApprovals || 0) + (p.alerts?.overdueInvoices || 0)) > 0);
-        if (withAlerts.length > 0) {
-          withAlerts.sort((a, b) => ((b.alerts?.pendingApprovals || 0) + (b.alerts?.overdueInvoices || 0)) - ((a.alerts?.pendingApprovals || 0) + (a.alerts?.overdueInvoices || 0)));
-          setQuickAccessProject(withAlerts[0]);
-        } else {
-          setQuickAccessProject(projectsData.filter(p => !p.archived)[0] || null);
-        }
 
         const invitationsSnapshot = await getDocs(query(collection(db, "invitations"), where("invitedEmail", "==", userEmail), where("status", "==", "pending")));
         setInvitations(invitationsSnapshot.docs.map((invDoc: QueryDocumentSnapshot<DocumentData>) => {
@@ -224,68 +214,53 @@ export default function Dashboard() {
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-8">
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center px-6 py-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg">
-              <span className="text-lg font-semibold tracking-tight">Panel de proyectos</span>
-            </div>
+            <h1 className="text-2xl font-semibold text-slate-900">Proyectos</h1>
 
-            <div className="flex items-center gap-3">
-              {/* Quick Actions */}
-              {quickAccessProject && quickAccessProject.permissions.accounting && (
-                <Link href={`/project/${quickAccessProject.id}/accounting`}>
-                  <div className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all group">
-                    <Zap size={16} className="text-indigo-600" />
-                    <span className="text-sm font-medium text-indigo-700">Ir a {quickAccessProject.name}</span>
-                    <ArrowUpRight size={14} className="text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            {/* Notifications */}
+            <div className="relative" ref={notificationRef}>
+              <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl border transition-all ${showNotifications ? "bg-slate-900 text-white border-slate-900" : totalAlerts > 0 ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"}`}>
+                <Bell size={18} />
+                {totalAlerts > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full bg-red-500 text-white shadow-sm">{totalAlerts}</span>}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900">Requiere atención</p>
+                      {totalAlerts > 0 && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{totalAlerts} alertas</span>}
+                    </div>
                   </div>
-                </Link>
-              )}
-
-              {/* Notifications */}
-              <div className="relative" ref={notificationRef}>
-                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl border transition-all ${showNotifications ? "bg-slate-900 text-white border-slate-900" : totalAlerts > 0 ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"}`}>
-                  <Bell size={18} />
-                  {totalAlerts > 0 && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full bg-red-500 text-white shadow-sm">{totalAlerts}</span>}
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
-                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-slate-900">Requiere atención</p>
-                        {totalAlerts > 0 && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{totalAlerts} alertas</span>}
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Check size={20} className="text-emerald-600" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-900">Todo al día</p>
+                        <p className="text-xs text-slate-500 mt-1">No hay alertas pendientes</p>
                       </div>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="py-12 text-center">
-                          <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Check size={20} className="text-emerald-600" />
-                          </div>
-                          <p className="text-sm font-medium text-slate-900">Todo al día</p>
-                          <p className="text-xs text-slate-500 mt-1">No hay alertas pendientes</p>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100">
-                          {notifications.map((n) => (
-                            <Link key={n.id} href={`/project/${n.projectId}/accounting${n.type === "approval" ? "/approvals" : n.type === "certificate" ? "/suppliers" : "/invoices"}`}>
-                              <div className="px-5 py-4 hover:bg-slate-50 transition-colors flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === "approval" ? "bg-amber-100" : n.type === "overdue" ? "bg-red-100" : "bg-violet-100"}`}>
-                                  {n.type === "approval" ? <Clock size={18} className="text-amber-600" /> : n.type === "overdue" ? <AlertCircle size={18} className="text-red-600" /> : <FileText size={18} className="text-violet-600" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                                  <p className="text-xs text-slate-500 mt-0.5">{n.projectName}</p>
-                                </div>
-                                <ChevronRight size={16} className="text-slate-300" />
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {notifications.map((n) => (
+                          <Link key={n.id} href={`/project/${n.projectId}/accounting${n.type === "approval" ? "/approvals" : n.type === "certificate" ? "/suppliers" : "/invoices"}`}>
+                            <div className="px-5 py-4 hover:bg-slate-50 transition-colors flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === "approval" ? "bg-amber-100" : n.type === "overdue" ? "bg-red-100" : "bg-violet-100"}`}>
+                                {n.type === "approval" ? <Clock size={18} className="text-amber-600" /> : n.type === "overdue" ? <AlertCircle size={18} className="text-red-600" /> : <FileText size={18} className="text-violet-600" />}
                               </div>
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-900">{n.title}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{n.projectName}</p>
+                              </div>
+                              <ChevronRight size={16} className="text-slate-300" />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
