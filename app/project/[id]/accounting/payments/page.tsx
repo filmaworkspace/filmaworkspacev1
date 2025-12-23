@@ -113,7 +113,12 @@ export default function PaymentsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceSearchFocused, setInvoiceSearchFocused] = useState(false);
+  const [amountRange, setAmountRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
+  const [showAmountFilter, setShowAmountFilter] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const invoiceSearchRef = useRef<HTMLInputElement>(null);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -242,6 +247,22 @@ export default function PaymentsPage() {
 
   const filteredInvoices = availableInvoices
     .filter((inv) => {
+      // Filtro por búsqueda de texto (número, proveedor, descripción)
+      const searchLower = invoiceSearch.toLowerCase().trim();
+      if (searchLower) {
+        const matchesNumber = (inv.displayNumber || inv.number || "").toLowerCase().includes(searchLower);
+        const matchesSupplier = inv.supplier.toLowerCase().includes(searchLower);
+        const matchesDescription = (inv.description || "").toLowerCase().includes(searchLower);
+        if (!matchesNumber && !matchesSupplier && !matchesDescription) return false;
+      }
+      
+      // Filtro por rango de importe
+      const minAmount = amountRange.min ? parseFloat(amountRange.min) : null;
+      const maxAmount = amountRange.max ? parseFloat(amountRange.max) : null;
+      if (minAmount !== null && inv.totalAmount < minAmount) return false;
+      if (maxAmount !== null && inv.totalAmount > maxAmount) return false;
+      
+      // Filtro por fecha de vencimiento
       if (invoiceDueDateFilter === "all") return true;
       const days = getDaysUntilPayment(inv.dueDate);
       if (invoiceDueDateFilter === "overdue") return days < 0;
@@ -256,7 +277,25 @@ export default function PaymentsPage() {
       return 0;
     });
 
-  const overdueInvoicesCount = availableInvoices.filter((inv) => getDaysUntilPayment(inv.dueDate) < 0).length;
+  // Estadísticas de facturas
+  const invoiceStats = {
+    total: availableInvoices.length,
+    filtered: filteredInvoices.length,
+    overdue: availableInvoices.filter((inv) => getDaysUntilPayment(inv.dueDate) < 0).length,
+    dueSoon: availableInvoices.filter((inv) => { const d = getDaysUntilPayment(inv.dueDate); return d >= 0 && d <= 7; }).length,
+    totalAmount: filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+  };
+
+  const overdueInvoicesCount = invoiceStats.overdue;
+
+  const clearInvoiceFilters = () => {
+    setInvoiceSearch("");
+    setInvoiceDueDateFilter("all");
+    setAmountRange({ min: "", max: "" });
+    setInvoiceSortBy("dueDate");
+  };
+
+  const hasActiveFilters = invoiceSearch || invoiceDueDateFilter !== "all" || amountRange.min || amountRange.max;
 
   const handleCreateForecast = async () => {
     if (!newForecast.name.trim() || !newForecast.paymentDate) {
@@ -604,6 +643,7 @@ export default function PaymentsPage() {
               <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center"><CreditCard size={24} className="text-violet-600" /></div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Previsiones de pago</h1>
+                <p className="text-slate-500 text-sm mt-0.5">{forecasts.length} previsiones · {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} € total</p>
               </div>
             </div>
             <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={18} />Nueva previsión</button>
@@ -628,13 +668,199 @@ export default function PaymentsPage() {
         </div>
 
         <div className="flex gap-6">
-          <div className="w-72 flex-shrink-0">
+          <div className="w-80 flex-shrink-0">
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden sticky top-24">
-              <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-teal-50"><div className="flex items-center gap-2"><div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-emerald-600" /></div><div><h3 className="font-semibold text-slate-900 text-sm">Facturas pendientes</h3><p className="text-xs text-slate-500">{filteredInvoices.length} de {availableInvoices.length}</p></div></div></div>
-              <div className="px-3 py-2 border-b border-slate-100 bg-slate-50"><div className="flex gap-2"><select value={invoiceDueDateFilter} onChange={(e) => setInvoiceDueDateFilter(e.target.value)} className="flex-1 px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"><option value="all">Todas</option><option value="overdue">Vencidas</option><option value="week">Próx. 7 días</option><option value="month">Próx. 30 días</option></select><select value={invoiceSortBy} onChange={(e) => setInvoiceSortBy(e.target.value as any)} className="px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"><option value="dueDate">Vencimiento</option><option value="amount">Importe</option><option value="supplier">Proveedor</option></select></div></div>
-              <div className="p-2 max-h-[500px] overflow-y-auto">
-                {filteredInvoices.length === 0 ? (<div className="text-center py-8"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><CheckCircle2 size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">Sin facturas pendientes</p></div>) : (
-                  <div className="space-y-1.5">{filteredInvoices.map((invoice) => { const days = getDaysUntilPayment(invoice.dueDate); const isOverdue = days < 0; const isDueSoon = days >= 0 && days <= 7; return (<div key={invoice.id} draggable onDragStart={() => handleDragStart(invoice)} onDragEnd={() => setDraggedInvoice(null)} className={`p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-grab active:cursor-grabbing transition-all border-2 border-transparent hover:border-emerald-200 group ${draggedInvoice?.id === invoice.id ? "opacity-50 scale-95" : ""} ${isOverdue ? "bg-red-50 hover:bg-red-100 hover:border-red-200" : ""}`}><div className="flex items-start gap-2"><GripVertical size={12} className="text-slate-300 mt-1 group-hover:text-slate-400 flex-shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-900 truncate">{invoice.displayNumber || `FAC-${invoice.number}`}</p><p className="text-xs font-bold text-slate-900 flex-shrink-0">{formatCurrency(invoice.totalAmount)} €</p></div><p className="text-xs text-slate-600 truncate mt-0.5">{invoice.supplier}</p><div className="flex items-center gap-1.5 mt-1.5"><span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{isOverdue ? `Vencida (${Math.abs(days)}d)` : formatDateShort(invoice.dueDate)}</span></div></div></div></div>); })}</div>
+              {/* Header con estadísticas */}
+              <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <Receipt size={16} className="text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 text-sm">Facturas pendientes</h3>
+                      <p className="text-xs text-slate-500">{invoiceStats.filtered} de {invoiceStats.total} · {formatCurrency(invoiceStats.totalAmount)} €</p>
+                    </div>
+                  </div>
+                  {hasActiveFilters && (
+                    <button onClick={clearInvoiceFilters} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors" title="Limpiar filtros">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Quick stats */}
+                <div className="flex gap-2 mt-3">
+                  <button 
+                    onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "overdue" ? "all" : "overdue")}
+                    className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${invoiceDueDateFilter === "overdue" ? "bg-red-100 text-red-700 ring-1 ring-red-200" : "bg-white/60 text-slate-600 hover:bg-white"}`}
+                  >
+                    <span className="text-red-600 font-bold">{invoiceStats.overdue}</span> vencidas
+                  </button>
+                  <button 
+                    onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "week" ? "all" : "week")}
+                    className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${invoiceDueDateFilter === "week" ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200" : "bg-white/60 text-slate-600 hover:bg-white"}`}
+                  >
+                    <span className="text-amber-600 font-bold">{invoiceStats.dueSoon}</span> próximas
+                  </button>
+                </div>
+              </div>
+              
+              {/* Buscador principal */}
+              <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    ref={invoiceSearchRef}
+                    type="text"
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    onFocus={() => setInvoiceSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setInvoiceSearchFocused(false), 200)}
+                    placeholder="Buscar nº, proveedor, concepto..."
+                    className="w-full pl-9 pr-9 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white placeholder:text-slate-400"
+                  />
+                  {invoiceSearch && (
+                    <button 
+                      onClick={() => { setInvoiceSearch(""); invoiceSearchRef.current?.focus(); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Filtros avanzados */}
+                <div className="flex gap-2 mt-2">
+                  <select 
+                    value={invoiceSortBy} 
+                    onChange={(e) => setInvoiceSortBy(e.target.value as any)} 
+                    className="flex-1 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="dueDate">Ordenar: Vencimiento</option>
+                    <option value="amount">Ordenar: Importe ↓</option>
+                    <option value="supplier">Ordenar: Proveedor A-Z</option>
+                  </select>
+                  
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowAmountFilter(!showAmountFilter)}
+                      className={`px-2.5 py-1.5 text-xs border rounded-lg flex items-center gap-1 transition-colors ${amountRange.min || amountRange.max ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                    >
+                      <CircleDollarSign size={12} />
+                      Importe
+                      <ChevronDown size={12} className={`transition-transform ${showAmountFilter ? "rotate-180" : ""}`} />
+                    </button>
+                    
+                    {showAmountFilter && (
+                      <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3">
+                        <p className="text-xs font-medium text-slate-500 mb-2">Rango de importe</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={amountRange.min}
+                            onChange={(e) => setAmountRange({ ...amountRange, min: e.target.value })}
+                            placeholder="Mín"
+                            className="flex-1 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <span className="text-slate-400 text-xs">-</span>
+                          <input
+                            type="number"
+                            value={amountRange.max}
+                            onChange={(e) => setAmountRange({ ...amountRange, max: e.target.value })}
+                            placeholder="Máx"
+                            className="flex-1 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button 
+                            onClick={() => setAmountRange({ min: "", max: "" })}
+                            className="flex-1 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 rounded-lg"
+                          >
+                            Limpiar
+                          </button>
+                          <button 
+                            onClick={() => setShowAmountFilter(false)}
+                            className="flex-1 px-2 py-1.5 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                          >
+                            Aplicar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Lista de facturas */}
+              <div className="max-h-[420px] overflow-y-auto">
+                {filteredInvoices.length === 0 ? (
+                  <div className="text-center py-10 px-4">
+                    <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      {invoiceSearch || hasActiveFilters ? <Search size={22} className="text-slate-400" /> : <CheckCircle2 size={22} className="text-emerald-500" />}
+                    </div>
+                    <p className="text-sm font-medium text-slate-700">
+                      {invoiceSearch || hasActiveFilters ? "Sin resultados" : "¡Todo al día!"}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {invoiceSearch || hasActiveFilters ? "Prueba con otros filtros" : "No hay facturas pendientes"}
+                    </p>
+                    {hasActiveFilters && (
+                      <button onClick={clearInvoiceFilters} className="mt-3 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {filteredInvoices.slice(0, 50).map((invoice) => {
+                      const days = getDaysUntilPayment(invoice.dueDate);
+                      const isOverdue = days < 0;
+                      const isDueSoon = days >= 0 && days <= 7;
+                      
+                      return (
+                        <div
+                          key={invoice.id}
+                          draggable
+                          onDragStart={() => handleDragStart(invoice)}
+                          onDragEnd={() => setDraggedInvoice(null)}
+                          className={`p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all border-2 group
+                            ${draggedInvoice?.id === invoice.id ? "opacity-50 scale-95 border-emerald-300" : "border-transparent"}
+                            ${isOverdue ? "bg-red-50 hover:bg-red-100 hover:border-red-300" : "bg-slate-50 hover:bg-slate-100 hover:border-emerald-300"}
+                          `}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${isOverdue ? "bg-red-100 group-hover:bg-red-200" : "bg-slate-200 group-hover:bg-emerald-100"}`}>
+                              <GripVertical size={12} className={`${isOverdue ? "text-red-400" : "text-slate-400 group-hover:text-emerald-600"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">{invoice.displayNumber || `FAC-${invoice.number}`}</p>
+                                  <p className="text-xs text-slate-600 truncate">{invoice.supplier}</p>
+                                </div>
+                                <p className="text-sm font-bold text-slate-900 flex-shrink-0">{formatCurrency(invoice.totalAmount)} €</p>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>
+                                  {isOverdue ? `Vencida hace ${Math.abs(days)}d` : isDueSoon ? `Vence en ${days}d` : formatDateShort(invoice.dueDate)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Arrastra a previsión
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {filteredInvoices.length > 50 && (
+                      <div className="text-center py-3">
+                        <p className="text-xs text-slate-500">Mostrando 50 de {filteredInvoices.length} facturas</p>
+                        <p className="text-xs text-slate-400">Usa el buscador para encontrar más</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
