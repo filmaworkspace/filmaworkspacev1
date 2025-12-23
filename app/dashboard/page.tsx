@@ -428,49 +428,51 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-              {/* Proyectos activos */}
+              {/* Filtros */}
               {activeProjectsCount > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-                  {/* Filtros */}
-                  <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                    <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
-                      <div className="relative flex-1 max-w-md">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Buscar proyectos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm" />
-                      </div>
-                      <div className="flex gap-2">
-                        <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm">
-                          <option value="all">Todas las fases</option>
-                          <option value="Desarrollo">Desarrollo</option>
-                          <option value="Preproducción">Preproducción</option>
-                          <option value="Rodaje">Rodaje</option>
-                          <option value="Postproducción">Postproducción</option>
-                          <option value="Finalizado">Finalizado</option>
-                        </select>
-                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")} className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm">
-                          <option value="recent">Recientes</option>
-                          <option value="name">Nombre</option>
-                          <option value="phase">Fase</option>
-                        </select>
-                      </div>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-6">
+                  <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
+                    <div className="relative flex-1 max-w-md">
+                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input type="text" placeholder="Buscar proyectos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white" />
+                    </div>
+                    <div className="flex gap-2">
+                      <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
+                        <option value="all">Todas las fases</option>
+                        <option value="Desarrollo">Desarrollo</option>
+                        <option value="Preproducción">Preproducción</option>
+                        <option value="Rodaje">Rodaje</option>
+                        <option value="Postproducción">Postproducción</option>
+                        <option value="Finalizado">Finalizado</option>
+                      </select>
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")} className="px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
+                        <option value="recent">Recientes</option>
+                        <option value="name">Nombre</option>
+                        <option value="phase">Fase</option>
+                      </select>
                     </div>
                   </div>
+                </div>
+              )}
 
+              {/* Proyectos activos */}
+              {activeProjectsCount > 0 && (
+                <>
                   {filteredProjects.length === 0 ? (
-                    <div className="text-center py-16">
+                    <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
                       <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 text-sm font-medium mb-2">No se encontraron proyectos</p>
                       <button onClick={() => { setSearchTerm(""); setSelectedPhase("all"); }} className="text-sm text-slate-700 hover:text-slate-900 font-medium underline">Limpiar filtros</button>
                     </div>
                   ) : (
-                    <div className="p-4">
+                    <>
                       <p className="text-xs text-slate-500 mb-4">{filteredProjects.length} de {activeProjectsCount} proyectos</p>
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {filteredProjects.map((project) => renderProjectCard(project))}
                       </div>
-                    </div>
+                    </>
                   )}
-                </div>
+                </>
               )}
 
               {/* Archivados */}
