@@ -753,35 +753,40 @@ export default function PaymentsPage() {
                     </button>
                     
                     {showAmountFilter && (
-                      <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3">
-                        <p className="text-xs font-medium text-slate-500 mb-2">Rango de importe</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={amountRange.min}
-                            onChange={(e) => setAmountRange({ ...amountRange, min: e.target.value })}
-                            placeholder="Mín"
-                            className="flex-1 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
-                          <span className="text-slate-400 text-xs">-</span>
-                          <input
-                            type="number"
-                            value={amountRange.max}
-                            onChange={(e) => setAmountRange({ ...amountRange, max: e.target.value })}
-                            placeholder="Máx"
-                            className="flex-1 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          />
+                      <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-4">
+                        <p className="text-xs font-medium text-slate-700 mb-3">Rango de importe (€)</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] text-slate-500 mb-1 block">Mínimo</label>
+                            <input
+                              type="number"
+                              value={amountRange.min}
+                              onChange={(e) => setAmountRange({ ...amountRange, min: e.target.value })}
+                              placeholder="0"
+                              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 mb-1 block">Máximo</label>
+                            <input
+                              type="number"
+                              value={amountRange.max}
+                              onChange={(e) => setAmountRange({ ...amountRange, max: e.target.value })}
+                              placeholder="∞"
+                              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                          </div>
                         </div>
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-2 mt-4">
                           <button 
-                            onClick={() => setAmountRange({ min: "", max: "" })}
-                            className="flex-1 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 rounded-lg"
+                            onClick={() => { setAmountRange({ min: "", max: "" }); setShowAmountFilter(false); }}
+                            className="flex-1 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
                           >
                             Limpiar
                           </button>
                           <button 
                             onClick={() => setShowAmountFilter(false)}
-                            className="flex-1 px-2 py-1.5 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                            className="flex-1 px-3 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                           >
                             Aplicar
                           </button>
