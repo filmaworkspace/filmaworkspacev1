@@ -76,7 +76,7 @@ export default function PODetailPage() {
       const projectDoc = await getDoc(doc(db, "projects", projectId));
       if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
 
-      const allPOsSnap = await getDocs(query(collection(db, `projects/${projectId}/pos`), orderBy("number", "desc")));
+      const allPOsSnap = await getDocs(query(collection(db, `projects/${projectId}/pos`), orderBy("number", "asc")));
       const posList = allPOsSnap.docs.map(d => ({ id: d.id, number: d.data().number }));
       setAllPOs(posList);
       const idx = posList.findIndex(p => p.id === poId);
@@ -432,6 +432,8 @@ export default function PODetailPage() {
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
               <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
+              <span className="text-slate-300">·</span>
+              <Link href={`/project/${projectId}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
               <span className="text-slate-300">·</span>
               <Link href={`/project/${projectId}/accounting/pos`} className="hover:text-slate-900 transition-colors">Órdenes de compra</Link>
               <span className="text-slate-300">·</span>
