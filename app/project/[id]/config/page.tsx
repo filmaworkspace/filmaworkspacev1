@@ -17,11 +17,13 @@ import {
   ExternalLink,
   Calendar,
   RefreshCw,
+  FileText,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc, setDoc } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -50,18 +52,46 @@ interface Producer {
   name: string;
 }
 
+interface CompanyData {
+  fiscalName: string;
+  taxId: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  province: string;
+  country: string;
+  email?: string;
+  phone?: string;
+}
+
+const emptyCompanyData: CompanyData = {
+  fiscalName: "",
+  taxId: "",
+  address: "",
+  postalCode: "",
+  city: "",
+  province: "",
+  country: "España",
+  email: "",
+  phone: "",
+};
+
 export default function ConfigGeneral() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingCompany, setSavingCompany] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [projectForm, setProjectForm] = useState({ name: "", phase: "", description: "" });
+  const [companyData, setCompanyData] = useState<CompanyData>(emptyCompanyData);
+  const [companyForm, setCompanyForm] = useState<CompanyData>(emptyCompanyData);
   const [showActions, setShowActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -109,6 +139,14 @@ export default function ConfigGeneral() {
           setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
+        // Cargar datos fiscales de la empresa
+        const companySnap = await getDoc(doc(db, `projects/${id}/config`, "company"));
+        if (companySnap.exists()) {
+          const data = companySnap.data() as CompanyData;
+          setCompanyData(data);
+          setCompanyForm(data);
+        }
+
         const producersSnap = await getDocs(collection(db, "producers"));
         setAllProducers(producersSnap.docs.map((d) => ({ id: d.id, name: d.data().name })));
         setLoading(false);
@@ -143,6 +181,24 @@ export default function ConfigGeneral() {
       showToast("error", "Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveCompany = async () => {
+    if (!id) return;
+    setSavingCompany(true);
+    try {
+      await setDoc(doc(db, `projects/${id}/config`, "company"), {
+        ...companyForm,
+        updatedAt: Timestamp.now(),
+      });
+      setCompanyData(companyForm);
+      setEditingCompany(false);
+      showToast("success", "Datos fiscales guardados");
+    } catch {
+      showToast("error", "Error al guardar datos fiscales");
+    } finally {
+      setSavingCompany(false);
     }
   };
 
@@ -251,38 +307,25 @@ export default function ConfigGeneral() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-              >
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
                 <ArrowLeft size={12} />
                 Proyectos
               </Link>
               <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">
-                {project?.name}
-              </span>
+              <span className="uppercase text-slate-500">{project?.name}</span>
             </div>
           </div>
       
-          {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              {/* Icono gris */}
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <Settings size={24} className="text-slate-600" />
               </div>
-      
-              {/* Título principal */}
-              <h1 className="text-2xl font-semibold text-slate-900">
-                Configuración del proyecto
-              </h1>
+              <h1 className="text-2xl font-semibold text-slate-900">Configuración del proyecto</h1>
             </div>
       
-            {/* Acciones */}
             <div className="relative">
               <button
                 onClick={() => setShowActions(!showActions)}
@@ -294,7 +337,6 @@ export default function ConfigGeneral() {
               {showActions && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-      
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
                     <button
                       onClick={copyProjectId}
@@ -442,6 +484,206 @@ export default function ConfigGeneral() {
             </div>
           </div>
 
+          {/* Company Fiscal Data Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <CreditCard size={16} className="text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
+                  <p className="text-xs text-slate-500">Información que aparecerá en facturas y documentos</p>
+                </div>
+              </div>
+              {!editingCompany && (
+                <button
+                  onClick={() => setEditingCompany(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Edit2 size={14} />
+                  Editar
+                </button>
+              )}
+            </div>
+
+            <div className="p-6">
+              {!editingCompany ? (
+                companyData.fiscalName ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Razón social</label>
+                        <p className="text-base font-semibold text-slate-900">{companyData.fiscalName}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">NIF/CIF</label>
+                        <p className="text-base font-mono text-slate-900">{companyData.taxId}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Dirección fiscal</label>
+                      <p className="text-sm text-slate-700">{companyData.address}</p>
+                      <p className="text-sm text-slate-700">{companyData.postalCode} {companyData.city}, {companyData.province}</p>
+                      <p className="text-sm text-slate-500">{companyData.country}</p>
+                    </div>
+                    {(companyData.email || companyData.phone) && (
+                      <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                        {companyData.email && (
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Email</label>
+                            <p className="text-sm text-slate-700">{companyData.email}</p>
+                          </div>
+                        )}
+                        {companyData.phone && (
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Teléfono</label>
+                            <p className="text-sm text-slate-700">{companyData.phone}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <CreditCard size={20} className="text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500 mb-4">No hay datos fiscales configurados</p>
+                    <button
+                      onClick={() => setEditingCompany(true)}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      Añadir datos fiscales
+                    </button>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Razón social *</label>
+                      <input
+                        type="text"
+                        value={companyForm.fiscalName}
+                        onChange={(e) => setCompanyForm({ ...companyForm, fiscalName: e.target.value })}
+                        placeholder="Nombre de la empresa"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">NIF/CIF *</label>
+                      <input
+                        type="text"
+                        value={companyForm.taxId}
+                        onChange={(e) => setCompanyForm({ ...companyForm, taxId: e.target.value.toUpperCase() })}
+                        placeholder="B12345678"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Dirección *</label>
+                    <input
+                      type="text"
+                      value={companyForm.address}
+                      onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
+                      placeholder="Calle, número, piso..."
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">CP *</label>
+                      <input
+                        type="text"
+                        value={companyForm.postalCode}
+                        onChange={(e) => setCompanyForm({ ...companyForm, postalCode: e.target.value })}
+                        placeholder="28001"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Ciudad *</label>
+                      <input
+                        type="text"
+                        value={companyForm.city}
+                        onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                        placeholder="Madrid"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Provincia</label>
+                      <input
+                        type="text"
+                        value={companyForm.province}
+                        onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })}
+                        placeholder="Madrid"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">País</label>
+                      <input
+                        type="text"
+                        value={companyForm.country}
+                        onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
+                        placeholder="España"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Email de contacto</label>
+                      <input
+                        type="email"
+                        value={companyForm.email}
+                        onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
+                        placeholder="facturacion@empresa.com"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Teléfono</label>
+                      <input
+                        type="tel"
+                        value={companyForm.phone}
+                        onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                        placeholder="+34 912 345 678"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleSaveCompany}
+                      disabled={savingCompany || !companyForm.fiscalName || !companyForm.taxId || !companyForm.address || !companyForm.postalCode || !companyForm.city}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      <Save size={16} />
+                      {savingCompany ? "Guardando..." : "Guardar datos fiscales"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingCompany(false);
+                        setCompanyForm(companyData);
+                      }}
+                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Producers Card */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -492,6 +734,3 @@ export default function ConfigGeneral() {
     </div>
   );
 }
-
-
-
