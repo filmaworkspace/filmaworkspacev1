@@ -250,9 +250,6 @@ export default function InvoicesPage() {
                     ) : (
                       <div className="text-center py-2">
                         <p className="text-xs text-slate-500 mb-2">No hay datos fiscales configurados</p>
-                        <Link href={`/project/${id}/config`} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
-                          Configurar en ajustes →
-                        </Link>
                       </div>
                     )}
                   </div>
