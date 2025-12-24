@@ -226,7 +226,6 @@ export default function InvoicesPage() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-slate-500">Datos fiscales</p>
-                        <p className="text-sm font-semibold text-slate-900">Nuestra empresa</p>
                       </div>
                     </div>
                     
