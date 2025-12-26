@@ -308,9 +308,20 @@ export default function POsPage() {
 
   const getStatusBadge = (status: POStatus, size: "sm" | "md" = "sm") => {
     const config = STATUS_CONFIG[status];
-    const Icon = config.icon;
-    const sizeClasses = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
-    return (<span className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}><Icon size={size === "sm" ? 12 : 14} />{config.label}</span>);
+    const Icon =
+      typeof config.icon === "function" ? config.icon : Clock;
+  
+    const sizeClasses =
+      size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
+  
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}
+      >
+        <Icon size={size === "sm" ? 12 : 14} />
+        {config.label}
+      </span>
+    );
   };
 
   const getMenuPosition = (poId: string) => {
@@ -556,7 +567,7 @@ export default function POsPage() {
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert size={28} className="text-red-500" />
+            <AlertTriangle size={28} className="text-red-500" />
           </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para acceder a órdenes de compra"}</p>
