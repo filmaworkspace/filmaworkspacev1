@@ -487,7 +487,6 @@ export default function POsPage() {
                   <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
                   {getRoleBadge()}
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5">{stats.total} documento{stats.total !== 1 ? "s" : ""} accesible{stats.total !== 1 ? "s" : ""}</p>
               </div>
             </div>
             {permissions.canCreatePO && (
