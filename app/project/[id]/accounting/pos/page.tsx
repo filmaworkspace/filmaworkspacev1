@@ -5,48 +5,8 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy,
-  Timestamp,
-} from "firebase/firestore";
-import {
-  FileText,
-  Plus,
-  Search,
-  Eye,
-  Edit,
-  Trash2,
-  X,
-  FileEdit,
-  Download,
-  Receipt,
-  ArrowLeft,
-  MoreHorizontal,
-  Lock,
-  Unlock,
-  XCircle,
-  ExternalLink,
-  AlertTriangle,
-  ArrowUp,
-  ArrowDown,
-  Clock,
-  CheckCircle,
-  Archive,
-  LayoutGrid,
-  List,
-  Calendar,
-  Building2,
-  Hash,
-  KeyRound,
-  AlertCircle,
-} from "lucide-react";
+import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, ArrowLeft, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -56,84 +16,15 @@ type POStatus = "draft" | "pending" | "approved" | "closed" | "cancelled";
 type SortOrder = "desc" | "asc";
 type ViewMode = "table" | "cards";
 
-interface POItem {
-  id?: string;
-  description: string;
-  subAccountId?: string;
-  subAccountCode?: string;
-  quantity: number;
-  unitPrice: number;
-  baseAmount?: number;
-  totalAmount: number;
-}
-interface PO {
-  id: string;
-  number: string;
-  version: number;
-  supplier: string;
-  supplierId: string;
-  department?: string;
-  generalDescription: string;
-  description?: string;
-  totalAmount: number;
-  baseAmount?: number;
-  vatAmount?: number;
-  irpfAmount?: number;
-  items: POItem[];
-  status: POStatus;
-  committedAmount: number;
-  invoicedAmount: number;
-  createdAt: Date;
-  createdBy: string;
-  createdByName: string;
-  modificationHistory?: any[];
-}
+interface POItem { id?: string; description: string; subAccountId?: string; subAccountCode?: string; quantity: number; unitPrice: number; baseAmount?: number; totalAmount: number; }
+interface PO { id: string; number: string; version: number; supplier: string; supplierId: string; department?: string; generalDescription: string; description?: string; totalAmount: number; baseAmount?: number; vatAmount?: number; irpfAmount?: number; items: POItem[]; status: POStatus; committedAmount: number; invoicedAmount: number; createdAt: Date; createdBy: string; createdByName: string; modificationHistory?: any[]; }
 
-const STATUS_CONFIG: Record<
-  POStatus,
-  {
-    bg: string;
-    text: string;
-    label: string;
-    icon: typeof Clock;
-    gradient: string;
-  }
-> = {
-  draft: {
-    bg: "bg-slate-100",
-    text: "text-slate-700",
-    label: "Borrador",
-    icon: Edit,
-    gradient: "from-slate-500 to-slate-600",
-  },
-  pending: {
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    label: "Pendiente",
-    icon: Clock,
-    gradient: "from-amber-500 to-orange-500",
-  },
-  approved: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    label: "Aprobada",
-    icon: CheckCircle,
-    gradient: "from-emerald-500 to-teal-500",
-  },
-  closed: {
-    bg: "bg-blue-50",
-    text: "text-blue-700",
-    label: "Cerrada",
-    icon: Archive,
-    gradient: "from-blue-500 to-indigo-500",
-  },
-  cancelled: {
-    bg: "bg-red-50",
-    text: "text-red-700",
-    label: "Anulada",
-    icon: XCircle,
-    gradient: "from-red-500 to-rose-500",
-  },
+const STATUS_CONFIG: Record<POStatus, { bg: string; text: string; label: string; icon: typeof Clock; gradient: string }> = {
+  draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit, gradient: "from-slate-500 to-slate-600" },
+  pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente", icon: Clock, gradient: "from-amber-500 to-orange-500" },
+  approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada", icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500" },
+  closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada", icon: Archive, gradient: "from-blue-500 to-indigo-500" },
+  cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada", icon: Ban, gradient: "from-red-500 to-rose-500" },
 };
 
 export default function POsPage() {
@@ -148,8 +39,7 @@ export default function POsPage() {
     permissions,
     canViewPO,
     canEditPO,
-    canDeletePO,
-    canPerformPOActions,
+    getPOPermissions: getFullPOPermissions,
   } = useAccountingPermissions(id);
 
   const [projectName, setProjectName] = useState<string>("");
@@ -283,11 +173,12 @@ export default function POsPage() {
   // ============ HELPER PARA VERIFICAR PERMISOS DE UNA PO ============
   const getPOPermissions = (po: PO) => {
     const poData = { id: po.id, department: po.department || "", createdBy: po.createdBy, status: po.status };
+    const fullPerms = getFullPOPermissions(poData);
     return {
-      canView: canViewPO(poData),
-      canEdit: canEditPO(poData),
-      canDelete: canDeletePO(poData),
-      canPerformActions: canPerformPOActions(poData),
+      canView: fullPerms.canView,
+      canEdit: fullPerms.canEdit,
+      canDelete: fullPerms.canDelete,
+      canPerformActions: fullPerms.canClose || fullPerms.canCancel || fullPerms.canCreateInvoice,
       isOwn: po.createdBy === permissions.userId,
     };
   };
@@ -308,20 +199,9 @@ export default function POsPage() {
 
   const getStatusBadge = (status: POStatus, size: "sm" | "md" = "sm") => {
     const config = STATUS_CONFIG[status];
-    const Icon =
-      typeof config.icon === "function" ? config.icon : Clock;
-  
-    const sizeClasses =
-      size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
-  
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}
-      >
-        <Icon size={size === "sm" ? 12 : 14} />
-        {config.label}
-      </span>
-    );
+    const Icon = config.icon;
+    const sizeClasses = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
+    return (<span className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}><Icon size={size === "sm" ? 12 : 14} />{config.label}</span>);
   };
 
   const getMenuPosition = (poId: string) => {
@@ -567,7 +447,7 @@ export default function POsPage() {
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle size={28} className="text-red-500" />
+            <ShieldAlert size={28} className="text-red-500" />
           </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para acceder a órdenes de compra"}</p>
