@@ -5,8 +5,48 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
-import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, ArrowLeft, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  Timestamp,
+} from "firebase/firestore";
+import {
+  FileText,
+  Plus,
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  X,
+  FileEdit,
+  Download,
+  Receipt,
+  ArrowLeft,
+  MoreHorizontal,
+  Lock,
+  Unlock,
+  XCircle,
+  ExternalLink,
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+  Clock,
+  CheckCircle,
+  Archive,
+  LayoutGrid,
+  List,
+  Calendar,
+  Building2,
+  Hash,
+  KeyRound,
+  AlertCircle,
+} from "lucide-react";
 import jsPDF from "jspdf";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -16,15 +56,84 @@ type POStatus = "draft" | "pending" | "approved" | "closed" | "cancelled";
 type SortOrder = "desc" | "asc";
 type ViewMode = "table" | "cards";
 
-interface POItem { id?: string; description: string; subAccountId?: string; subAccountCode?: string; quantity: number; unitPrice: number; baseAmount?: number; totalAmount: number; }
-interface PO { id: string; number: string; version: number; supplier: string; supplierId: string; department?: string; generalDescription: string; description?: string; totalAmount: number; baseAmount?: number; vatAmount?: number; irpfAmount?: number; items: POItem[]; status: POStatus; committedAmount: number; invoicedAmount: number; createdAt: Date; createdBy: string; createdByName: string; modificationHistory?: any[]; }
+interface POItem {
+  id?: string;
+  description: string;
+  subAccountId?: string;
+  subAccountCode?: string;
+  quantity: number;
+  unitPrice: number;
+  baseAmount?: number;
+  totalAmount: number;
+}
+interface PO {
+  id: string;
+  number: string;
+  version: number;
+  supplier: string;
+  supplierId: string;
+  department?: string;
+  generalDescription: string;
+  description?: string;
+  totalAmount: number;
+  baseAmount?: number;
+  vatAmount?: number;
+  irpfAmount?: number;
+  items: POItem[];
+  status: POStatus;
+  committedAmount: number;
+  invoicedAmount: number;
+  createdAt: Date;
+  createdBy: string;
+  createdByName: string;
+  modificationHistory?: any[];
+}
 
-const STATUS_CONFIG: Record<POStatus, { bg: string; text: string; label: string; icon: typeof Clock; gradient: string }> = {
-  draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit, gradient: "from-slate-500 to-slate-600" },
-  pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente", icon: Clock, gradient: "from-amber-500 to-orange-500" },
-  approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada", icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500" },
-  closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada", icon: Archive, gradient: "from-blue-500 to-indigo-500" },
-  cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada", icon: Ban, gradient: "from-red-500 to-rose-500" },
+const STATUS_CONFIG: Record<
+  POStatus,
+  {
+    bg: string;
+    text: string;
+    label: string;
+    icon: typeof Clock;
+    gradient: string;
+  }
+> = {
+  draft: {
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    label: "Borrador",
+    icon: Edit,
+    gradient: "from-slate-500 to-slate-600",
+  },
+  pending: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    label: "Pendiente",
+    icon: Clock,
+    gradient: "from-amber-500 to-orange-500",
+  },
+  approved: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    label: "Aprobada",
+    icon: CheckCircle,
+    gradient: "from-emerald-500 to-teal-500",
+  },
+  closed: {
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    label: "Cerrada",
+    icon: Archive,
+    gradient: "from-blue-500 to-indigo-500",
+  },
+  cancelled: {
+    bg: "bg-red-50",
+    text: "text-red-700",
+    label: "Anulada",
+    icon: XCircle,
+    gradient: "from-red-500 to-rose-500",
+  },
 };
 
 export default function POsPage() {
