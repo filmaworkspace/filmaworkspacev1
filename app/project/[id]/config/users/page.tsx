@@ -236,11 +236,12 @@ export default function ConfigUsers() {
 
   if (!hasConfigAccess) return (
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-      <div className="text-center">
+      <div className="text-center max-w-md">
         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <AlertCircle size={28} className="text-slate-400" />
         </div>
-        <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
+        <p className="text-slate-500 mb-6">No tienes acceso a esta configuración</p>
         <Link href="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
           <ArrowLeft size={16} />
           Volver a Proyectos
@@ -252,7 +253,7 @@ export default function ConfigUsers() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
+        <div className={`fixed top-20 right-6 z-50 px-4 py-3 rounded-2xl text-sm font-medium shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
           {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {toast.message}
         </div>
@@ -261,37 +262,27 @@ export default function ConfigUsers() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-              >
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
                 <ArrowLeft size={12} />
                 Proyectos
               </Link>
               <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">
-                {projectName}
-              </span>
+              <Link href={`/project/${id}/config`} className="hover:text-slate-900 transition-colors">Config</Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{projectName}</span>
             </div>
           </div>
       
-          {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <UserCog size={24} className="text-slate-600" />
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Usuarios del proyecto
-                </h1>
-              </div>
+              <h1 className="text-2xl font-semibold text-slate-900">Usuarios del proyecto</h1>
             </div>
       
-            {/* Actions */}
             <button
               onClick={() => setShowInviteModal(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
@@ -306,20 +297,20 @@ export default function ConfigUsers() {
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <Mail size={18} className="text-white" />
               </div>
               <h2 className="text-base font-semibold text-white">
                 {pendingInvitations.length} invitación{pendingInvitations.length !== 1 ? "es" : ""} pendiente{pendingInvitations.length !== 1 ? "s" : ""}
               </h2>
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-3">
               {pendingInvitations.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between bg-white rounded-xl p-3">
+                <div key={inv.id} className="flex items-center justify-between bg-white rounded-2xl p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
                       {inv.invitedName?.[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -327,7 +318,7 @@ export default function ConfigUsers() {
                       <p className="text-xs text-slate-500">{inv.roleType === "project" ? inv.role : `${inv.position} · ${inv.department}`}</p>
                     </div>
                   </div>
-                  <button onClick={() => handleCancelInvitation(inv.id)} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                  <button onClick={() => handleCancelInvitation(inv.id)} className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200">
                     Cancelar
                   </button>
                 </div>
@@ -356,7 +347,7 @@ export default function ConfigUsers() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
               <Shield size={18} className="text-slate-400" />
               <h3 className="font-semibold text-slate-900">Roles de proyecto</h3>
-              <span className="ml-auto text-xs text-slate-400">{projectMembers.length}</span>
+              <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{projectMembers.length}</span>
             </div>
             <div className="divide-y divide-slate-100">
               {projectMembers.map((m) => {
@@ -364,31 +355,31 @@ export default function ConfigUsers() {
                 return (
                   <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                      <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">
                         {m.name?.[0]?.toUpperCase()}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 relative">
+                        <div className="flex items-center gap-2">
                           <p className="font-medium text-slate-900">{m.name}</p>
-                          {m.userId === userId && <span className="text-xs text-slate-400">(tú)</span>}
+                          {m.userId === userId && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">(tú)</span>}
                         </div>
                         <p className="text-sm text-slate-500">{m.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${roleStyle.bg} ${roleStyle.text} border ${roleStyle.border}`}>
+                      <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${roleStyle.bg} ${roleStyle.text} border ${roleStyle.border}`}>
                         {m.role}
                       </span>
                       {m.userId !== userId && (
                         <div className="relative">
-                          <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                          <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
                             <MoreHorizontal size={16} />
                           </button>
                           {activeMenu === m.userId && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                              <div className="absolute z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-36" style={{ right: 0, top: "100%", marginTop: "4px" }}>
-                                <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                              <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
+                                <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
                                   <Trash2 size={14} />
                                   Eliminar
                                 </button>
@@ -411,38 +402,38 @@ export default function ConfigUsers() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
               <Briefcase size={18} className="text-slate-400" />
               <h3 className="font-semibold text-slate-900">Departamentos</h3>
-              <span className="ml-auto text-xs text-slate-400">{deptMembers.length}</span>
+              <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{deptMembers.length}</span>
             </div>
             <div className="divide-y divide-slate-100">
               {deptMembers.map((m) => (
                 <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">
                       {m.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-slate-900">{m.name}</p>
-                        {m.userId === userId && <span className="text-xs text-slate-400">(tú)</span>}
+                        {m.userId === userId && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">(tú)</span>}
                       </div>
                       <p className="text-sm text-slate-500">{m.position} · {m.department}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex gap-1.5">
-                      {m.permissions.accounting && <span className="px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg border border-indigo-100">ACC</span>}
-                      {m.permissions.team && <span className="px-2 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg border border-amber-100">TEAM</span>}
+                      {m.permissions.accounting && <span className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg border border-indigo-100">ACC</span>}
+                      {m.permissions.team && <span className="px-2.5 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg border border-amber-100">TEAM</span>}
                     </div>
                     {m.userId !== userId && (
                       <div className="relative">
-                        <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                        <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
                           <MoreHorizontal size={16} />
                         </button>
                         {activeMenu === m.userId && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-20">
-                              <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
+                              <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
                                 <Trash2 size={14} />
                                 Eliminar
                               </button>
@@ -482,7 +473,7 @@ export default function ConfigUsers() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">Invitar usuario</h3>
-              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
+              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -571,7 +562,7 @@ export default function ConfigUsers() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50">
-              <button onClick={closeModal} className="flex-1 py-2.5 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors">
+              <button onClick={closeModal} className="flex-1 py-2.5 text-slate-600 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors border border-slate-200">
                 Cancelar
               </button>
               <button onClick={handleSendInvitation} disabled={saving} className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
