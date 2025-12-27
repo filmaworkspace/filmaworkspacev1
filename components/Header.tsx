@@ -165,7 +165,7 @@ export default function Header() {
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${
+      className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm transition-all duration-200 ${
         isActive ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
       }`}
     >
@@ -200,7 +200,7 @@ export default function Header() {
             <Link
               key={section.key}
               href={section.href}
-              className={`p-2 rounded-lg text-slate-400 transition-colors ${colorClass}`}
+              className={`p-2.5 rounded-xl text-slate-400 transition-colors ${colorClass}`}
               title={section.label}
             >
               <Icon size={18} />
@@ -326,10 +326,10 @@ export default function Header() {
           {/* Profile */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
-            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
-              <User size={14} />
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+              <User size={15} />
             </div>
             <span className="hidden sm:inline text-sm font-medium text-slate-700">
               {isLoading ? "..." : userName}
@@ -340,35 +340,36 @@ export default function Header() {
           {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 text-sm z-50 animate-fadeIn">
-              <div className="px-3 py-2 border-b border-slate-100 mb-1">
+            <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 text-sm z-50 animate-fadeIn overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 mb-1">
                 <p className="text-xs text-slate-400">Sesión iniciada como</p>
                 <p className="text-sm font-medium text-slate-900 truncate">{userName}</p>
                 {isAdmin && (
-                  <span className="inline-block mt-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                  <span className="inline-block mt-1.5 text-xs bg-purple-100 text-purple-700 px-2.5 py-0.5 rounded-lg font-medium">
                     Admin
                   </span>
                 )}
               </div>
               {isAdmin && (
-                <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 text-purple-600 hover:bg-purple-50 transition" onClick={() => setProfileOpen(false)}>
-                  <Shield size={14} />
+                <Link href="/admin" className="flex items-center gap-3 px-4 py-2.5 text-purple-600 hover:bg-purple-50 transition" onClick={() => setProfileOpen(false)}>
+                  <Shield size={15} />
                   Administración
                 </Link>
               )}
-              <Link href="/profile" className="flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
-                <User size={14} />
+              <Link href="/profile" className="flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
+                <User size={15} />
                 Mi cuenta
               </Link>
-              <button onClick={handleLogout} className="flex w-full items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
-                <LogOut size={14} />
+              <div className="border-t border-slate-100 my-1" />
+              <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
+                <LogOut size={15} />
                 Cerrar sesión
               </button>
             </div>
           )}
 
           {/* Mobile Menu Button */}
-          <button className="md:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
@@ -387,30 +388,30 @@ export default function Header() {
                     <Link
                       href={`/project/${projectId}/config`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <Settings size={16} />
-                      <span className="text-sm">Config</span>
+                      <span className="text-sm font-medium">Config</span>
                     </Link>
                   )}
                   {permissions.accounting && currentSection !== "accounting" && (
                     <Link
                       href={`/project/${projectId}/accounting`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
                     >
                       <BarChart3 size={16} />
-                      <span className="text-sm">Accounting</span>
+                      <span className="text-sm font-medium">Accounting</span>
                     </Link>
                   )}
                   {permissions.team && currentSection !== "team" && (
                     <Link
                       href={`/project/${projectId}/team`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-amber-600 hover:bg-amber-50 border border-amber-200"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-amber-600 hover:bg-amber-50 border border-amber-200"
                     >
                       <Users size={16} />
-                      <span className="text-sm">Team</span>
+                      <span className="text-sm font-medium">Team</span>
                     </Link>
                   )}
                 </div>
@@ -421,18 +422,18 @@ export default function Header() {
 
             {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection ? (
               <>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <Folder size={16} />
                   Proyectos
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-purple-600 hover:bg-purple-50">
+                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-purple-600 hover:bg-purple-50">
                     <Shield size={16} />
                     Administración
                   </Link>
                 )}
                 <div className="border-t border-slate-100 my-2"></div>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <User size={16} />
                   Mi cuenta
                 </Link>
@@ -441,7 +442,7 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
                   <LogOut size={16} />
                   Cerrar sesión
@@ -452,17 +453,17 @@ export default function Header() {
                 <Link
                   href="/admin"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-purple-700 bg-purple-50 font-medium"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-purple-700 bg-purple-50 font-medium"
                 >
                   <Shield size={16} />
                   Panel de administración
                 </Link>
                 <div className="border-t border-slate-100 my-2"></div>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <Folder size={16} />
                   Proyectos
                 </Link>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <User size={16} />
                   Mi cuenta
                 </Link>
@@ -471,7 +472,7 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
                   <LogOut size={16} />
                   Cerrar sesión
@@ -509,7 +510,7 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
                   <LogOut size={16} />
                   Cerrar sesión
@@ -573,7 +574,7 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
                   <LogOut size={16} />
                   Cerrar sesión
@@ -584,7 +585,7 @@ export default function Header() {
                 <Link
                   href={`/project/${projectId}/team`}
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-900 bg-slate-100 font-medium"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-900 bg-slate-100 font-medium"
                 >
                   <Users size={16} />
                   Equipo
@@ -595,7 +596,7 @@ export default function Header() {
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
                 >
                   <LogOut size={16} />
                   Cerrar sesión
