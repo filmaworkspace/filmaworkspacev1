@@ -500,7 +500,6 @@ export default function ConfigGeneral() {
                 </div>
                 <div>
                   <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
-                  <p className="text-xs text-slate-500">Información que aparecerá en facturas y documentos</p>
                 </div>
               </div>
               {!editingCompany && (
@@ -744,3 +743,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
