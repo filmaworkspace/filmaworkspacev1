@@ -17,8 +17,8 @@ import {
   ExternalLink,
   Calendar,
   RefreshCw,
-  FileText,
   CreditCard,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -139,7 +139,6 @@ export default function ConfigGeneral() {
           setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
-        // Cargar datos fiscales de la empresa
         const companySnap = await getDoc(doc(db, `projects/${id}/config`, "company"));
         if (companySnap.exists()) {
           const data = companySnap.data() as CompanyData;
@@ -251,11 +250,12 @@ export default function ConfigGeneral() {
   if (!hasConfigAccess) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={28} className="text-slate-400" />
           </div>
-          <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
+          <p className="text-slate-500 mb-6">No tienes acceso a esta configuración</p>
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
@@ -272,7 +272,7 @@ export default function ConfigGeneral() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${
+        <div className={`fixed top-20 right-6 z-50 px-4 py-3 rounded-2xl text-sm font-medium shadow-lg flex items-center gap-2 ${
           toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"
         }`}>
           {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
@@ -283,22 +283,29 @@ export default function ConfigGeneral() {
       {/* Delete Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar proyecto?</h3>
-            <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Se eliminarán todos los datos del proyecto.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">¿Eliminar proyecto?</h3>
+              <button onClick={() => setShowDeleteConfirm(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={18} />
               </button>
-              <button
-                onClick={deleteProject}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
-              >
-                Eliminar
-              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-500 mb-6">Esta acción no se puede deshacer. Se eliminarán todos los datos del proyecto.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={deleteProject}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -329,7 +336,7 @@ export default function ConfigGeneral() {
             <div className="relative">
               <button
                 onClick={() => setShowActions(!showActions)}
-                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
+                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200"
               >
                 <MoreHorizontal size={20} className="text-slate-500" />
               </button>
@@ -337,7 +344,7 @@ export default function ConfigGeneral() {
               {showActions && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-20">
                     <button
                       onClick={copyProjectId}
                       className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700"
@@ -375,7 +382,7 @@ export default function ConfigGeneral() {
               {!editingProject && (
                 <button
                   onClick={() => setEditingProject(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200"
                 >
                   <Edit2 size={14} />
                   Editar
@@ -393,7 +400,7 @@ export default function ConfigGeneral() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
-                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
+                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
                         <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`} />
                         {project?.phase}
                       </span>
@@ -439,7 +446,7 @@ export default function ConfigGeneral() {
                           <button
                             key={phase}
                             onClick={() => setProjectForm({ ...projectForm, phase })}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                               isSelected
                                 ? `${style.bg} ${style.text} ${style.border}`
                                 : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
@@ -474,7 +481,7 @@ export default function ConfigGeneral() {
                         setEditingProject(false);
                         setProjectForm({ name: project?.name || "", phase: project?.phase || "", description: project?.description || "" });
                       }}
-                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200"
                     >
                       Cancelar
                     </button>
@@ -488,8 +495,8 @@ export default function ConfigGeneral() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <CreditCard size={16} className="text-indigo-600" />
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                  <CreditCard size={18} className="text-indigo-600" />
                 </div>
                 <div>
                   <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
@@ -499,7 +506,7 @@ export default function ConfigGeneral() {
               {!editingCompany && (
                 <button
                   onClick={() => setEditingCompany(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200"
                 >
                   <Edit2 size={14} />
                   Editar
@@ -545,15 +552,16 @@ export default function ConfigGeneral() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                      <CreditCard size={20} className="text-slate-400" />
+                  <div className="text-center py-12">
+                    <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CreditCard size={24} className="text-slate-400" />
                     </div>
                     <p className="text-sm text-slate-500 mb-4">No hay datos fiscales configurados</p>
                     <button
                       onClick={() => setEditingCompany(true)}
-                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
                     >
+                      <Edit2 size={14} />
                       Añadir datos fiscales
                     </button>
                   </div>
@@ -674,7 +682,7 @@ export default function ConfigGeneral() {
                         setEditingCompany(false);
                         setCompanyForm(companyData);
                       }}
-                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                      className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200"
                     >
                       Cancelar
                     </button>
@@ -696,17 +704,19 @@ export default function ConfigGeneral() {
                     const producer = allProducers.find((p) => p.id === producerId);
                     if (!producer) return null;
                     return (
-                      <div key={producer.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                      <div key={producer.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-50 rounded-xl border border-amber-200">
                         <Building2 size={16} className="text-amber-600" />
-                        <span className="text-sm font-medium text-slate-700">{producer.name}</span>
+                        <span className="text-sm font-medium text-amber-700">{producer.name}</span>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Building2 size={24} className="text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">Sin productoras asociadas</p>
+                <div className="text-center py-12">
+                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Building2 size={24} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500">Sin productoras asociadas</p>
                 </div>
               )}
             </div>
@@ -716,14 +726,14 @@ export default function ConfigGeneral() {
           <div className="grid grid-cols-2 gap-4">
             <Link
               href={`/project/${id}/config/users`}
-              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors group"
+              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
             >
-              <span className="text-sm font-medium text-slate-700">Usuarios</span>
+              <span className="text-sm font-medium text-slate-700">Usuarios del proyecto</span>
               <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
             </Link>
             <Link
               href={`/project/${id}/config/departments`}
-              className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors group"
+              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
             >
               <span className="text-sm font-medium text-slate-700">Departamentos</span>
               <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
