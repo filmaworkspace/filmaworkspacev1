@@ -5,7 +5,8 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, deleteDoc, query, orderBy, updateDoc, Timestamp } from "firebase/firestore";
-import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, ArrowLeft, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, HelpCircle, Building2 } from "lucide-react";
+import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, ArrowLeft, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, HelpCircle, Building2, ShieldAlert, User } from "lucide-react";
+import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -20,7 +21,7 @@ type DocumentType = keyof typeof DOCUMENT_TYPES;
 
 interface InvoiceItem { id: string; description: string; subAccountId: string; subAccountCode: string; subAccountDescription: string; quantity: number; unitPrice: number; baseAmount: number; vatRate: number; vatAmount: number; irpfRate: number; irpfAmount: number; totalAmount: number; }
 
-interface Invoice { id: string; documentType: DocumentType; number: string; displayNumber: string; supplier: string; supplierId: string; poId?: string; poNumber?: string; description: string; items: InvoiceItem[]; baseAmount: number; vatAmount: number; irpfAmount: number; totalAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "cancelled" | "rejected"; approvalSteps?: any[]; currentApprovalStep?: number; dueDate: Date; paymentDate?: Date; attachmentUrl: string; createdAt: Date; createdByName: string; paidByName?: string; notes?: string; rejectedAt?: Date; rejectedByName?: string; rejectionReason?: string; requiresReplacement?: boolean; replacedByInvoiceId?: string; linkedDocumentId?: string; }
+interface Invoice { id: string; documentType: DocumentType; number: string; displayNumber: string; supplier: string; supplierId: string; department?: string; poId?: string; poNumber?: string; description: string; items: InvoiceItem[]; baseAmount: number; vatAmount: number; irpfAmount: number; totalAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "cancelled" | "rejected"; approvalSteps?: any[]; currentApprovalStep?: number; dueDate: Date; paymentDate?: Date; attachmentUrl: string; createdAt: Date; createdBy: string; createdByName: string; paidByName?: string; notes?: string; rejectedAt?: Date; rejectedByName?: string; rejectionReason?: string; requiresReplacement?: boolean; replacedByInvoiceId?: string; linkedDocumentId?: string; }
 
 interface CompanyData { fiscalName: string; taxId: string; address: string; postalCode: string; city: string; province: string; country: string; email?: string; phone?: string; }
 
@@ -28,6 +29,10 @@ export default function InvoicesPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+
+  // Hook de permisos
+  const { loading: permissionsLoading, error: permissionsError, permissions } = useAccountingPermissions(id);
+
   const [projectName, setProjectName] = useState("");
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -37,22 +42,13 @@ export default function InvoicesPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [pendingReplacementCount, setPendingReplacementCount] = useState(0);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [showCompanyTooltip, setShowCompanyTooltip] = useState(false);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) setUserId(user.uid);
-      else router.push("/");
-    });
-    return () => unsubscribe();
-  }, [router]);
-
-  useEffect(() => { if (userId && id) loadData(); }, [userId, id]);
+  useEffect(() => { if (!permissionsLoading && permissions.userId && id) loadData(); }, [permissionsLoading, permissions.userId, id]);
   useEffect(() => { filterInvoices(); }, [searchTerm, statusFilter, typeFilter, invoices]);
 
   useEffect(() => {
@@ -74,10 +70,18 @@ export default function InvoicesPage() {
       if (companyDoc.exists()) setCompanyData(companyDoc.data() as CompanyData);
 
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc")));
-      const invoicesData = invoicesSnapshot.docs.map((docSnap) => {
+      const allInvoices = invoicesSnapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         return { id: docSnap.id, ...data, documentType: data.documentType || "invoice", displayNumber: data.displayNumber || `FAC-${data.number}`, createdAt: data.createdAt?.toDate() || new Date(), dueDate: data.dueDate?.toDate() || new Date(), paymentDate: data.paymentDate?.toDate(), rejectedAt: data.rejectedAt?.toDate() };
       }) as Invoice[];
+
+      // Filtrar por permisos
+      const invoicesData = allInvoices.filter((inv) => {
+        if (permissions.canViewAllPOs) return true;
+        if (permissions.canViewDepartmentPOs && inv.department === permissions.department) return true;
+        if (permissions.canViewOwnPOs && inv.createdBy === permissions.userId) return true;
+        return false;
+      });
 
       const now = new Date();
       let pendingCount = 0;
@@ -106,18 +110,41 @@ export default function InvoicesPage() {
 
   const closeMenu = () => { setOpenMenuId(null); setMenuPosition(null); };
 
+  // Verificar si puede editar una factura
+  const canEditInvoice = (invoice: Invoice): boolean => {
+    if (invoice.status === "paid" || invoice.status === "cancelled") return false;
+    if (permissions.canEditAllPOs) return true;
+    if (permissions.canEditDepartmentPOs && invoice.department === permissions.department) return true;
+    if (permissions.canEditOwnPOs && invoice.createdBy === permissions.userId) return true;
+    return false;
+  };
+
+  // Verificar si puede eliminar una factura
+  const canDeleteInvoice = (invoice: Invoice): boolean => {
+    if (invoice.status !== "pending_approval" && invoice.status !== "rejected") return false;
+    return canEditInvoice(invoice);
+  };
+
+  // Verificar si puede marcar como pagada
+  const canMarkAsPaid = (invoice: Invoice): boolean => {
+    if (invoice.status !== "pending" && invoice.status !== "overdue") return false;
+    if (permissions.isProjectRole) return true;
+    if (permissions.canEditAllPOs) return true;
+    return false;
+  };
+
   const handleDeleteInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice || invoice.status === "paid" || !confirm(`¿Eliminar ${invoice.displayNumber}?`)) return;
+    if (!invoice || !canDeleteInvoice(invoice) || !confirm(`¿Eliminar ${invoice.displayNumber}?`)) return;
     try { await deleteDoc(doc(db, `projects/${id}/invoices`, invoiceId)); loadData(); } catch (error) { console.error("Error:", error); }
     closeMenu();
   };
 
   const handleMarkAsPaid = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice || invoice.status === "pending_approval" || !confirm(`¿Marcar ${invoice.displayNumber} como pagada?`)) return;
+    if (!invoice || !canMarkAsPaid(invoice) || !confirm(`¿Marcar ${invoice.displayNumber} como pagada?`)) return;
     try {
-      await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), { status: "paid", paidAt: Timestamp.now(), paidBy: userId, paidByName: auth.currentUser?.displayName || "Usuario", paymentDate: Timestamp.now() });
+      await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), { status: "paid", paidAt: Timestamp.now(), paidBy: permissions.userId, paidByName: permissions.userName, paymentDate: Timestamp.now() });
       if (invoice.items?.length > 0) {
         for (const item of invoice.items) {
           if (item.subAccountId) {
@@ -137,10 +164,10 @@ export default function InvoicesPage() {
 
   const handleCancelInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice || invoice.status === "paid") return;
+    if (!invoice || !canEditInvoice(invoice)) return;
     const reason = prompt(`¿Motivo de cancelación de ${invoice.displayNumber}?`);
     if (!reason) return;
-    try { await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), { status: "cancelled", cancelledAt: Timestamp.now(), cancelledBy: userId, cancellationReason: reason }); loadData(); } catch (error) { console.error("Error:", error); }
+    try { await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), { status: "cancelled", cancelledAt: Timestamp.now(), cancelledBy: permissions.userId, cancellationReason: reason }); loadData(); } catch (error) { console.error("Error:", error); }
     closeMenu();
   };
 
@@ -193,7 +220,20 @@ export default function InvoicesPage() {
 
   const stats = { total: invoices.length, invoices: invoices.filter((i) => i.documentType === "invoice").length, proformas: invoices.filter((i) => i.documentType === "proforma").length, budgets: invoices.filter((i) => i.documentType === "budget").length, guarantees: invoices.filter((i) => i.documentType === "guarantee").length };
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
+  // Loading
+  if (permissionsLoading || loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
+
+  // Acceso denegado
+  if (permissionsError || !permissions.hasAccountingAccess) return (
+    <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><ShieldAlert size={28} className="text-red-500" /></div>
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
+        <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para ver facturas"}</p>
+        <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><ArrowLeft size={16} />Volver al panel</Link>
+      </div>
+    </div>
+  );
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
@@ -208,50 +248,29 @@ export default function InvoicesPage() {
               <span className="text-slate-300">·</span>
               <span className="uppercase text-slate-500">{projectName}</span>
               
+              {/* User permissions badge */}
+              {permissions.fixedDepartment && (
+                <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium flex items-center gap-1">
+                  <User size={10} />{permissions.fixedDepartment}
+                </span>
+              )}
+              
               {/* Company Info Tooltip */}
               <div className="relative ml-1">
-                <button
-                  onMouseEnter={() => setShowCompanyTooltip(true)}
-                  onMouseLeave={() => setShowCompanyTooltip(false)}
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${companyData ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}
-                >
-                  <HelpCircle size={12} />
-                </button>
-                
+                <button onMouseEnter={() => setShowCompanyTooltip(true)} onMouseLeave={() => setShowCompanyTooltip(false)} className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${companyData ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}><HelpCircle size={12} /></button>
                 {showCompanyTooltip && (
                   <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
                     <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                        <Building2 size={16} className="text-indigo-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500">Datos fiscales</p>
-                      </div>
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center"><Building2 size={16} className="text-indigo-600" /></div>
+                      <div><p className="text-xs font-medium text-slate-500">Datos fiscales</p></div>
                     </div>
-                    
                     {companyData ? (
                       <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{companyData.fiscalName}</p>
-                          <p className="text-xs font-mono text-slate-600">{companyData.taxId}</p>
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          <p>{companyData.address}</p>
-                          <p>{companyData.postalCode} {companyData.city}</p>
-                          {companyData.province && <p>{companyData.province}, {companyData.country}</p>}
-                        </div>
-                        {(companyData.email || companyData.phone) && (
-                          <div className="pt-2 border-t border-slate-100 text-xs text-slate-500">
-                            {companyData.email && <p>{companyData.email}</p>}
-                            {companyData.phone && <p>{companyData.phone}</p>}
-                          </div>
-                        )}
+                        <div><p className="text-sm font-semibold text-slate-900">{companyData.fiscalName}</p><p className="text-xs font-mono text-slate-600">{companyData.taxId}</p></div>
+                        <div className="text-xs text-slate-600"><p>{companyData.address}</p><p>{companyData.postalCode} {companyData.city}</p>{companyData.province && <p>{companyData.province}, {companyData.country}</p>}</div>
+                        {(companyData.email || companyData.phone) && (<div className="pt-2 border-t border-slate-100 text-xs text-slate-500">{companyData.email && <p>{companyData.email}</p>}{companyData.phone && <p>{companyData.phone}</p>}</div>)}
                       </div>
-                    ) : (
-                      <div className="text-center py-2">
-                        <p className="text-xs text-slate-500 mb-2">No hay datos fiscales configurados</p>
-                      </div>
-                    )}
+                    ) : (<div className="text-center py-2"><p className="text-xs text-slate-500 mb-2">No hay datos fiscales configurados</p></div>)}
                   </div>
                 )}
               </div>
@@ -261,18 +280,21 @@ export default function InvoicesPage() {
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                <Receipt size={24} className="text-emerald-600" />
+              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center"><Receipt size={24} className="text-emerald-600" /></div>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
+                {!permissions.canViewAllPOs && (
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {permissions.canViewDepartmentPOs ? `Mostrando documentos de ${permissions.department}` : "Mostrando tus documentos"}
+                  </p>
+                )}
               </div>
-              <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={exportInvoices} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                <Download size={16} />Exportar
-              </button>
-              <Link href={`/project/${id}/accounting/invoices/new`} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
-                <Plus size={18} />Nuevo documento
-              </Link>
+              <button onClick={exportInvoices} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"><Download size={16} />Exportar</button>
+              {permissions.canCreatePO && (
+                <Link href={`/project/${id}/accounting/invoices/new`} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={18} />Nuevo documento</Link>
+              )}
             </div>
           </div>
 
@@ -304,7 +326,7 @@ export default function InvoicesPage() {
                 <h3 className="font-semibold text-amber-900">{pendingReplacementCount} documento{pendingReplacementCount > 1 ? "s" : ""} pendiente{pendingReplacementCount > 1 ? "s" : ""} de factura definitiva</h3>
                 <p className="text-sm text-amber-700 mt-1">Hay proformas o presupuestos pagados que necesitan su factura definitiva del proveedor.</p>
               </div>
-              <Link href={`/project/${id}/accounting/invoices/new`} className="px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 flex-shrink-0">Subir factura</Link>
+              {permissions.canCreatePO && <Link href={`/project/${id}/accounting/invoices/new`} className="px-4 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 flex-shrink-0">Subir factura</Link>}
             </div>
           </div>
         )}
@@ -324,9 +346,7 @@ export default function InvoicesPage() {
             <option value="rejected">Rechazadas</option>
             <option value="cancelled">Canceladas</option>
           </select>
-          {typeFilter !== "all" && (
-            <button onClick={() => setTypeFilter("all")} className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><X size={14} />Limpiar filtro</button>
-          )}
+          {typeFilter !== "all" && (<button onClick={() => setTypeFilter("all")} className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><X size={14} />Limpiar filtro</button>)}
         </div>
 
         {filteredInvoices.length === 0 ? (
@@ -334,7 +354,7 @@ export default function InvoicesPage() {
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Receipt size={28} className="text-slate-400" /></div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "No se encontraron resultados" : "Sin documentos"}</h3>
             <p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Sube tu primer documento para empezar"}</p>
-            {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
+            {!searchTerm && statusFilter === "all" && typeFilter === "all" && permissions.canCreatePO && (
               <Link href={`/project/${id}/accounting/invoices/new`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={18} />Nuevo documento</Link>
             )}
           </div>
@@ -414,9 +434,10 @@ export default function InvoicesPage() {
                 <>
                   <button onClick={() => { setSelectedInvoice(invoice); setShowDetailModal(true); closeMenu(); }} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Eye size={15} className="text-slate-400" />Ver detalles</button>
                   {invoice.attachmentUrl && <a href={invoice.attachmentUrl} target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><FileText size={15} className="text-slate-400" />Ver adjunto</a>}
-                  {needsReplacement && (<><div className="border-t border-slate-100 my-1" /><Link href={`/project/${id}/accounting/invoices/new?linkTo=${invoice.id}`} onClick={closeMenu} className="w-full px-4 py-2.5 text-left text-sm text-violet-600 hover:bg-violet-50 flex items-center gap-3"><LinkIcon size={15} />Subir factura definitiva</Link></>)}
-                  {(invoice.status === "pending" || invoice.status === "overdue") && (<><div className="border-t border-slate-100 my-1" /><button onClick={() => handleMarkAsPaid(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-3"><CheckCircle size={15} />Marcar pagada</button><button onClick={() => handleCancelInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-3"><XCircle size={15} />Cancelar</button></>)}
-                  {invoice.status !== "paid" && invoice.status !== "cancelled" && (<><div className="border-t border-slate-100 my-1" /><button onClick={() => handleDeleteInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><Trash2 size={15} />Eliminar</button></>)}
+                  {needsReplacement && permissions.canCreatePO && (<><div className="border-t border-slate-100 my-1" /><Link href={`/project/${id}/accounting/invoices/new?linkTo=${invoice.id}`} onClick={closeMenu} className="w-full px-4 py-2.5 text-left text-sm text-violet-600 hover:bg-violet-50 flex items-center gap-3"><LinkIcon size={15} />Subir factura definitiva</Link></>)}
+                  {canMarkAsPaid(invoice) && (<><div className="border-t border-slate-100 my-1" /><button onClick={() => handleMarkAsPaid(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-3"><CheckCircle size={15} />Marcar pagada</button></>)}
+                  {canEditInvoice(invoice) && (invoice.status === "pending" || invoice.status === "overdue") && (<button onClick={() => handleCancelInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-3"><XCircle size={15} />Cancelar</button>)}
+                  {canDeleteInvoice(invoice) && (<><div className="border-t border-slate-100 my-1" /><button onClick={() => handleDeleteInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><Trash2 size={15} />Eliminar</button></>)}
                 </>
               );
             })()}
@@ -441,7 +462,7 @@ export default function InvoicesPage() {
                   <div className="flex items-start gap-3">
                     <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
                     <div className="flex-1"><p className="text-sm font-semibold text-amber-800">Pendiente de factura definitiva</p><p className="text-sm text-amber-700 mt-1">Este documento ha sido pagado. Recuerda subir la factura definitiva del proveedor.</p></div>
-                    <Link href={`/project/${id}/accounting/invoices/new?linkTo=${selectedInvoice.id}`} className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700">Subir factura</Link>
+                    {permissions.canCreatePO && <Link href={`/project/${id}/accounting/invoices/new?linkTo=${selectedInvoice.id}`} className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700">Subir factura</Link>}
                   </div>
                 </div>
               )}
@@ -483,7 +504,7 @@ export default function InvoicesPage() {
               {selectedInvoice.notes && (<div className="mb-6"><p className="text-xs text-slate-500 uppercase mb-2">Notas</p><p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl">{selectedInvoice.notes}</p></div>)}
             </div>
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
-              {(selectedInvoice.status === "pending" || selectedInvoice.status === "overdue") && <button onClick={() => { handleMarkAsPaid(selectedInvoice.id); setShowDetailModal(false); }} className="px-4 py-2 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors">Marcar como pagada</button>}
+              {canMarkAsPaid(selectedInvoice) && <button onClick={() => { handleMarkAsPaid(selectedInvoice.id); setShowDetailModal(false); }} className="px-4 py-2 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors">Marcar como pagada</button>}
               {selectedInvoice.attachmentUrl && <a href={selectedInvoice.attachmentUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800 rounded-lg transition-colors">Ver adjunto</a>}
               <button onClick={() => { setShowDetailModal(false); setSelectedInvoice(null); }} className="px-4 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-white rounded-lg transition-colors">Cerrar</button>
             </div>
