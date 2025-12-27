@@ -720,27 +720,10 @@ export default function ConfigGeneral() {
               )}
             </div>
           </div>
-
-          {/* Quick Links */}
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              href={`/project/${id}/config/users`}
-              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
-            >
-              <span className="text-sm font-medium text-slate-700">Usuarios del proyecto</span>
-              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
-            </Link>
-            <Link
-              href={`/project/${id}/config/departments`}
-              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
-            >
-              <span className="text-sm font-medium text-slate-700">Departamentos</span>
-              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
-            </Link>
-          </div>
         </div>
       </main>
     </div>
   );
 }
+
 
