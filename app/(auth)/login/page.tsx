@@ -60,7 +60,7 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient (unchanged) */}
+      {/* Left Side - Gradient */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
@@ -73,72 +73,62 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Side - Minimalist Form */}
+      {/* Right Side - Minimal Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-xs">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center mb-16">
-            <span className={`text-xl tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
+          <div className="lg:hidden flex items-center justify-center mb-12">
+            <span className={`text-lg tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
               <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
             </span>
           </div>
 
-          {/* Header - more minimal */}
-          <div className="mb-10">
-            <h1 className="text-2xl font-semibold text-slate-900">
-              Iniciar sesión
-            </h1>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-lg font-medium text-slate-900">Iniciar sesión</h1>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                Email
-              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
+                placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
               />
             </div>
 
             {/* Password */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={loading}
-                  autoComplete="current-password"
-                  className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50 pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                disabled={loading}
+                autoComplete="current-password"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
 
             {/* Options row */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -147,9 +137,9 @@ export default function LoginPage() {
                     disabled={loading}
                     className="sr-only peer"
                   />
-                  <div className="w-5 h-5 border-2 border-slate-300 rounded-md peer-checked:border-slate-900 peer-checked:bg-slate-900 transition-all" />
+                  <div className="w-4 h-4 border border-slate-300 rounded peer-checked:border-slate-900 peer-checked:bg-slate-900 transition-all" />
                   <svg
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -158,14 +148,12 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-sm text-slate-600 select-none">
-                  Recordarme
-                </span>
+                <span className="text-xs text-slate-500">Recordarme</span>
               </label>
               
               <Link
                 href="/forgot-password"
-                className="text-sm text-slate-500 hover:text-slate-900 transition-colors"
+                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -173,9 +161,9 @@ export default function LoginPage() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl">
-                <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-                <span className="text-sm text-red-600">{error}</span>
+              <div className="flex items-center gap-2 p-2.5 bg-red-50 rounded-xl">
+                <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-600">{error}</span>
               </div>
             )}
 
@@ -183,28 +171,28 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6 group"
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span>Entrando...</span>
                 </>
               ) : (
                 <>
                   <span>Continuar</span>
-                  <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                 </>
               )}
             </button>
           </form>
 
           {/* Register link */}
-          <p className="mt-8 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-xs text-slate-400">
             ¿No tienes cuenta?{" "}
             <Link
               href="/register"
-              className="text-slate-900 font-medium hover:underline"
+              className="text-slate-600 font-medium hover:text-slate-900 transition-colors"
             >
               Crear cuenta
             </Link>
