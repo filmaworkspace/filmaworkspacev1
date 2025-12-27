@@ -36,6 +36,13 @@ const inter = Inter({
   weight: ["400", "500", "600"],
 });
 
+const sectionColors: Record<string, { text: string; bg: string }> = {
+  config: { text: "text-slate-600", bg: "bg-slate-100" },
+  accounting: { text: "text-indigo-600", bg: "bg-indigo-50" },
+  team: { text: "text-amber-600", bg: "bg-amber-50" },
+  admin: { text: "text-purple-600", bg: "bg-purple-50" },
+};
+
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -55,7 +62,6 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   
-  // Usar el contexto del usuario
   const { user, isLoading } = useUser();
   const userName = user?.name || "Usuario";
   const isAdmin = user?.role === "admin";
@@ -79,7 +85,6 @@ export default function Header() {
       }
 
       try {
-        // Check userProjects for general permissions
         const userProjectRef = doc(db, `userProjects/${user.uid}/projects`, projectId);
         const userProjectSnap = await getDoc(userProjectRef);
 
@@ -92,7 +97,6 @@ export default function Header() {
           });
         }
 
-        // Check member doc for accounting access level
         const memberRef = doc(db, `projects/${projectId}/members`, user.uid);
         const memberSnap = await getDoc(memberRef);
 
@@ -169,7 +173,6 @@ export default function Header() {
     </Link>
   );
 
-  // Section switcher icons for when inside a project section
   const SectionSwitcher = () => {
     if (!isInProjectSection || !projectId) return null;
 
@@ -217,7 +220,9 @@ export default function Header() {
           {currentSection && (
             <>
               <span className="text-slate-300 mx-2">/</span>
-              <span className="text-slate-500 font-semibold tracking-tighter">{currentSection}</span>
+              <span className={`font-semibold tracking-tighter ${sectionColors[currentSection]?.text || "text-slate-600"}`}>
+                {currentSection}
+              </span>
             </>
           )}
         </Link>
@@ -575,7 +580,6 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              /* Team Section */
               <>
                 <Link
                   href={`/project/${projectId}/team`}
