@@ -49,6 +49,10 @@ export default function Dashboard() {
   const [selectedPhase, setSelectedPhase] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
   const [showArchived, setShowArchived] = useState(false);
+  const [showPhaseDropdown, setShowPhaseDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const phaseDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   
   const userId = user?.uid || null;
   const userName = user?.name || "Usuario";
@@ -64,6 +68,12 @@ export default function Dashboard() {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
+      }
+      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(event.target as Node)) {
+        setShowPhaseDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setShowSortDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -332,6 +342,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Panel de proyectos</h1>
+                <p className="text-slate-500 text-sm mt-0.5">Bienvenido, {userName}</p>
               </div>
             </div>
 
@@ -443,20 +454,35 @@ export default function Dashboard() {
                     <input type="text" placeholder="Buscar proyectos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white" />
                   </div>
                   <div className="flex gap-2">
-                    <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="pl-4 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
-                      <option value="all">Todas las fases</option>
-                      <option value="Desarrollo">Desarrollo</option>
-                      <option value="Preproducción">Preproducción</option>
-                      <option value="Rodaje">Rodaje</option>
-                      <option value="Postproducción">Postproducción</option>
-                      <option value="Finalizado">Finalizado</option>
-                    </select>
-                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")} className="pl-4 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
-                      <option value="recent">Recientes</option>
-                      <option value="name">Nombre</option>
-                      <option value="phase">Fase</option>
-                    </select>
-                  </div>
+                      {/* Phase Dropdown */}
+                      <div className="relative" ref={phaseDropdownRef}>
+                        <button onClick={() => { setShowPhaseDropdown(!showPhaseDropdown); setShowSortDropdown(false); }} className="flex items-center justify-between gap-3 pl-4 pr-3 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[160px]">
+                          <span className="text-slate-700">{selectedPhase === "all" ? "Todas las fases" : selectedPhase}</span>
+                          <ChevronDown size={16} className={`text-slate-400 transition-transform ${showPhaseDropdown ? "rotate-180" : ""}`} />
+                        </button>
+                        {showPhaseDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                            {[{ value: "all", label: "Todas las fases" }, { value: "Desarrollo", label: "Desarrollo" }, { value: "Preproducción", label: "Preproducción" }, { value: "Rodaje", label: "Rodaje" }, { value: "Postproducción", label: "Postproducción" }, { value: "Finalizado", label: "Finalizado" }].map((option) => (
+                              <button key={option.value} onClick={() => { setSelectedPhase(option.value); setShowPhaseDropdown(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>{option.label}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Sort Dropdown */}
+                      <div className="relative" ref={sortDropdownRef}>
+                        <button onClick={() => { setShowSortDropdown(!showSortDropdown); setShowPhaseDropdown(false); }} className="flex items-center justify-between gap-3 pl-4 pr-3 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[140px]">
+                          <span className="text-slate-700">{sortBy === "recent" ? "Recientes" : sortBy === "name" ? "Nombre" : "Fase"}</span>
+                          <ChevronDown size={16} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                        </button>
+                        {showSortDropdown && (
+                          <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                            {[{ value: "recent", label: "Recientes" }, { value: "name", label: "Nombre" }, { value: "phase", label: "Fase" }].map((option) => (
+                              <button key={option.value} onClick={() => { setSortBy(option.value as "recent" | "name" | "phase"); setShowSortDropdown(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"}`}>{option.label}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                 </div>
               </div>
             )}
