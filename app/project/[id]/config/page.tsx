@@ -494,14 +494,7 @@ export default function ConfigGeneral() {
           {/* Company Fiscal Data Card */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <CreditCard size={18} className="text-indigo-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
-                </div>
-              </div>
+              <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
               {!editingCompany && (
                 <button
                   onClick={() => setEditingCompany(true)}
@@ -694,7 +687,7 @@ export default function ConfigGeneral() {
           {/* Producers Card */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-900">Productoras asociadas</h2>
+              <h2 className="font-semibold text-slate-900">Productoras</h2>
             </div>
             <div className="p-6">
               {project?.producers && project.producers.length > 0 ? (
@@ -720,10 +713,26 @@ export default function ConfigGeneral() {
               )}
             </div>
           </div>
+
+          {/* Quick Links */}
+          <div className="grid grid-cols-2 gap-4">
+            <Link
+              href={`/project/${id}/config/users`}
+              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
+            >
+              <span className="text-sm font-medium text-slate-700">Usuarios del proyecto</span>
+              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
+            </Link>
+            <Link
+              href={`/project/${id}/config/departments`}
+              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
+            >
+              <span className="text-sm font-medium text-slate-700">Departamentos</span>
+              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
+            </Link>
+          </div>
         </div>
       </main>
     </div>
   );
 }
-
-
