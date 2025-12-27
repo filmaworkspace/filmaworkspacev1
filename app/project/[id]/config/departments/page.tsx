@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users, Briefcase } from "lucide-react";
+import { Plus, Trash2, AlertCircle, CheckCircle, ArrowLeft, ChevronDown, MoreHorizontal, Users, Briefcase, X } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -112,11 +112,12 @@ export default function ConfigDepartments() {
 
   if (!hasConfigAccess) return (
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-      <div className="text-center">
+      <div className="text-center max-w-md">
         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <AlertCircle size={28} className="text-slate-400" />
         </div>
-        <p className="text-slate-600 text-sm mb-4">No tienes acceso a esta configuración</p>
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
+        <p className="text-slate-500 mb-6">No tienes acceso a esta configuración</p>
         <Link href="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
           <ArrowLeft size={16} />
           Volver a Proyectos
@@ -128,7 +129,7 @@ export default function ConfigDepartments() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
+        <div className={`fixed top-20 right-6 z-50 px-4 py-3 rounded-2xl text-sm font-medium shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
           {toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           {toast.message}
         </div>
@@ -137,16 +138,23 @@ export default function ConfigDepartments() {
       {/* Delete Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Eliminar departamento?</h3>
-            <p className="text-sm text-slate-500 mb-6">Se eliminará "{confirmDelete}" del proyecto.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
-                Cancelar
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">¿Eliminar departamento?</h3>
+              <button onClick={() => setConfirmDelete(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={18} />
               </button>
-              <button onClick={() => handleRemoveDepartment(confirmDelete)} disabled={saving} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">
-                Eliminar
-              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-slate-500 mb-6">Se eliminará "<span className="font-medium text-slate-700">{confirmDelete}</span>" del proyecto.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={() => handleRemoveDepartment(confirmDelete)} disabled={saving} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">
+                  Eliminar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -155,35 +163,27 @@ export default function ConfigDepartments() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-              >
+              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
                 <ArrowLeft size={12} />
                 Proyectos
               </Link>
               <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">
-                {projectName}
-              </span>
+              <Link href={`/project/${id}/config`} className="hover:text-slate-900 transition-colors">Config</Link>
+              <span className="text-slate-300">·</span>
+              <span className="uppercase text-slate-500">{projectName}</span>
             </div>
           </div>
       
-          {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <Briefcase size={24} className="text-slate-600" />
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Departamentos del proyecto</h1>
-              </div>
+              <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
             </div>
       
-            {/* Actions */}
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
@@ -212,7 +212,7 @@ export default function ConfigDepartments() {
               <button onClick={handleAddDepartment} disabled={saving || !newDepartment.trim()} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50">
                 Crear
               </button>
-              <button onClick={() => { setShowAddForm(false); setNewDepartment(""); }} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors">
+              <button onClick={() => { setShowAddForm(false); setNewDepartment(""); }} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200">
                 Cancelar
               </button>
             </div>
@@ -235,18 +235,18 @@ export default function ConfigDepartments() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg ${color.bg} ${color.text} border ${color.border}`}>
+                      <span className={`px-3 py-1.5 text-xs font-semibold rounded-xl ${color.bg} ${color.text} border ${color.border}`}>
                         {dept.members.length}
                       </span>
                       <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} className="p-2 text-slate-300 hover:text-slate-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                        <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
                           <MoreHorizontal size={16} />
                         </button>
                         {activeMenu === dept.name && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-20">
-                              <button onClick={(e) => { e.stopPropagation(); setActiveMenu(null); if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); else setConfirmDelete(dept.name); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
+                              <button onClick={(e) => { e.stopPropagation(); setActiveMenu(null); if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); else setConfirmDelete(dept.name); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
                                 <Trash2 size={14} />
                                 Eliminar
                               </button>
@@ -260,10 +260,10 @@ export default function ConfigDepartments() {
                   {expandedDept === dept.name && (
                     <div className="px-6 pb-4 bg-slate-50/50">
                       {dept.members.length > 0 ? (
-                        <div className="grid gap-2 md:grid-cols-2 pt-2">
+                        <div className="grid gap-3 md:grid-cols-2 pt-3">
                           {dept.members.map((m) => (
-                            <div key={m.userId} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100">
-                              <div className={`w-9 h-9 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm`}>
+                            <div key={m.userId} className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100">
+                              <div className={`w-10 h-10 rounded-xl ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm`}>
                                 {m.name?.[0]?.toUpperCase()}
                               </div>
                               <div className="min-w-0">
@@ -274,10 +274,10 @@ export default function ConfigDepartments() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200 mt-2">
+                        <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-slate-200 mt-3">
                           <Users size={20} className="text-slate-300 mx-auto mb-2" />
                           <p className="text-sm text-slate-400">Sin miembros asignados</p>
-                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-1 inline-block">
+                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-2 inline-block">
                             Asignar desde Usuarios
                           </Link>
                         </div>
