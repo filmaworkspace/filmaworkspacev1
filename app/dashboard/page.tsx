@@ -444,7 +444,7 @@ export default function Dashboard() {
                     <input type="text" placeholder="Buscar proyectos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white" />
                   </div>
                   <div className="flex gap-2">
-                    <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
+                    <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="pl-4 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
                       <option value="all">Todas las fases</option>
                       <option value="Desarrollo">Desarrollo</option>
                       <option value="Preproducción">Preproducción</option>
@@ -452,7 +452,7 @@ export default function Dashboard() {
                       <option value="Postproducción">Postproducción</option>
                       <option value="Finalizado">Finalizado</option>
                     </select>
-                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")} className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "phase")} className="pl-4 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none text-sm bg-white">
                       <option value="recent">Recientes</option>
                       <option value="name">Nombre</option>
                       <option value="phase">Fase</option>
