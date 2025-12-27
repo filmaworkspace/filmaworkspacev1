@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Inter, Space_Grotesk } from "next/font/google";
-import { Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
@@ -60,7 +60,7 @@ export default function RegisterPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient (unchanged) */}
+      {/* Left Side - Gradient */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900" />
         <div className="absolute top-1/3 -left-32 w-96 h-96 bg-purple-600/30 rounded-full blur-3xl animate-pulse" />
@@ -73,94 +73,83 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Right Side - Minimalist Form */}
+      {/* Right Side - Minimal Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-xs">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center mb-16">
-            <span className={`text-xl tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
+          <div className="lg:hidden flex items-center justify-center mb-12">
+            <span className={`text-lg tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
               <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
             </span>
           </div>
 
           {/* Header */}
-          <div className="mb-10">
-            <h1 className="text-2xl font-semibold text-slate-900">
-              Crear cuenta
-            </h1>
+          <div className="text-center mb-8">
+            <h1 className="text-lg font-medium text-slate-900">Crear cuenta</h1>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                Nombre completo
-              </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Tu nombre"
+                placeholder="Nombre completo"
                 disabled={loading}
                 autoComplete="name"
-                className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
               />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                Email
-              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@correo.com"
+                placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                Contraseña
-              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Contraseña"
                   disabled={loading}
                   autoComplete="new-password"
-                  className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50 pr-12"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
                 Mínimo 6 caracteres
               </p>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl">
-                <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-                <span className="text-sm text-red-600">{error}</span>
+              <div className="flex items-center gap-2 p-2.5 bg-red-50 rounded-xl">
+                <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-600">{error}</span>
               </div>
             )}
 
@@ -168,28 +157,25 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6 group"
+              className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Creando cuenta...</span>
-                </>
+                <span className="flex items-center justify-center gap-1.5">
+                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Creando cuenta...
+                </span>
               ) : (
-                <>
-                  <span>Crear cuenta</span>
-                  <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-                </>
+                "Crear cuenta"
               )}
             </button>
           </form>
 
           {/* Login link */}
-          <p className="mt-8 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-xs text-slate-400">
             ¿Ya tienes cuenta?{" "}
             <Link
               href="/login"
-              className="text-slate-900 font-medium hover:underline"
+              className="text-slate-600 font-medium hover:text-slate-900 transition-colors"
             >
               Iniciar sesión
             </Link>
