@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
-import { BarChart3, Download, ArrowLeft, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers } from "lucide-react";
+import { BarChart3, Download, ArrowLeft, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -16,13 +16,21 @@ interface ReportColumn {
   label: string;
   enabled: boolean;
   locked?: boolean;
+  isBlank?: boolean;
+}
+
+interface SelectedColumn {
+  id: string;
+  originalId: string;
+  label: string;
+  isBlank?: boolean;
 }
 
 interface ReportPreset {
   id: string;
   name: string;
   reportType: ReportType;
-  columns: string[];
+  columns: { id: string; isBlank?: boolean }[];
   createdAt: string;
 }
 
@@ -125,7 +133,10 @@ export default function ReportsPage() {
   
   const [showConfig, setShowConfig] = useState(false);
   const [configReportType, setConfigReportType] = useState<ReportType | null>(null);
-  const [tempColumns, setTempColumns] = useState<ReportColumn[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<ReportColumn[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<SelectedColumn[]>([]);
+  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   
   const [presets, setPresets] = useState<ReportPreset[]>([]);
   const [showSavePreset, setShowSavePreset] = useState(false);
@@ -166,18 +177,97 @@ export default function ReportsPage() {
 
   const openConfig = (reportType: ReportType) => {
     setConfigReportType(reportType);
-    setTempColumns([...REPORT_COLUMNS[reportType]]);
+    const cols = REPORT_COLUMNS[reportType];
+    setAvailableColumns(cols.filter(c => !c.enabled));
+    setSelectedColumns(
+      cols.filter(c => c.enabled).map((c, i) => ({
+        id: `${c.id}_${i}`,
+        originalId: c.id,
+        label: c.label,
+      }))
+    );
     setShowConfig(true);
   };
 
-  const toggleColumn = (columnId: string) => {
-    setTempColumns(tempColumns.map(col => 
-      col.id === columnId && !col.locked ? { ...col, enabled: !col.enabled } : col
-    ));
+  const addColumn = (column: ReportColumn) => {
+    const newCol: SelectedColumn = {
+      id: `${column.id}_${Date.now()}`,
+      originalId: column.id,
+      label: column.label,
+    };
+    setSelectedColumns([...selectedColumns, newCol]);
+    setAvailableColumns(availableColumns.filter(c => c.id !== column.id));
   };
 
-  const getEnabledColumns = (reportType: ReportType): string[] => {
-    return REPORT_COLUMNS[reportType].filter(col => col.enabled).map(col => col.id);
+  const removeColumn = (columnId: string, originalId: string) => {
+    const colDef = REPORT_COLUMNS[configReportType!].find(c => c.id === originalId);
+    if (colDef?.locked) return;
+    
+    setSelectedColumns(selectedColumns.filter(c => c.id !== columnId));
+    if (!colDef?.isBlank) {
+      const original = REPORT_COLUMNS[configReportType!].find(c => c.id === originalId);
+      if (original && !availableColumns.find(c => c.id === originalId)) {
+        setAvailableColumns([...availableColumns, original]);
+      }
+    }
+  };
+
+  const addBlankColumn = () => {
+    const blankCol: SelectedColumn = {
+      id: `blank_${Date.now()}`,
+      originalId: "blank",
+      label: "(Columna vacía)",
+      isBlank: true,
+    };
+    setSelectedColumns([...selectedColumns, blankCol]);
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedItem(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverItem(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedItem === null) return;
+    
+    const newColumns = [...selectedColumns];
+    const draggedColumn = newColumns[draggedItem];
+    newColumns.splice(draggedItem, 1);
+    newColumns.splice(dropIndex, 0, draggedColumn);
+    
+    setSelectedColumns(newColumns);
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const moveColumn = (index: number, direction: "up" | "down") => {
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === selectedColumns.length - 1) return;
+    
+    const newColumns = [...selectedColumns];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    [newColumns[index], newColumns[newIndex]] = [newColumns[newIndex], newColumns[index]];
+    setSelectedColumns(newColumns);
+  };
+
+  const getDefaultColumns = (reportType: ReportType): SelectedColumn[] => {
+    return REPORT_COLUMNS[reportType]
+      .filter(c => c.enabled)
+      .map((c, i) => ({
+        id: `${c.id}_${i}`,
+        originalId: c.id,
+        label: c.label,
+      }));
   };
 
   const savePreset = () => {
@@ -186,7 +276,7 @@ export default function ReportsPage() {
       id: `preset_${Date.now()}`,
       name: newPresetName.trim(),
       reportType: configReportType,
-      columns: tempColumns.filter(col => col.enabled).map(col => col.id),
+      columns: selectedColumns.map(c => ({ id: c.originalId, isBlank: c.isBlank })),
       createdAt: new Date().toISOString(),
     };
     savePresetsToStorage([...presets, newPreset]);
@@ -199,10 +289,17 @@ export default function ReportsPage() {
   };
 
   const loadPreset = (preset: ReportPreset) => {
-    setTempColumns(REPORT_COLUMNS[preset.reportType].map(col => ({
-      ...col,
-      enabled: preset.columns.includes(col.id)
-    })));
+    const cols = preset.columns.map((c, i) => {
+      if (c.isBlank) {
+        return { id: `blank_${i}`, originalId: "blank", label: "(Columna vacía)", isBlank: true };
+      }
+      const original = REPORT_COLUMNS[preset.reportType].find(col => col.id === c.id);
+      return { id: `${c.id}_${i}`, originalId: c.id, label: original?.label || c.id };
+    });
+    setSelectedColumns(cols);
+    
+    const usedIds = cols.filter(c => !c.isBlank).map(c => c.originalId);
+    setAvailableColumns(REPORT_COLUMNS[preset.reportType].filter(c => !usedIds.includes(c.id)));
   };
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
@@ -220,12 +317,11 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
-  const generateBudgetReport = async (columns: string[]) => {
+  const generateBudgetReport = async (columns: SelectedColumn[]) => {
     setGenerating("budget");
     try {
       const accountsSnapshot = await getDocs(query(collection(db, `projects/${id}/accounts`), orderBy("code", "asc")));
-      const columnDefs = REPORT_COLUMNS.budget.filter(col => columns.includes(col.id));
-      const rows: string[][] = [columnDefs.map(col => col.label)];
+      const rows: string[][] = [columns.map(col => col.isBlank ? "" : col.label)];
       
       for (const accountDoc of accountsSnapshot.docs) {
         const accountData = accountDoc.data();
@@ -256,14 +352,16 @@ export default function ReportsPage() {
           available: accountAvailable, percentUsed: `${accountPercentUsed}%`
         };
         
-        rows.push(columnDefs.map(col => {
-          const val = accountRow[col.id];
+        rows.push(columns.map(col => {
+          if (col.isBlank) return "";
+          const val = accountRow[col.originalId];
           return typeof val === "number" ? formatCurrency(val) : val;
         }));
         
         subRows.forEach(subRow => {
-          rows.push(columnDefs.map(col => {
-            const val = subRow[col.id];
+          rows.push(columns.map(col => {
+            if (col.isBlank) return "";
+            const val = subRow[col.originalId];
             return typeof val === "number" ? formatCurrency(val) : val;
           }));
         });
@@ -273,12 +371,11 @@ export default function ReportsPage() {
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
-  const generatePOsListReport = async (columns: string[]) => {
+  const generatePOsListReport = async (columns: SelectedColumn[]) => {
     setGenerating("pos_list");
     try {
       const posSnapshot = await getDocs(query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc")));
-      const columnDefs = REPORT_COLUMNS.pos_list.filter(col => columns.includes(col.id));
-      const rows: string[][] = [columnDefs.map(col => col.label)];
+      const rows: string[][] = [columns.map(col => col.isBlank ? "" : col.label)];
       
       for (const docSnap of posSnapshot.docs) {
         const data = docSnap.data();
@@ -300,8 +397,9 @@ export default function ReportsPage() {
           itemCount: items.length,
         };
         
-        rows.push(columnDefs.map(col => {
-          const val = rowData[col.id];
+        rows.push(columns.map(col => {
+          if (col.isBlank) return "";
+          const val = rowData[col.originalId];
           return typeof val === "number" ? formatCurrency(val) : val?.toString() || "";
         }));
       }
@@ -310,12 +408,11 @@ export default function ReportsPage() {
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
-  const generatePOsItemsReport = async (columns: string[]) => {
+  const generatePOsItemsReport = async (columns: SelectedColumn[]) => {
     setGenerating("pos_items");
     try {
       const posSnapshot = await getDocs(query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc")));
-      const columnDefs = REPORT_COLUMNS.pos_items.filter(col => columns.includes(col.id));
-      const rows: string[][] = [columnDefs.map(col => col.label)];
+      const rows: string[][] = [columns.map(col => col.isBlank ? "" : col.label)];
       
       for (const docSnap of posSnapshot.docs) {
         const poData = docSnap.data();
@@ -357,8 +454,9 @@ export default function ReportsPage() {
             irpfRate: `${irpfRate}%`,
           };
           
-          rows.push(columnDefs.map(col => {
-            const val = rowData[col.id];
+          rows.push(columns.map(col => {
+            if (col.isBlank) return "";
+            const val = rowData[col.originalId];
             if (typeof val === "number") return formatCurrency(val);
             return val?.toString() || "";
           }));
@@ -369,12 +467,11 @@ export default function ReportsPage() {
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
-  const generateInvoicesReport = async (columns: string[]) => {
+  const generateInvoicesReport = async (columns: SelectedColumn[]) => {
     setGenerating("invoices");
     try {
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc")));
-      const columnDefs = REPORT_COLUMNS.invoices.filter(col => columns.includes(col.id));
-      const rows: string[][] = [columnDefs.map(col => col.label)];
+      const rows: string[][] = [columns.map(col => col.isBlank ? "" : col.label)];
       
       invoicesSnapshot.docs.forEach((docSnap) => {
         const data = docSnap.data();
@@ -396,8 +493,9 @@ export default function ReportsPage() {
           accountCode: data.accountCode || "",
         };
         
-        rows.push(columnDefs.map(col => {
-          const val = rowData[col.id];
+        rows.push(columns.map(col => {
+          if (col.isBlank) return "";
+          const val = rowData[col.originalId];
           return typeof val === "number" ? formatCurrency(val) : val?.toString() || "";
         }));
       });
@@ -406,12 +504,11 @@ export default function ReportsPage() {
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
-  const generateSuppliersReport = async (columns: string[]) => {
+  const generateSuppliersReport = async (columns: SelectedColumn[]) => {
     setGenerating("suppliers");
     try {
       const suppliersSnapshot = await getDocs(query(collection(db, `projects/${id}/suppliers`), orderBy("fiscalName", "asc")));
-      const columnDefs = REPORT_COLUMNS.suppliers.filter(col => columns.includes(col.id));
-      const rows: string[][] = [columnDefs.map(col => col.label)];
+      const rows: string[][] = [columns.map(col => col.isBlank ? "" : col.label)];
       
       suppliersSnapshot.docs.forEach((docSnap) => {
         const data = docSnap.data();
@@ -433,8 +530,9 @@ export default function ReportsPage() {
           totalInvoiced: data.totalInvoiced || 0,
         };
         
-        rows.push(columnDefs.map(col => {
-          const val = rowData[col.id];
+        rows.push(columns.map(col => {
+          if (col.isBlank) return "";
+          const val = rowData[col.originalId];
           return typeof val === "number" ? formatCurrency(val) : val?.toString() || "";
         }));
       });
@@ -443,8 +541,8 @@ export default function ReportsPage() {
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
-  const generateReport = (reportType: ReportType, columns?: string[]) => {
-    const cols = columns || getEnabledColumns(reportType);
+  const generateReport = (reportType: ReportType, columns?: SelectedColumn[]) => {
+    const cols = columns || getDefaultColumns(reportType);
     switch (reportType) {
       case "budget": return generateBudgetReport(cols);
       case "pos_list": return generatePOsListReport(cols);
@@ -452,6 +550,17 @@ export default function ReportsPage() {
       case "invoices": return generateInvoicesReport(cols);
       case "suppliers": return generateSuppliersReport(cols);
     }
+  };
+
+  const generateFromPreset = (preset: ReportPreset) => {
+    const cols: SelectedColumn[] = preset.columns.map((c, i) => {
+      if (c.isBlank) {
+        return { id: `blank_${i}`, originalId: "blank", label: "", isBlank: true };
+      }
+      const original = REPORT_COLUMNS[preset.reportType].find(col => col.id === c.id);
+      return { id: `${c.id}_${i}`, originalId: c.id, label: original?.label || c.id };
+    });
+    generateReport(preset.reportType, cols);
   };
 
   const getReportCount = (reportType: ReportType) => {
@@ -496,9 +605,7 @@ export default function ReportsPage() {
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <BarChart3 size={24} className="text-indigo-600" />
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
-              </div>
+              <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
             </div>
           </div>
         </div>
@@ -577,7 +684,7 @@ export default function ReportsPage() {
                               <p className="text-xs text-slate-400">{preset.columns.length} columnas</p>
                             </div>
                             <button
-                              onClick={() => generateReport(reportType, preset.columns)}
+                              onClick={() => generateFromPreset(preset)}
                               disabled={generating !== null}
                               className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
                             >
@@ -605,18 +712,19 @@ export default function ReportsPage() {
       {/* Modal de configuración */}
       {showConfig && configReportType && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowConfig(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Configurar columnas</h3>
                 <p className="text-sm text-slate-500">{REPORT_INFO[configReportType].title}</p>
               </div>
-              <button onClick={() => setShowConfig(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
+              <button onClick={() => setShowConfig(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl">
                 <X size={18} />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Presets */}
               {presets.filter(p => p.reportType === configReportType).length > 0 && (
                 <div className="mb-6">
                   <p className="text-xs font-medium text-slate-500 mb-2">Cargar plantilla</p>
@@ -634,27 +742,89 @@ export default function ReportsPage() {
                 </div>
               )}
 
-              <div className="space-y-1">
-                {tempColumns.map((column) => (
-                  <div
-                    key={column.id}
-                    onClick={() => !column.locked && toggleColumn(column.id)}
-                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                      column.enabled 
-                        ? "bg-slate-900 text-white" 
-                        : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                    } ${column.locked ? "opacity-70 cursor-not-allowed" : ""}`}
-                  >
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
-                      column.enabled ? "bg-white/20" : "bg-slate-200"
-                    }`}>
-                      {column.enabled && <Check size={12} className="text-white" />}
-                    </div>
-                    <span className="text-sm font-medium flex-1">{column.label}</span>
-                    {column.locked && <span className="text-xs opacity-60">Requerido</span>}
+              <div className="grid grid-cols-2 gap-6">
+                {/* Columnas seleccionadas */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Columnas del informe</p>
+                    <span className="text-xs text-slate-400">{selectedColumns.length}</span>
                   </div>
-                ))}
+                  <div className="space-y-1 min-h-[200px] p-3 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                    {selectedColumns.map((column, index) => {
+                      const isLocked = REPORT_COLUMNS[configReportType].find(c => c.id === column.originalId)?.locked;
+                      return (
+                        <div
+                          key={column.id}
+                          draggable={!isLocked}
+                          onDragStart={() => handleDragStart(index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDrop={(e) => handleDrop(e, index)}
+                          onDragEnd={handleDragEnd}
+                          className={`flex items-center gap-2 p-2 rounded-lg transition-all ${
+                            dragOverItem === index ? "bg-indigo-100 border-indigo-300" : "bg-white border-slate-200"
+                          } border ${draggedItem === index ? "opacity-50" : ""} ${
+                            column.isBlank ? "border-dashed" : ""
+                          }`}
+                        >
+                          <div className={`cursor-grab ${isLocked ? "opacity-30" : ""}`}>
+                            <GripVertical size={14} className="text-slate-400" />
+                          </div>
+                          <span className={`flex-1 text-sm ${column.isBlank ? "text-slate-400 italic" : "text-slate-700"}`}>
+                            {column.label}
+                          </span>
+                          {isLocked ? (
+                            <span className="text-[10px] text-slate-400">Req.</span>
+                          ) : (
+                            <button
+                              onClick={() => removeColumn(column.id, column.originalId)}
+                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            >
+                              <Minus size={12} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Botón añadir columna en blanco */}
+                    <button
+                      onClick={addBlankColumn}
+                      className="w-full flex items-center justify-center gap-2 p-2 mt-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <Plus size={14} />
+                      <span className="text-xs font-medium">Columna vacía</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Columnas disponibles */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Disponibles</p>
+                    <span className="text-xs text-slate-400">{availableColumns.length}</span>
+                  </div>
+                  <div className="space-y-1 min-h-[200px] p-3 bg-slate-50 rounded-xl">
+                    {availableColumns.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-8">Todas las columnas están en uso</p>
+                    ) : (
+                      availableColumns.map((column) => (
+                        <button
+                          key={column.id}
+                          onClick={() => addColumn(column)}
+                          className="w-full flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition-colors text-left"
+                        >
+                          <Plus size={14} className="text-slate-400" />
+                          <span className="flex-1 text-sm text-slate-600">{column.label}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
+
+              <p className="text-xs text-slate-400 mt-4 text-center">
+                Arrastra las columnas para reordenarlas
+              </p>
             </div>
 
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
@@ -662,7 +832,7 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowSavePreset(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-50 transition-colors"
                   >
                     <Save size={14} />
                     Guardar plantilla
@@ -670,17 +840,17 @@ export default function ReportsPage() {
                   <div className="flex-1" />
                   <button
                     onClick={() => setShowConfig(false)}
-                    className="px-4 py-2.5 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-100 transition-colors"
+                    className="px-4 py-2 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-100 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={() => {
-                      generateReport(configReportType, tempColumns.filter(c => c.enabled).map(c => c.id));
+                      generateReport(configReportType, selectedColumns);
                       setShowConfig(false);
                     }}
                     disabled={generating !== null}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
                   >
                     <Download size={14} />
                     Exportar
@@ -693,20 +863,20 @@ export default function ReportsPage() {
                     value={newPresetName}
                     onChange={(e) => setNewPresetName(e.target.value)}
                     placeholder="Nombre de la plantilla..."
-                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                     autoFocus
                     onKeyDown={(e) => e.key === "Enter" && savePreset()}
                   />
                   <button
                     onClick={() => { setShowSavePreset(false); setNewPresetName(""); }}
-                    className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
                   >
                     <X size={18} />
                   </button>
                   <button
                     onClick={savePreset}
                     disabled={!newPresetName.trim()}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
                   >
                     <Check size={14} />
                     Guardar
@@ -720,4 +890,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
