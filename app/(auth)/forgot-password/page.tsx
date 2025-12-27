@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Inter, Space_Grotesk } from "next/font/google";
-import { ArrowLeft, ArrowRight, AlertCircle, CheckCircle, Mail } from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle, Mail } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient (unchanged) */}
+      {/* Left Side - Gradient */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
@@ -50,12 +50,12 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
 
-      {/* Right Side - Minimalist Form */}
+      {/* Right Side - Minimal Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-xs">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center mb-16">
-            <span className={`text-xl tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
+          <div className="lg:hidden flex items-center justify-center mb-12">
+            <span className={`text-lg tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
               <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
             </span>
           </div>
@@ -63,31 +63,31 @@ export default function ForgotPasswordPage() {
           {/* Back link */}
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors group"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 mb-6 transition-colors"
           >
-            <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft size={14} />
             Volver
           </Link>
 
           {success ? (
             /* Success State */
             <div className="text-center">
-              <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Mail size={28} className="text-emerald-600" />
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <Mail size={20} className="text-emerald-600" />
               </div>
               
-              <h1 className="text-2xl font-semibold text-slate-900 mb-2">
+              <h1 className="text-lg font-medium text-slate-900 mb-1.5">
                 Revisa tu email
               </h1>
-              <p className="text-slate-500 text-sm mb-8">
+              <p className="text-slate-400 text-xs mb-6">
                 Hemos enviado un enlace de recuperación a<br />
-                <span className="text-slate-900 font-medium">{email}</span>
+                <span className="text-slate-600 font-medium">{email}</span>
               </p>
 
-              <div className="p-4 bg-slate-50 rounded-xl mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={18} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-slate-600 text-left">
+              <div className="p-3 bg-slate-50 rounded-xl mb-6">
+                <div className="flex items-start gap-2">
+                  <CheckCircle size={14} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-[11px] text-slate-500 text-left">
                     Sigue las instrucciones del email para restablecer tu contraseña. Si no lo ves, revisa la carpeta de spam.
                   </p>
                 </div>
@@ -95,15 +95,14 @@ export default function ForgotPasswordPage() {
 
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all group"
+                className="block w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all text-center"
               >
-                <span>Volver al inicio de sesión</span>
-                <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                Volver al inicio de sesión
               </Link>
 
               <button
                 onClick={() => { setSuccess(false); setEmail(""); }}
-                className="mt-4 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+                className="mt-4 text-xs text-slate-400 hover:text-slate-600 transition-colors"
               >
                 ¿No recibiste el email? Intentar de nuevo
               </button>
@@ -112,39 +111,34 @@ export default function ForgotPasswordPage() {
             /* Form State */
             <>
               {/* Header */}
-              <div className="mb-10">
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Recuperar contraseña
-                </h1>
-                <p className="text-slate-500 text-sm mt-1">
+              <div className="text-center mb-8">
+                <h1 className="text-lg font-medium text-slate-900">Recuperar contraseña</h1>
+                <p className="text-slate-400 text-xs mt-1">
                   Te enviaremos un enlace para restablecerla
                 </p>
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                    Email
-                  </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@correo.com"
+                    placeholder="Email"
                     disabled={loading}
                     autoComplete="email"
-                    className="w-full px-4 py-3 bg-slate-50 border-0 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all disabled:opacity-50"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
                   />
                 </div>
 
                 {/* Error */}
                 {error && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl">
-                    <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-                    <span className="text-sm text-red-600">{error}</span>
+                  <div className="flex items-center gap-2 p-2.5 bg-red-50 rounded-xl">
+                    <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                    <span className="text-xs text-red-600">{error}</span>
                   </div>
                 )}
 
@@ -152,28 +146,25 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6 group"
+                  className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Enviando...</span>
-                    </>
+                    <span className="flex items-center justify-center gap-1.5">
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Enviando...
+                    </span>
                   ) : (
-                    <>
-                      <span>Enviar enlace</span>
-                      <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-                    </>
+                    "Enviar enlace"
                   )}
                 </button>
               </form>
 
               {/* Back to login */}
-              <p className="mt-8 text-center text-sm text-slate-500">
+              <p className="mt-6 text-center text-xs text-slate-400">
                 ¿Recordaste tu contraseña?{" "}
                 <Link
                   href="/login"
-                  className="text-slate-900 font-medium hover:underline"
+                  className="text-slate-600 font-medium hover:text-slate-900 transition-colors"
                 >
                   Iniciar sesión
                 </Link>
