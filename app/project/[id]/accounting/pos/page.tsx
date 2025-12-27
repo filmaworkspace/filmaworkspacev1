@@ -32,7 +32,6 @@ export default function POsPage() {
   const router = useRouter();
   const id = params?.id as string;
 
-  // ============ HOOK DE PERMISOS ============
   const {
     loading: permissionsLoading,
     error: permissionsError,
@@ -54,7 +53,6 @@ export default function POsPage() {
   const [stats, setStats] = useState({ total: 0, draft: 0, pending: 0, approved: 0, closed: 0, cancelled: 0, totalBase: 0, totalInvoiced: 0 });
   const [previewPO, setPreviewPO] = useState<PO | null>(null);
 
-  // Action modals
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -62,7 +60,6 @@ export default function POsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PO | null>(null);
 
-  // Form state
   const [cancellationReason, setCancellationReason] = useState("");
   const [modificationReason, setModificationReason] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -104,7 +101,6 @@ export default function POsPage() {
         modificationHistory: docSnap.data().modificationHistory || [],
       })) as PO[];
 
-      // ============ FILTRAR POs SEGÚN PERMISOS ============
       const posData = allPOs.filter((po) => canViewPO({
         id: po.id,
         department: po.department || "",
@@ -142,7 +138,6 @@ export default function POsPage() {
 
   const toggleSortOrder = () => setSortOrder(sortOrder === "desc" ? "asc" : "desc");
 
-  // Password verification
   const verifyPassword = async (): Promise<boolean> => {
     if (!passwordInput.trim()) { setPasswordError("Introduce tu contraseña"); return false; }
     const user = auth.currentUser;
@@ -170,7 +165,6 @@ export default function POsPage() {
     setSelectedPO(null);
   };
 
-  // ============ HELPER PARA VERIFICAR PERMISOS DE UNA PO ============
   const getPOPermissions = (po: PO) => {
     const poData = { id: po.id, department: po.department || "", createdBy: po.createdBy, status: po.status };
     const fullPerms = getFullPOPermissions(poData);
@@ -182,7 +176,6 @@ export default function POsPage() {
       isOwn: po.createdBy === permissions.userId,
     };
   };
-
 
   const formatCurrency = (amount: number): string => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
   const formatDate = (date: Date) => date ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date) : "-";
@@ -200,7 +193,7 @@ export default function POsPage() {
   const getStatusBadge = (status: POStatus, size: "sm" | "md" = "sm") => {
     const config = STATUS_CONFIG[status];
     const Icon = config.icon;
-    const sizeClasses = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
+    const sizeClasses = size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm";
     return (<span className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}><Icon size={size === "sm" ? 12 : 14} />{config.label}</span>);
   };
 
@@ -213,11 +206,10 @@ export default function POsPage() {
 
   const closeMenu = () => setOpenMenuId(null);
 
-  // ============ BADGE DE ROL ============
   const getRoleBadge = () => {
     if (permissions.isProjectRole) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
           <Eye size={12} />
           Todo el proyecto
         </span>
@@ -225,7 +217,7 @@ export default function POsPage() {
     }
     if (permissions.canViewDepartmentPOs) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
           <Building2 size={12} />
           {permissions.department}
         </span>
@@ -233,7 +225,7 @@ export default function POsPage() {
     }
     if (permissions.canViewOwnPOs) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
           <FileText size={12} />
           Mis POs
         </span>
@@ -242,7 +234,6 @@ export default function POsPage() {
     return null;
   };
 
-  // Actions
   const handleEditDraft = (po: PO) => {
     const perms = getPOPermissions(po);
     if (!perms.canEdit) { alert("No tienes permisos para editar esta PO"); return; }
@@ -390,7 +381,6 @@ export default function POsPage() {
     } catch (error) { console.error("Error:", error); alert("Error al eliminar la PO"); } finally { setProcessing(false); }
   };
 
-
   const generatePDF = (po: PO) => {
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -432,7 +422,6 @@ export default function POsPage() {
     closeMenu();
   };
 
-  // ============ LOADING STATE ============
   if (permissionsLoading || loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -441,7 +430,6 @@ export default function POsPage() {
     );
   }
 
-  // ============ ACCESO DENEGADO ============
   if (permissionsError || !permissions.hasAccountingAccess) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -451,10 +439,7 @@ export default function POsPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para acceder a órdenes de compra"}</p>
-          <Link
-            href={`/project/${id}/accounting`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"
-          >
+          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
             <ArrowLeft size={16} />
             Volver al panel
           </Link>
@@ -462,7 +447,6 @@ export default function POsPage() {
       </div>
     );
   }
-
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
@@ -577,7 +561,6 @@ export default function POsPage() {
                           <div className="flex items-center gap-2">
                             <p className="font-semibold text-slate-900 group-hover:text-indigo-600">PO-{po.number}</p>
                             {po.version > 1 && (<span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>)}
-                            {/* Badge "Mía" solo para no-proyecto */}
                             {!permissions.isProjectRole && poPerms.isOwn && (
                               <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Mía</span>
                             )}
@@ -632,7 +615,6 @@ export default function POsPage() {
                       <button ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }} onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === po.id ? null : po.id); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={16} /></button>
                     </div>
                   </div>
-                  {/* Descripción más visible */}
                   {(po.generalDescription || po.description) && (
                     <p className="text-sm text-slate-600 line-clamp-3 mb-4 bg-slate-50 rounded-lg p-3">{po.generalDescription || po.description}</p>
                   )}
@@ -695,12 +677,12 @@ export default function POsPage() {
         )}
       </main>
 
-
-      {/* Quick Preview Modal */}
+      {/* Quick Preview Modal - FIXED HEIGHT */}
       {previewPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewPO(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className={`bg-gradient-to-r ${STATUS_CONFIG[previewPO.status].gradient} px-6 py-4`}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header fijo */}
+            <div className={`bg-gradient-to-r ${STATUS_CONFIG[previewPO.status].gradient} px-5 py-4 flex-shrink-0`}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -712,42 +694,88 @@ export default function POsPage() {
                 <button onClick={() => setPreviewPO(null)} className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-colors"><X size={18} /></button>
               </div>
             </div>
-            <div className="p-6">
-              {/* Descripción destacada */}
+            
+            {/* Contenido scrolleable */}
+            <div className="p-5 overflow-y-auto flex-1 min-h-0">
+              {/* Descripción */}
               {(previewPO.generalDescription || previewPO.description) && (
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs text-slate-500 uppercase mb-2 font-medium">Descripción</p>
-                  <p className="text-sm text-slate-700">{previewPO.generalDescription || previewPO.description}</p>
+                <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 uppercase mb-1 font-medium">Descripción</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{previewPO.generalDescription || previewPO.description}</p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Base imponible</p><p className="text-xl font-bold text-slate-900">{formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €</p></div>
-                <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Total con IVA</p><p className="text-xl font-bold text-slate-900">{formatCurrency(previewPO.totalAmount)} €</p></div>
+              
+              {/* Importes */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] text-slate-400 uppercase mb-1">Base imponible</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] text-slate-400 uppercase mb-1">Total con IVA</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(previewPO.totalAmount)} €</p>
+                </div>
               </div>
+              
+              {/* Progreso facturación */}
               {previewPO.status === "approved" && (
-                <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <div className="flex items-center justify-between mb-2"><span className="text-sm text-emerald-700 font-medium">Progreso de facturación</span><span className="text-sm text-emerald-700 font-bold">{formatCurrency(previewPO.invoicedAmount)} / {formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €</span></div>
-                  <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all" style={{ width: `${Math.min(100, ((previewPO.invoicedAmount || 0) / (previewPO.baseAmount || previewPO.totalAmount || 1)) * 100)}%` }} /></div>
+                <div className="mb-4 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-emerald-700 font-medium">Facturación</span>
+                    <span className="text-xs text-emerald-700 font-bold">{formatCurrency(previewPO.invoicedAmount)} / {formatCurrency(previewPO.baseAmount || previewPO.totalAmount)} €</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all" style={{ width: `${Math.min(100, ((previewPO.invoicedAmount || 0) / (previewPO.baseAmount || previewPO.totalAmount || 1)) * 100)}%` }} />
+                  </div>
                 </div>
               )}
-              <div className="mb-6 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <div className="flex items-center gap-3"><div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center"><FileText size={16} className="text-indigo-600" /></div><span className="text-sm text-slate-600">Items incluidos</span></div>
-                <span className="font-bold text-slate-900">{previewPO.items?.length || 0}</span>
+              
+              {/* Items */}
+              <div className="mb-4 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <FileText size={14} className="text-indigo-600" />
+                  </div>
+                  <span className="text-xs text-slate-600">Items</span>
+                </div>
+                <span className="font-bold text-slate-900 text-sm">{previewPO.items?.length || 0}</span>
               </div>
-              <div className="text-xs text-slate-500 space-y-2">
-                <div className="flex justify-between items-center py-2 border-b border-slate-100"><span>Fecha de creación</span><span className="text-slate-700 font-medium">{formatDate(previewPO.createdAt)}</span></div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-100"><span>Creado por</span><span className="text-slate-700 font-medium">{previewPO.createdByName}</span></div>
-                {previewPO.department && (<div className="flex justify-between items-center py-2"><span>Departamento</span><span className="text-slate-700 font-medium">{previewPO.department}</span></div>)}
+              
+              {/* Detalles */}
+              <div className="text-xs text-slate-500 space-y-0">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span>Fecha</span>
+                  <span className="text-slate-700 font-medium">{formatDate(previewPO.createdAt)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span>Creado por</span>
+                  <span className="text-slate-700 font-medium">{previewPO.createdByName}</span>
+                </div>
+                {previewPO.department && (
+                  <div className="flex justify-between items-center py-2">
+                    <span>Departamento</span>
+                    <span className="text-slate-700 font-medium">{previewPO.department}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
-              <Link href={`/project/${id}/accounting/pos/${previewPO.id}`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors" onClick={() => setPreviewPO(null)}><ExternalLink size={16} />Ver detalle completo</Link>
+            
+            {/* Footer fijo */}
+            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex-shrink-0">
+              <Link 
+                href={`/project/${id}/accounting/pos/${previewPO.id}`} 
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-medium hover:bg-slate-800 transition-colors" 
+                onClick={() => setPreviewPO(null)}
+              >
+                <ExternalLink size={14} />
+                Ver detalle completo
+              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* Close PO Modal - Requires Password */}
+      {/* Close PO Modal */}
       {showCloseModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCloseModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -779,7 +807,7 @@ export default function POsPage() {
         </div>
       )}
 
-      {/* Reopen PO Modal - Requires Password */}
+      {/* Reopen PO Modal */}
       {showReopenModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowReopenModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -803,8 +831,7 @@ export default function POsPage() {
         </div>
       )}
 
-
-      {/* Cancel PO Modal - Requires Password + Reason */}
+      {/* Cancel PO Modal */}
       {showCancelModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -840,7 +867,7 @@ export default function POsPage() {
         </div>
       )}
 
-      {/* Modify Modal - No password required */}
+      {/* Modify Modal */}
       {showModifyModal && selectedPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowModifyModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
