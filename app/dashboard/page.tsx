@@ -332,7 +332,6 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Panel de proyectos</h1>
-                <p className="text-slate-500 text-sm mt-0.5">Bienvenido, {userName}</p>
               </div>
             </div>
 
