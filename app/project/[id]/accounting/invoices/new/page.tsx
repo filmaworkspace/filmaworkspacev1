@@ -3,47 +3,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useState, useEffect, useCallback } from "react";
-import { auth, db, storage } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  addDoc,
-  query,
-  orderBy,
-  Timestamp,
-  where,
-  updateDoc,
-} from "firebase/firestore";
-import {
-  Receipt,
-  ArrowLeft,
-  Building2,
-  AlertCircle,
-  Info,
-  Upload,
-  X,
-  Plus,
-  Trash2,
-  Search,
-  Calendar,
-  Hash,
-  FileText,
-  ShoppingCart,
-  CheckCircle,
-  CheckCircle2,
-  AlertTriangle,
-  Send,
-  Shield,
-  FileCheck,
-  Link as LinkIcon,
-  Clock,
-  Users,
-  ChevronRight,
-  Circle,
-} from "lucide-react";
+import { doc, getDoc, collection, getDocs, addDoc, query, orderBy, Timestamp, where, updateDoc } from "firebase/firestore";
+import { Receipt, ArrowLeft, Building2, AlertCircle, Info, Upload, X, Plus, Trash2, Search, Calendar, Hash, FileText, ShoppingCart, CheckCircle, CheckCircle2, AlertTriangle, Send, Shield, FileCheck, Clock, Users, ChevronRight, Circle, ShieldAlert, RefreshCw, ArrowRight, Lock } from "lucide-react";
+import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -56,7 +20,7 @@ const DOCUMENT_TYPES = {
 
 type DocumentType = keyof typeof DOCUMENT_TYPES;
 
-interface PO { id: string; number: string; supplier: string; supplierId: string; totalAmount: number; items: POItem[]; }
+interface PO { id: string; number: string; supplier: string; supplierId: string; department?: string; totalAmount: number; items: POItem[]; }
 interface POItem { id?: string; description: string; subAccountId: string; subAccountCode: string; subAccountDescription: string; quantity: number; unitPrice: number; baseAmount: number; vatRate: number; vatAmount: number; irpfRate: number; irpfAmount: number; totalAmount: number; }
 interface POItemWithInvoiced extends POItem { invoicedAmount: number; availableAmount: number; }
 interface InvoiceItem { id: string; description: string; poItemId?: string; poItemIndex?: number; isNewItem: boolean; subAccountId: string; subAccountCode: string; subAccountDescription: string; quantity: number; unitPrice: number; baseAmount: number; vatRate: number; vatAmount: number; irpfRate: number; irpfAmount: number; totalAmount: number; }
@@ -65,7 +29,7 @@ interface Supplier { id: string; fiscalName: string; commercialName: string; tax
 interface Member { userId: string; name?: string; email?: string; role?: string; department?: string; position?: string; }
 interface ApprovalStep { id: string; order: number; approverType: "fixed" | "role" | "hod" | "coordinator"; approvers?: string[]; roles?: string[]; department?: string; requireAll: boolean; }
 interface ApprovalStepStatus { id: string; order: number; approverType: "fixed" | "role" | "hod" | "coordinator"; approvers: string[]; approverNames: string[]; roles?: string[]; department?: string; approvedBy: string[]; rejectedBy: string[]; status: "pending" | "approved" | "rejected"; requireAll: boolean; }
-interface PendingDocument { id: string; documentType: DocumentType; number: string; displayNumber: string; supplier: string; supplierId: string; totalAmount: number; paidAt: Date; }
+interface PendingDocument { id: string; documentType: DocumentType; number: string; displayNumber: string; supplier: string; supplierId: string; department?: string; totalAmount: number; baseAmount: number; paidAt: Date; poId?: string; poNumber?: string; items: any[]; description: string; }
 
 const VAT_RATES = [{ value: 0, label: "0%" }, { value: 4, label: "4%" }, { value: 10, label: "10%" }, { value: 21, label: "21%" }];
 const IRPF_RATES = [{ value: 0, label: "0%" }, { value: 7, label: "7%" }, { value: 15, label: "15%" }, { value: 19, label: "19%" }];
@@ -74,11 +38,11 @@ export default function NewInvoicePage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { loading: permissionsLoading, error: permissionsError, permissions } = useAccountingPermissions(id);
+
   const [projectName, setProjectName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState("");
   const [nextNumber, setNextNumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -88,7 +52,6 @@ export default function NewInvoicePage() {
   const [documentType, setDocumentType] = useState<DocumentType>("invoice");
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [linkedDocumentId, setLinkedDocumentId] = useState<string>("");
-  const [showLinkModal, setShowLinkModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -104,21 +67,27 @@ export default function NewInvoicePage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedPO, setSelectedPO] = useState<PO | null>(null);
   const [poItemsWithInvoiced, setPOItemsWithInvoiced] = useState<POItemWithInvoiced[]>([]);
-  const [formData, setFormData] = useState({ invoiceType: "with-po" as "with-po" | "without-po", supplier: "", supplierName: "", description: "", dueDate: "", notes: "" });
+  const [formData, setFormData] = useState({ invoiceType: "with-po" as "with-po" | "without-po", supplier: "", supplierName: "", department: "", description: "", dueDate: "", notes: "" });
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [totals, setTotals] = useState({ baseAmount: 0, vatAmount: 0, irpfAmount: 0, totalAmount: 0 });
   const [poStats, setPOStats] = useState({ totalAmount: 0, invoicedAmount: 0, percentageInvoiced: 0, isOverInvoiced: false });
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [selectedPendingDoc, setSelectedPendingDoc] = useState<PendingDocument | null>(null);
+  const [replaceMode, setReplaceMode] = useState(false);
+  const [sameAmount, setSameAmount] = useState(true);
+  const [amountDifference, setAmountDifference] = useState(0);
+  const [differenceReason, setDifferenceReason] = useState("");
 
   const currentDocType = DOCUMENT_TYPES[documentType];
   const getDocumentNumber = () => `${currentDocType.code}-${nextNumber}`;
 
-  useEffect(() => { const unsub = auth.onAuthStateChanged((u) => { if (u) { setUserId(u.uid); setUserName(u.displayName || u.email || "Usuario"); } else router.push("/"); }); return () => unsub(); }, [router]);
-  useEffect(() => { if (userId && id) loadData(); }, [userId, id]);
+  useEffect(() => { if (!permissionsLoading && permissions.userId && id) loadData(); }, [permissionsLoading, permissions.userId, id]);
   useEffect(() => { calculateTotals(); }, [items]);
   useEffect(() => { if (selectedPO) { calculatePOStats(); loadPOItemsInvoiced(); } }, [selectedPO]);
   useEffect(() => { if (selectedPO && poItemsWithInvoiced.length > 0) updateAvailableWithCurrentItems(); }, [items, poItemsWithInvoiced.length]);
   useEffect(() => { if (id) updateNextNumber(); }, [documentType, id]);
   useEffect(() => { if (Object.keys(touched).length > 0) validateForm(); }, [formData, items, uploadedFile, selectedPO]);
+  useEffect(() => { if (replaceMode && selectedPendingDoc) { const diff = totals.totalAmount - selectedPendingDoc.totalAmount; setAmountDifference(diff); setSameAmount(Math.abs(diff) < 0.01); } }, [totals.totalAmount, selectedPendingDoc, replaceMode]);
 
   const updateNextNumber = async () => { try { const snap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("documentType", "==", documentType))); setNextNumber(String(snap.size + 1).padStart(4, "0")); } catch { setNextNumber("0001"); } };
 
@@ -127,111 +96,54 @@ export default function NewInvoicePage() {
       setLoading(true);
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
-
       const membersSnap = await getDocs(collection(db, `projects/${id}/members`));
       const membersData: Member[] = [];
-      for (const mDoc of membersSnap.docs) {
-        const mData = mDoc.data();
-        let name = mData.name || mData.email || mDoc.id;
-        try { const uDoc = await getDoc(doc(db, "users", mDoc.id)); if (uDoc.exists()) name = uDoc.data().displayName || uDoc.data().email || name; } catch {}
-        membersData.push({ userId: mDoc.id, name, email: mData.email, role: mData.role, department: mData.department, position: mData.position });
-      }
+      for (const mDoc of membersSnap.docs) { const mData = mDoc.data(); let name = mData.name || mData.email || mDoc.id; try { const uDoc = await getDoc(doc(db, "users", mDoc.id)); if (uDoc.exists()) name = uDoc.data().displayName || uDoc.data().email || name; } catch {} membersData.push({ userId: mDoc.id, name, email: mData.email, role: mData.role, department: mData.department, position: mData.position }); }
       setMembers(membersData);
-
       const approvalDoc = await getDoc(doc(db, `projects/${id}/config/approvals`));
       setApprovalConfig(approvalDoc.exists() ? approvalDoc.data().invoiceApprovals || [] : [{ id: "default-1", order: 1, approverType: "role", roles: ["Controller", "PM", "EP"], requireAll: false }]);
-
       const posSnap = await getDocs(query(collection(db, `projects/${id}/pos`), where("status", "==", "approved"), orderBy("createdAt", "desc")));
-      setPOs(posSnap.docs.map((d) => ({ id: d.id, number: d.data().number, supplier: d.data().supplier, supplierId: d.data().supplierId, totalAmount: d.data().totalAmount || 0, items: (d.data().items || []).map((item: any, idx: number) => ({ ...item, id: item.id || `item-${idx}` })) })));
-
+      const allPOs = posSnap.docs.map((d) => ({ id: d.id, number: d.data().number, supplier: d.data().supplier, supplierId: d.data().supplierId, department: d.data().department || "", totalAmount: d.data().totalAmount || 0, items: (d.data().items || []).map((item: any, idx: number) => ({ ...item, id: item.id || `item-${idx}` })) }));
+      const filteredPOs = allPOs.filter((po) => { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && po.department === permissions.department) return true; return false; });
+      setPOs(filteredPOs);
       const suppSnap = await getDocs(query(collection(db, `projects/${id}/suppliers`), orderBy("fiscalName", "asc")));
       setSuppliers(suppSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Supplier)));
-
       const accsSnap = await getDocs(query(collection(db, `projects/${id}/accounts`), orderBy("code", "asc")));
       const allSubs: SubAccount[] = [];
-      for (const accDoc of accsSnap.docs) {
-        const accData = accDoc.data();
-        const subsSnap = await getDocs(query(collection(db, `projects/${id}/accounts/${accDoc.id}/subaccounts`), orderBy("code", "asc")));
-        subsSnap.docs.forEach((s) => { const d = s.data(); allSubs.push({ id: s.id, code: d.code, description: d.description, budgeted: d.budgeted || 0, committed: d.committed || 0, actual: d.actual || 0, available: (d.budgeted || 0) - (d.committed || 0) - (d.actual || 0), accountId: accDoc.id, accountCode: accData.code, accountDescription: accData.description }); });
-      }
+      for (const accDoc of accsSnap.docs) { const accData = accDoc.data(); const subsSnap = await getDocs(query(collection(db, `projects/${id}/accounts/${accDoc.id}/subaccounts`), orderBy("code", "asc"))); subsSnap.docs.forEach((s) => { const d = s.data(); allSubs.push({ id: s.id, code: d.code, description: d.description, budgeted: d.budgeted || 0, committed: d.committed || 0, actual: d.actual || 0, available: (d.budgeted || 0) - (d.committed || 0) - (d.actual || 0), accountId: accDoc.id, accountCode: accData.code, accountDescription: accData.description }); }); }
       setSubAccounts(allSubs);
-
       const pendingSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("status", "==", "paid"), where("requiresReplacement", "==", true)));
-      setPendingDocuments(pendingSnap.docs.filter((d) => !d.data().replacedByInvoiceId).map((d) => { const data = d.data(); return { id: d.id, documentType: data.documentType || "proforma", number: data.number, displayNumber: data.displayNumber || `${DOCUMENT_TYPES[data.documentType as DocumentType]?.code || "PRF"}-${data.number}`, supplier: data.supplier, supplierId: data.supplierId, totalAmount: data.totalAmount, paidAt: data.paidAt?.toDate() || new Date() }; }));
-
+      const pendingDocs = pendingSnap.docs.filter((d) => !d.data().replacedByInvoiceId).map((d) => { const data = d.data(); return { id: d.id, documentType: data.documentType || "proforma", number: data.number, displayNumber: data.displayNumber || `${DOCUMENT_TYPES[data.documentType as DocumentType]?.code || "PRF"}-${data.number}`, supplier: data.supplier, supplierId: data.supplierId, department: data.department || "", totalAmount: data.totalAmount, baseAmount: data.baseAmount || data.totalAmount, paidAt: data.paidAt?.toDate() || new Date(), poId: data.poId || null, poNumber: data.poNumber || null, items: data.items || [], description: data.description || "" }; }).filter((pd) => { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && pd.department === permissions.department) return true; return false; });
+      setPendingDocuments(pendingDocs);
       const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("documentType", "==", "invoice")));
       setNextNumber(String(invSnap.size + 1).padStart(4, "0"));
       const dd = new Date(); dd.setDate(dd.getDate() + 30);
-      setFormData((p) => ({ ...p, dueDate: dd.toISOString().split("T")[0] }));
+      setFormData((p) => ({ ...p, dueDate: dd.toISOString().split("T")[0], department: permissions.fixedDepartment || "" }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const loadPOItemsInvoiced = async () => {
-    if (!selectedPO) return;
-    try {
-      const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", selectedPO.id), where("status", "in", ["pending", "pending_approval", "approved", "paid", "overdue"])));
-      const invoicedByItem: Record<string, number> = {};
-      invSnap.docs.forEach((invDoc) => { (invDoc.data().items || []).forEach((invItem: any) => { if (invItem.poItemId || invItem.poItemIndex !== undefined) { const key = invItem.poItemId || `index-${invItem.poItemIndex}`; invoicedByItem[key] = (invoicedByItem[key] || 0) + (invItem.totalAmount || 0); } }); });
-      setPOItemsWithInvoiced(selectedPO.items.map((item, idx) => { const key = item.id || `index-${idx}`; const invoicedAmount = invoicedByItem[key] || 0; return { ...item, id: item.id || `item-${idx}`, invoicedAmount, availableAmount: item.totalAmount - invoicedAmount }; }));
-    } catch (e) { console.error(e); }
-  };
-
-  const updateAvailableWithCurrentItems = () => {
-    const currentByItem: Record<string, number> = {};
-    items.forEach((item) => { if (item.poItemId) currentByItem[item.poItemId] = (currentByItem[item.poItemId] || 0) + item.totalAmount; });
-    setPOItemsWithInvoiced((prev) => prev.map((poItem) => ({ ...poItem, availableAmount: poItem.totalAmount - poItem.invoicedAmount - (currentByItem[poItem.id!] || 0) })));
-  };
-
-  const resolveApprovers = (step: ApprovalStep): { ids: string[]; names: string[] } => {
-    let ids: string[] = [];
-    if (step.approverType === "fixed") ids = step.approvers || [];
-    else if (step.approverType === "role") ids = members.filter((m) => m.role && step.roles?.includes(m.role)).map((m) => m.userId);
-    else if (step.approverType === "hod") ids = members.filter((m) => m.position === "HOD" && m.department === step.department).map((m) => m.userId);
-    else if (step.approverType === "coordinator") ids = members.filter((m) => m.position === "Coordinator" && m.department === step.department).map((m) => m.userId);
-    return { ids, names: ids.map((uid) => { const m = members.find((x) => x.userId === uid); return m?.name || m?.email || uid; }) };
-  };
-
+  const loadPOItemsInvoiced = async () => { if (!selectedPO) return; try { const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", selectedPO.id), where("status", "in", ["pending", "pending_approval", "approved", "paid", "overdue"]))); const invoicedByItem: Record<string, number> = {}; invSnap.docs.forEach((invDoc) => { (invDoc.data().items || []).forEach((invItem: any) => { if (invItem.poItemId || invItem.poItemIndex !== undefined) { const key = invItem.poItemId || `index-${invItem.poItemIndex}`; invoicedByItem[key] = (invoicedByItem[key] || 0) + (invItem.totalAmount || 0); } }); }); setPOItemsWithInvoiced(selectedPO.items.map((item, idx) => { const key = item.id || `index-${idx}`; const invoicedAmount = invoicedByItem[key] || 0; return { ...item, id: item.id || `item-${idx}`, invoicedAmount, availableAmount: item.totalAmount - invoicedAmount }; })); } catch (e) { console.error(e); } };
+  const updateAvailableWithCurrentItems = () => { const currentByItem: Record<string, number> = {}; items.forEach((item) => { if (item.poItemId) currentByItem[item.poItemId] = (currentByItem[item.poItemId] || 0) + item.totalAmount; }); setPOItemsWithInvoiced((prev) => prev.map((poItem) => ({ ...poItem, availableAmount: poItem.totalAmount - poItem.invoicedAmount - (currentByItem[poItem.id!] || 0) }))); };
+  const resolveApprovers = (step: ApprovalStep): { ids: string[]; names: string[] } => { let ids: string[] = []; if (step.approverType === "fixed") ids = step.approvers || []; else if (step.approverType === "role") ids = members.filter((m) => m.role && step.roles?.includes(m.role)).map((m) => m.userId); else if (step.approverType === "hod") ids = members.filter((m) => m.position === "HOD" && m.department === step.department).map((m) => m.userId); else if (step.approverType === "coordinator") ids = members.filter((m) => m.position === "Coordinator" && m.department === step.department).map((m) => m.userId); return { ids, names: ids.map((uid) => { const m = members.find((x) => x.userId === uid); return m?.name || m?.email || uid; }) }; };
   const generateApprovalSteps = (): ApprovalStepStatus[] => approvalConfig.map((s) => { const { ids, names } = resolveApprovers(s); return { id: s.id, order: s.order, approverType: s.approverType, approvers: ids, approverNames: names, roles: s.roles, department: s.department, approvedBy: [], rejectedBy: [], status: "pending", requireAll: s.requireAll }; });
   const shouldAutoApprove = (steps: ApprovalStepStatus[]) => steps.length === 0 || steps.every((s) => s.approvers.length === 0);
   const getApprovalPreview = () => { const steps = generateApprovalSteps(); if (shouldAutoApprove(steps)) return { autoApprove: true, message: "Se aprobará automáticamente", steps: [] }; return { autoApprove: false, message: `${steps.length} nivel${steps.length > 1 ? "es" : ""} de aprobación`, steps }; };
-
   const calculateItemTotal = (item: InvoiceItem) => { const base = item.quantity * item.unitPrice; const vat = base * (item.vatRate / 100); const irpf = base * (item.irpfRate / 100); return { baseAmount: base, vatAmount: vat, irpfAmount: irpf, totalAmount: base + vat - irpf }; };
   const updateItem = (i: number, field: keyof InvoiceItem, value: any) => { const n = [...items]; n[i] = { ...n[i], [field]: value, ...calculateItemTotal({ ...n[i], [field]: value }) }; setItems(n); setTouched((p) => ({ ...p, [`item_${i}_${field}`]: true })); };
   const addNewItem = () => setItems([...items, { id: String(Date.now()), description: "", isNewItem: true, subAccountId: "", subAccountCode: "", subAccountDescription: "", quantity: 1, unitPrice: 0, baseAmount: 0, vatRate: 21, vatAmount: 0, irpfRate: 0, irpfAmount: 0, totalAmount: 0 }]);
   const addPOItemToInvoice = (poItem: POItemWithInvoiced, idx: number) => { setItems([...items, { id: String(Date.now()), description: poItem.description, poItemId: poItem.id, poItemIndex: idx, isNewItem: false, subAccountId: poItem.subAccountId, subAccountCode: poItem.subAccountCode, subAccountDescription: poItem.subAccountDescription, quantity: poItem.quantity, unitPrice: poItem.unitPrice, baseAmount: poItem.baseAmount, vatRate: poItem.vatRate, vatAmount: poItem.vatAmount, irpfRate: poItem.irpfRate, irpfAmount: poItem.irpfAmount, totalAmount: poItem.totalAmount }]); setShowPOItemsModal(false); };
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
   const calculateTotals = () => setTotals({ baseAmount: items.reduce((s, i) => s + i.baseAmount, 0), vatAmount: items.reduce((s, i) => s + i.vatAmount, 0), irpfAmount: items.reduce((s, i) => s + i.irpfAmount, 0), totalAmount: items.reduce((s, i) => s + i.totalAmount, 0) });
-
-  const calculatePOStats = async () => {
-    if (!selectedPO) return;
-    try {
-      const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", selectedPO.id), where("status", "in", ["pending", "pending_approval", "approved", "paid", "overdue"])));
-      const invoiced = invSnap.docs.reduce((s, d) => s + (d.data().totalAmount || 0), 0) + totals.totalAmount;
-      setPOStats({ totalAmount: selectedPO.totalAmount, invoicedAmount: invoiced, percentageInvoiced: selectedPO.totalAmount > 0 ? (invoiced / selectedPO.totalAmount) * 100 : 0, isOverInvoiced: invoiced > selectedPO.totalAmount });
-    } catch (e) { console.error(e); }
-  };
-
-  const selectPO = (po: PO) => { setSelectedPO(po); setFormData({ ...formData, supplier: po.supplierId, supplierName: po.supplier, description: `${currentDocType.label} para PO-${po.number}` }); setItems([]); setShowPOModal(false); setPOSearch(""); setTouched((p) => ({ ...p, po: true })); };
+  const calculatePOStats = async () => { if (!selectedPO) return; try { const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", selectedPO.id), where("status", "in", ["pending", "pending_approval", "approved", "paid", "overdue"]))); const invoiced = invSnap.docs.reduce((s, d) => s + (d.data().totalAmount || 0), 0) + totals.totalAmount; setPOStats({ totalAmount: selectedPO.totalAmount, invoicedAmount: invoiced, percentageInvoiced: selectedPO.totalAmount > 0 ? (invoiced / selectedPO.totalAmount) * 100 : 0, isOverInvoiced: invoiced > selectedPO.totalAmount }); } catch (e) { console.error(e); } };
+  const selectPO = (po: PO) => { setSelectedPO(po); setFormData({ ...formData, supplier: po.supplierId, supplierName: po.supplier, department: po.department || formData.department, description: `${currentDocType.label} para PO-${po.number}` }); setItems([]); setShowPOModal(false); setPOSearch(""); setTouched((p) => ({ ...p, po: true })); };
   const selectSupplier = (s: Supplier) => { setFormData({ ...formData, supplier: s.id, supplierName: s.fiscalName }); setShowSupplierModal(false); setSupplierSearch(""); setTouched((p) => ({ ...p, supplier: true })); };
   const selectAccount = (sub: SubAccount) => { if (currentItemIndex !== null) { const n = [...items]; n[currentItemIndex] = { ...n[currentItemIndex], subAccountId: sub.id, subAccountCode: sub.code, subAccountDescription: sub.description }; setItems(n); } setShowAccountModal(false); setAccountSearch(""); setCurrentItemIndex(null); };
-  const selectLinkedDocument = (pd: PendingDocument) => { setLinkedDocumentId(pd.id); setFormData({ ...formData, supplier: pd.supplierId, supplierName: pd.supplier, description: `Factura definitiva para ${pd.displayNumber}` }); setShowLinkModal(false); };
-
+  const startReplacement = (pd: PendingDocument) => { setSelectedPendingDoc(pd); setReplaceMode(true); setDocumentType("invoice"); setLinkedDocumentId(pd.id); setFormData({ ...formData, invoiceType: pd.poId ? "with-po" : "without-po", supplier: pd.supplierId, supplierName: pd.supplier, department: pd.department || formData.department, description: `Factura definitiva para ${pd.displayNumber}` }); if (pd.poId) { const po = pos.find(p => p.id === pd.poId); if (po) setSelectedPO(po); } if (pd.items && pd.items.length > 0) { setItems(pd.items.map((item: any, idx: number) => ({ id: String(Date.now() + idx), description: item.description || "", poItemId: item.poItemId || null, poItemIndex: item.poItemIndex ?? null, isNewItem: item.isNewItem ?? true, subAccountId: item.subAccountId || "", subAccountCode: item.subAccountCode || "", subAccountDescription: item.subAccountDescription || "", quantity: item.quantity || 1, unitPrice: item.unitPrice || 0, baseAmount: item.baseAmount || 0, vatRate: item.vatRate ?? 21, vatAmount: item.vatAmount || 0, irpfRate: item.irpfRate || 0, irpfAmount: item.irpfAmount || 0, totalAmount: item.totalAmount || 0 }))); } setSameAmount(true); setAmountDifference(0); setDifferenceReason(""); setShowReplaceModal(false); };
+  const cancelReplacement = () => { setReplaceMode(false); setSelectedPendingDoc(null); setLinkedDocumentId(""); setFormData({ invoiceType: "with-po", supplier: "", supplierName: "", department: permissions.fixedDepartment || "", description: "", dueDate: formData.dueDate, notes: "" }); setItems([]); setSelectedPO(null); setSameAmount(true); setAmountDifference(0); setDifferenceReason(""); };
   const handleFileUpload = (file: File) => { if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type) || file.size > 10 * 1024 * 1024) { alert("Solo PDF o imágenes hasta 10MB"); return; } setUploadedFile(file); setTouched((p) => ({ ...p, file: true })); };
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f); }, []);
   const handleBlur = (field: string) => setTouched((p) => ({ ...p, [field]: true }));
-
-  const validateForm = () => {
-    const e: Record<string, string> = {};
-    if (!uploadedFile) e.file = "Adjunta el archivo";
-    if (formData.invoiceType === "with-po" && !selectedPO) e.po = "Selecciona una PO";
-    if (formData.invoiceType === "without-po" && !formData.supplier && !linkedDocumentId) e.supplier = "Selecciona proveedor";
-    if (!formData.description.trim()) e.description = "Obligatorio";
-    if (!formData.dueDate) e.dueDate = "Obligatorio";
-    if (items.length === 0) e.items = "Añade al menos un ítem";
-    items.forEach((it, i) => { if (!it.description.trim()) e[`item_${i}_description`] = "Obligatorio"; if (!it.subAccountId) e[`item_${i}_account`] = "Obligatorio"; if (it.quantity <= 0) e[`item_${i}_quantity`] = "> 0"; if (it.unitPrice <= 0) e[`item_${i}_unitPrice`] = "> 0"; });
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
+  const validateForm = () => { const e: Record<string, string> = {}; if (!uploadedFile) e.file = "Adjunta el archivo"; if (formData.invoiceType === "with-po" && !selectedPO && !replaceMode) e.po = "Selecciona una PO"; if (formData.invoiceType === "without-po" && !formData.supplier && !linkedDocumentId) e.supplier = "Selecciona proveedor"; if (!formData.description.trim()) e.description = "Obligatorio"; if (!formData.dueDate) e.dueDate = "Obligatorio"; if (items.length === 0) e.items = "Añade al menos un ítem"; items.forEach((it, i) => { if (!it.description.trim()) e[`item_${i}_description`] = "Obligatorio"; if (!it.subAccountId) e[`item_${i}_account`] = "Obligatorio"; if (it.quantity <= 0) e[`item_${i}_quantity`] = "> 0"; if (it.unitPrice <= 0) e[`item_${i}_unitPrice`] = "> 0"; }); if (replaceMode && !sameAmount && !differenceReason.trim()) e.differenceReason = "Explica la diferencia"; setErrors(e); return Object.keys(e).length === 0; };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -240,11 +152,12 @@ export default function NewInvoicePage() {
       let fileUrl = "";
       if (uploadedFile) { const fileRef = ref(storage, `projects/${id}/invoices/${getDocumentNumber()}/${uploadedFile.name}`); await uploadBytes(fileRef, uploadedFile); fileUrl = await getDownloadURL(fileRef); }
       const itemsData = items.map((i) => ({ description: i.description.trim(), poItemId: i.poItemId || null, poItemIndex: i.poItemIndex ?? null, isNewItem: i.isNewItem, subAccountId: i.subAccountId, subAccountCode: i.subAccountCode, subAccountDescription: i.subAccountDescription, quantity: i.quantity, unitPrice: i.unitPrice, baseAmount: i.baseAmount, vatRate: i.vatRate, vatAmount: i.vatAmount, irpfRate: i.irpfRate, irpfAmount: i.irpfAmount, totalAmount: i.totalAmount }));
-      const invoiceData: any = { documentType, number: nextNumber, displayNumber: getDocumentNumber(), supplier: formData.supplierName, supplierId: formData.supplier, poId: selectedPO?.id || null, poNumber: selectedPO?.number || null, description: formData.description.trim(), notes: formData.notes.trim(), items: itemsData, baseAmount: totals.baseAmount, vatAmount: totals.vatAmount, irpfAmount: totals.irpfAmount, totalAmount: totals.totalAmount, dueDate: Timestamp.fromDate(new Date(formData.dueDate)), attachmentUrl: fileUrl, attachmentFileName: uploadedFile?.name || "", createdAt: Timestamp.now(), createdBy: userId, createdByName: userName, requiresReplacement: currentDocType.requiresReplacement, replacedByInvoiceId: null, linkedDocumentId: linkedDocumentId || null };
+      const invoiceData: any = { documentType, number: nextNumber, displayNumber: getDocumentNumber(), supplier: formData.supplierName, supplierId: formData.supplier, department: formData.department || selectedPO?.department || permissions.fixedDepartment || "", poId: selectedPO?.id || null, poNumber: selectedPO?.number || null, description: formData.description.trim(), notes: formData.notes.trim(), items: itemsData, baseAmount: totals.baseAmount, vatAmount: totals.vatAmount, irpfAmount: totals.irpfAmount, totalAmount: totals.totalAmount, dueDate: Timestamp.fromDate(new Date(formData.dueDate)), attachmentUrl: fileUrl, attachmentFileName: uploadedFile?.name || "", createdAt: Timestamp.now(), createdBy: permissions.userId, createdByName: permissions.userName, requiresReplacement: currentDocType.requiresReplacement, replacedByInvoiceId: null, linkedDocumentId: linkedDocumentId || null };
+      if (replaceMode && selectedPendingDoc) { invoiceData.isReplacement = true; invoiceData.replacesDocumentId = selectedPendingDoc.id; invoiceData.replacesDocumentNumber = selectedPendingDoc.displayNumber; invoiceData.originalAmount = selectedPendingDoc.totalAmount; invoiceData.amountDifference = amountDifference; invoiceData.hasDifference = !sameAmount; if (!sameAmount) { invoiceData.differenceReason = differenceReason.trim(); invoiceData.pendingAmount = amountDifference; } }
       const steps = generateApprovalSteps();
       if (shouldAutoApprove(steps)) { invoiceData.status = "pending"; invoiceData.approvalStatus = "approved"; invoiceData.autoApproved = true; } else { invoiceData.status = "pending_approval"; invoiceData.approvalStatus = "pending"; invoiceData.approvalSteps = steps; invoiceData.currentApprovalStep = 0; }
       const docRef = await addDoc(collection(db, `projects/${id}/invoices`), invoiceData);
-      if (linkedDocumentId) await updateDoc(doc(db, `projects/${id}/invoices`, linkedDocumentId), { replacedByInvoiceId: docRef.id, replacedAt: Timestamp.now() });
+      if (linkedDocumentId || (replaceMode && selectedPendingDoc)) { const docToUpdate = linkedDocumentId || selectedPendingDoc?.id; if (docToUpdate) { await updateDoc(doc(db, `projects/${id}/invoices`, docToUpdate), { replacedByInvoiceId: docRef.id, replacedAt: Timestamp.now() }); } }
       setSuccessMessage(invoiceData.autoApproved ? `${currentDocType.label} creada` : `${currentDocType.label} enviada para aprobación`);
       setTimeout(() => router.push(`/project/${id}/accounting/invoices`), 1500);
     } catch (e: any) { alert(`Error: ${e.message}`); } finally { setSaving(false); }
@@ -263,7 +176,8 @@ export default function NewInvoicePage() {
   const DocIcon = currentDocType.icon;
   const hasError = (f: string) => touched[f] && errors[f];
 
-  if (loading) return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>);
+  if (permissionsLoading || loading) return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>);
+  if (permissionsError || !permissions.hasAccountingAccess) return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="text-center max-w-md"><div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><ShieldAlert size={28} className="text-red-500" /></div><h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2><p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para crear facturas"}</p><Link href={`/project/${id}/accounting/invoices`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><ArrowLeft size={16} />Volver a facturas</Link></div></div>);
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
@@ -281,22 +195,32 @@ export default function NewInvoicePage() {
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
               <div className={`w-14 h-14 ${currentDocType.bgColor} rounded-2xl flex items-center justify-center`}><DocIcon size={24} className={currentDocType.textColor} /></div>
-              <div><h1 className="text-2xl font-semibold text-slate-900">Subir {currentDocType.label.toLowerCase()}</h1><p className="text-slate-500 text-sm mt-0.5">{getDocumentNumber()} · {userName}</p></div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-slate-900">{replaceMode ? "Factura definitiva" : `Subir ${currentDocType.label.toLowerCase()}`}</h1>
+                  {replaceMode && <span className="px-2.5 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs font-medium flex items-center gap-1.5"><RefreshCw size={12} />Sustitución</span>}
+                </div>
+                <p className="text-slate-500 text-sm mt-0.5">{getDocumentNumber()} · {permissions.userName}{permissions.fixedDepartment && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">{permissions.fixedDepartment}</span>}</p>
+              </div>
             </div>
-            <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
-              {saving ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Guardando...</> : <>{approvalPreview.autoApprove ? <CheckCircle size={16} /> : <Send size={16} />}{approvalPreview.autoApprove ? `Crear ${currentDocType.label.toLowerCase()}` : "Enviar"}</>}
-            </button>
+            <div className="flex items-center gap-3">
+              {replaceMode && <button onClick={cancelReplacement} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50"><X size={16} />Cancelar</button>}
+              <button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                {saving ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Guardando...</> : <>{approvalPreview.autoApprove ? <CheckCircle size={16} /> : <Send size={16} />}{approvalPreview.autoApprove ? `Crear ${currentDocType.label.toLowerCase()}` : "Enviar"}</>}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {successMessage && <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3"><CheckCircle size={18} className="text-emerald-600" /><span className="text-sm text-emerald-700 font-medium">{successMessage}</span></div>}
+        {replaceMode && selectedPendingDoc && <div className="mb-6 p-4 bg-violet-50 border border-violet-200 rounded-2xl"><div className="flex items-start gap-3"><div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0"><RefreshCw size={18} className="text-violet-600" /></div><div className="flex-1"><p className="font-semibold text-violet-800">Sustituyendo {selectedPendingDoc.displayNumber}</p><p className="text-sm text-violet-700 mt-0.5">Esta factura definitiva reemplazará al documento original de {formatCurrency(selectedPendingDoc.totalAmount)} €</p></div></div></div>}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Document Type */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            {!replaceMode && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100"><h2 className="font-semibold text-slate-900">Tipo de documento</h2></div>
               <div className="p-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -310,12 +234,14 @@ export default function NewInvoicePage() {
                   })}
                 </div>
                 {currentDocType.requiresReplacement && <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl"><div className="flex items-start gap-3"><AlertTriangle size={18} className="text-amber-600 mt-0.5" /><div><p className="text-sm font-semibold text-amber-800">Requiere factura definitiva</p><p className="text-sm text-amber-700 mt-1">Una vez pagado, deberás subir la factura definitiva.</p></div></div></div>}
-                {documentType === "invoice" && pendingDocuments.length > 0 && <div className="mt-4 p-4 bg-violet-50 border border-violet-200 rounded-xl"><div className="flex items-start justify-between"><div className="flex items-start gap-3"><LinkIcon size={18} className="text-violet-600 mt-0.5" /><div><p className="text-sm font-semibold text-violet-800">{pendingDocuments.length} documento{pendingDocuments.length > 1 ? "s" : ""} pendiente{pendingDocuments.length > 1 ? "s" : ""}</p><p className="text-sm text-violet-700 mt-1">Proformas o presupuestos pagados esperando factura.</p></div></div><button onClick={() => setShowLinkModal(true)} className="px-3 py-1.5 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700">Vincular</button></div>{linkedDocumentId && <div className="mt-3 p-3 bg-white rounded-lg border border-violet-200"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><CheckCircle2 size={14} className="text-violet-600" /><p className="text-sm font-medium text-violet-900">Vinculada a: {pendingDocuments.find((d) => d.id === linkedDocumentId)?.displayNumber}</p></div><button onClick={() => setLinkedDocumentId("")} className="p-1 text-violet-400 hover:text-violet-600"><X size={16} /></button></div></div>}</div>}
               </div>
-            </div>
+            </div>}
+
+            {/* Botón sustituir */}
+            {!replaceMode && pendingDocuments.length > 0 && documentType === "invoice" && <button onClick={() => setShowReplaceModal(true)} className="w-full p-4 border border-dashed border-violet-300 rounded-2xl bg-violet-50/50 hover:bg-violet-50 hover:border-violet-400 transition-all text-left group"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center group-hover:bg-violet-200 transition-colors"><RefreshCw size={18} className="text-violet-600" /></div><div><p className="text-sm font-medium text-violet-800">¿Tienes la factura definitiva?</p><p className="text-xs text-violet-600">{pendingDocuments.length} proforma{pendingDocuments.length !== 1 ? "s" : ""}/presupuesto{pendingDocuments.length !== 1 ? "s" : ""} pendiente{pendingDocuments.length !== 1 ? "s" : ""} de factura</p></div></div><ArrowRight size={18} className="text-violet-400 group-hover:text-violet-600 transition-colors" /></div></button>}
 
             {/* PO Association */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            {!replaceMode && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100"><h2 className="font-semibold text-slate-900">Asociación a PO</h2></div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -329,10 +255,10 @@ export default function NewInvoicePage() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* PO Selection */}
-            {formData.invoiceType === "with-po" && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            {formData.invoiceType === "with-po" && !replaceMode && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100"><h2 className="font-semibold text-slate-900">Orden de compra *</h2></div>
               <div className="p-6">
                 <button onClick={() => setShowPOModal(true)} onBlur={() => handleBlur("po")} className={`w-full px-4 py-3 border ${hasError("po") ? "border-red-300 bg-red-50" : selectedPO ? "border-emerald-300 bg-emerald-50" : "border-slate-200"} rounded-xl hover:border-slate-300 transition-colors text-left flex items-center justify-between`}>
@@ -352,8 +278,11 @@ export default function NewInvoicePage() {
               </div>
             </div>}
 
+            {/* PO en modo sustitución */}
+            {replaceMode && selectedPO && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden"><div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2"><Lock size={16} className="text-slate-400" /><h2 className="font-semibold text-slate-900">Orden de compra vinculada</h2></div><div className="p-6"><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center"><FileText size={18} className="text-indigo-600" /></div><div><p className="font-semibold text-slate-900">PO-{selectedPO.number}</p><p className="text-sm text-slate-500">{selectedPO.supplier}</p></div></div></div></div>}
+
             {/* Supplier Selection */}
-            {formData.invoiceType === "without-po" && !linkedDocumentId && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            {formData.invoiceType === "without-po" && !linkedDocumentId && !replaceMode && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100"><h2 className="font-semibold text-slate-900">Proveedor *</h2></div>
               <div className="p-6">
                 <button onClick={() => setShowSupplierModal(true)} onBlur={() => handleBlur("supplier")} className={`w-full px-4 py-3 border ${hasError("supplier") ? "border-red-300 bg-red-50" : formData.supplier ? "border-emerald-300 bg-emerald-50" : "border-slate-200"} rounded-xl hover:border-slate-300 transition-colors text-left flex items-center justify-between`}>
@@ -363,6 +292,9 @@ export default function NewInvoicePage() {
                 {hasError("supplier") && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} />{errors.supplier}</p>}
               </div>
             </div>}
+
+            {/* Proveedor en modo sustitución */}
+            {replaceMode && formData.supplierName && <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden"><div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2"><Lock size={16} className="text-slate-400" /><h2 className="font-semibold text-slate-900">Proveedor</h2></div><div className="p-6"><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"><div className="w-10 h-10 bg-slate-200 rounded-lg flex items-center justify-center"><Building2 size={18} className="text-slate-600" /></div><span className="font-medium text-slate-900">{formData.supplierName}</span></div></div></div>}
 
             {/* File Upload */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -405,6 +337,19 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
+            {/* Diferencia de importe en modo sustitución */}
+            {replaceMode && selectedPendingDoc && <div className={`bg-white border rounded-2xl overflow-hidden ${!sameAmount ? "border-amber-300" : "border-slate-200"}`}>
+              <div className="px-6 py-4 border-b border-slate-100"><h2 className="font-semibold text-slate-900">Verificación de importe</h2></div>
+              <div className="p-6">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="p-4 bg-slate-50 rounded-xl"><p className="text-xs text-slate-500 mb-1">Importe original</p><p className="text-lg font-bold text-slate-900">{formatCurrency(selectedPendingDoc.totalAmount)} €</p><p className="text-xs text-slate-400 mt-1">{selectedPendingDoc.displayNumber}</p></div>
+                  <div className="p-4 bg-emerald-50 rounded-xl"><p className="text-xs text-emerald-600 mb-1">Importe factura</p><p className="text-lg font-bold text-emerald-700">{formatCurrency(totals.totalAmount)} €</p><p className="text-xs text-emerald-500 mt-1">Este documento</p></div>
+                  <div className={`p-4 rounded-xl ${Math.abs(amountDifference) < 0.01 ? "bg-slate-50" : amountDifference > 0 ? "bg-amber-50" : "bg-blue-50"}`}><p className={`text-xs mb-1 ${Math.abs(amountDifference) < 0.01 ? "text-slate-500" : amountDifference > 0 ? "text-amber-600" : "text-blue-600"}`}>Diferencia</p><p className={`text-lg font-bold ${Math.abs(amountDifference) < 0.01 ? "text-slate-400" : amountDifference > 0 ? "text-amber-700" : "text-blue-700"}`}>{amountDifference > 0 ? "+" : ""}{formatCurrency(amountDifference)} €</p><p className={`text-xs mt-1 ${Math.abs(amountDifference) < 0.01 ? "text-slate-400" : amountDifference > 0 ? "text-amber-500" : "text-blue-500"}`}>{Math.abs(amountDifference) < 0.01 ? "Sin diferencia" : amountDifference > 0 ? "Pendiente de cobro" : "Pendiente de devolución"}</p></div>
+                </div>
+                {!sameAmount && <div className="mt-4"><div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4"><div className="flex items-start gap-3"><AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" /><div><p className="text-sm font-medium text-amber-800">{amountDifference > 0 ? `La factura es ${formatCurrency(amountDifference)} € mayor que el documento original` : `La factura es ${formatCurrency(Math.abs(amountDifference))} € menor que el documento original`}</p><p className="text-xs text-amber-700 mt-1">{amountDifference > 0 ? "Se registrará un importe pendiente de cobro al proveedor." : "Se registrará un importe pendiente de devolución del proveedor."}</p></div></div></div><div><label className="block text-sm font-medium text-slate-700 mb-2">Motivo de la diferencia *</label><textarea value={differenceReason} onChange={(e) => setDifferenceReason(e.target.value)} onBlur={() => handleBlur("differenceReason")} placeholder="Explica por qué hay diferencia de importe..." rows={2} className={`w-full px-4 py-3 border ${hasError("differenceReason") ? "border-red-300 bg-red-50" : differenceReason.trim() ? "border-emerald-300 bg-emerald-50" : "border-slate-200"} rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm`} />{hasError("differenceReason") && <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1"><AlertCircle size={12} />{errors.differenceReason}</p>}</div></div>}
+              </div>
+            </div>}
+
             {/* Items */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -445,9 +390,9 @@ export default function NewInvoicePage() {
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar - ESTÁTICO (sin sticky) */}
           <div className="lg:col-span-1">
-            <div className="sticky top-28 space-y-4">
+            <div className="space-y-4">
               {/* Progress */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3"><span className="text-sm font-medium text-slate-700">Progreso</span><span className={`text-sm font-bold ${completionPercentage === 100 ? "text-emerald-600" : "text-slate-900"}`}>{completionPercentage}%</span></div>
@@ -505,10 +450,10 @@ export default function NewInvoicePage() {
         </div>
       </main>
 
-      {/* Link Modal */}
-      {showLinkModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Vincular a documento pagado</h2><p className="text-sm text-slate-500">Selecciona la proforma o presupuesto a sustituir</p></div><button onClick={() => setShowLinkModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"><X size={20} /></button></div>
-        <div className="p-6 max-h-96 overflow-y-auto">{pendingDocuments.length === 0 ? <div className="text-center py-12"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><CheckCircle size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">No hay documentos pendientes</p></div> : <div className="space-y-3">{pendingDocuments.map((pd) => { const dc = DOCUMENT_TYPES[pd.documentType]; const DI = dc.icon; return <button key={pd.id} onClick={() => selectLinkedDocument(pd)} className={`w-full text-left p-4 border rounded-xl hover:bg-slate-50 ${linkedDocumentId === pd.id ? `${dc.borderColor} ${dc.bgColor}` : "border-slate-200"}`}><div className="flex items-start gap-3"><div className={`w-10 h-10 ${dc.bgColor} rounded-lg flex items-center justify-center`}><DI size={18} className={dc.textColor} /></div><div className="flex-1"><div className="flex items-center gap-2"><p className="font-semibold text-slate-900">{pd.displayNumber}</p><span className={`text-xs px-2 py-0.5 rounded-lg ${dc.bgColor} ${dc.textColor}`}>{dc.label}</span></div><p className="text-sm text-slate-600">{pd.supplier}</p><p className="text-xs text-slate-500 mt-1">Pagado el {formatDate(pd.paidAt)}</p></div><p className="font-semibold text-slate-900">{formatCurrency(pd.totalAmount)} €</p></div></button>; })}</div>}</div>
+      {/* Modal para seleccionar documento a sustituir */}
+      {showReplaceModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Sustituir por factura definitiva</h2><p className="text-sm text-slate-500">Selecciona el documento a sustituir</p></div><button onClick={() => setShowReplaceModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"><X size={20} /></button></div>
+        <div className="p-6 max-h-96 overflow-y-auto">{pendingDocuments.length === 0 ? <div className="text-center py-12"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><CheckCircle size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">No hay documentos pendientes de factura definitiva</p></div> : <div className="space-y-3">{pendingDocuments.map((pd) => { const dc = DOCUMENT_TYPES[pd.documentType]; const DI = dc.icon; return <button key={pd.id} onClick={() => startReplacement(pd)} className={`w-full text-left p-4 border rounded-xl hover:bg-slate-50 transition-all ${dc.borderColor} hover:shadow-md`}><div className="flex items-start gap-3"><div className={`w-12 h-12 ${dc.bgColor} rounded-xl flex items-center justify-center flex-shrink-0`}><DI size={20} className={dc.textColor} /></div><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1"><p className="font-semibold text-slate-900">{pd.displayNumber}</p><span className={`text-xs px-2 py-0.5 rounded-lg ${dc.bgColor} ${dc.textColor}`}>{dc.label}</span></div><p className="text-sm text-slate-600 truncate">{pd.supplier}</p><p className="text-sm text-slate-500 truncate mt-0.5">{pd.description}</p><div className="flex items-center gap-4 mt-2 text-xs text-slate-500"><span>Pagado el {formatDate(pd.paidAt)}</span>{pd.poNumber && <span className="bg-slate-100 px-2 py-0.5 rounded">PO-{pd.poNumber}</span>}</div></div><div className="text-right flex-shrink-0"><p className="font-bold text-slate-900 text-lg">{formatCurrency(pd.totalAmount)} €</p><p className="text-xs text-violet-600 mt-1 flex items-center gap-1 justify-end"><ArrowRight size={12} />Sustituir</p></div></div></button>; })}</div>}</div>
       </div></div>}
 
       {/* PO Modal */}
