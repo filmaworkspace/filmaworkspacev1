@@ -16,7 +16,6 @@ import {
   Info,
   UserCog,
   Building2,
-  ChevronDown,
   Shield,
   User,
 } from "lucide-react";
@@ -165,7 +164,7 @@ export default function Header() {
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm transition-all duration-200 ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
         isActive ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
       }`}
     >
@@ -187,7 +186,7 @@ export default function Header() {
     if (availableSections.length === 0) return null;
 
     return (
-      <div className="flex items-center gap-1 mr-2 pr-2 border-r border-slate-200">
+      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
         {availableSections.map((section) => {
           const Icon = section.icon;
           const colorClass = section.key === "config" 
@@ -200,10 +199,10 @@ export default function Header() {
             <Link
               key={section.key}
               href={section.href}
-              className={`p-2.5 rounded-xl text-slate-400 transition-colors ${colorClass}`}
+              className={`p-2 rounded-lg text-slate-400 transition-colors ${colorClass}`}
               title={section.label}
             >
-              <Icon size={18} />
+              <Icon size={16} />
             </Link>
           );
         })}
@@ -213,14 +212,14 @@ export default function Header() {
 
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
-      <div className="px-6 py-3 flex items-center justify-between">
+      <div className="px-6 py-2.5 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center`}>
-          <span className="text-slate-500 font-normal tracking-tighter">workspace</span>
+        <Link href="/dashboard" className={`select-none ${grotesk.className} flex items-center text-sm`}>
+          <span className="text-slate-400 font-normal tracking-tight">workspace</span>
           {currentSection && (
             <>
-              <span className="text-slate-300 mx-2">/</span>
-              <span className={`font-semibold tracking-tighter ${sectionColors[currentSection]?.text || "text-slate-600"}`}>
+              <span className="text-slate-300 mx-1.5">/</span>
+              <span className={`font-medium tracking-tight ${sectionColors[currentSection]?.text || "text-slate-600"}`}>
                 {currentSection}
               </span>
             </>
@@ -228,17 +227,17 @@ export default function Header() {
         </Link>
 
         {/* Navigation - Desktop */}
-        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+        <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
           {/* Default Menu */}
           {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection && (
             <>
               <NavLink href="/dashboard" isActive={pathname === "/dashboard"}>
-                <Folder size={15} />
+                <Folder size={14} />
                 <span>Proyectos</span>
               </NavLink>
               {isAdmin && (
                 <NavLink href="/admin" isActive={false}>
-                  <Shield size={15} />
+                  <Shield size={14} />
                   <span>Admin</span>
                 </NavLink>
               )}
@@ -248,7 +247,7 @@ export default function Header() {
           {/* Admin Menu */}
           {isAdminSection && (
             <NavLink href="/admin" isActive={true}>
-              <Shield size={15} />
+              <Shield size={14} />
               <span>Panel de administración</span>
             </NavLink>
           )}
@@ -257,15 +256,15 @@ export default function Header() {
           {isConfigSection && projectId && (
             <>
               <NavLink href={`/project/${projectId}/config`} isActive={configTab === "general"}>
-                <Info size={15} />
+                <Info size={14} />
                 <span>General</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/users`} isActive={configTab === "users"}>
-                <UserCog size={15} />
+                <UserCog size={14} />
                 <span>Usuarios</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/departments`} isActive={configTab === "departments"}>
-                <Briefcase size={15} />
+                <Briefcase size={14} />
                 <span>Departamentos</span>
               </NavLink>
             </>
@@ -276,31 +275,31 @@ export default function Header() {
             <>
               {accountingAccess.panel && (
                 <NavLink href={`/project/${projectId}/accounting`} isActive={accountingPage === "panel"}>
-                  <LayoutDashboard size={15} />
+                  <LayoutDashboard size={14} />
                   <span>Panel</span>
                 </NavLink>
               )}
               {accountingAccess.suppliers && (
                 <NavLink href={`/project/${projectId}/accounting/suppliers`} isActive={accountingPage === "suppliers"}>
-                  <Building2 size={15} />
+                  <Building2 size={14} />
                   <span>Proveedores</span>
                 </NavLink>
               )}
               {accountingAccess.budget && (
                 <NavLink href={`/project/${projectId}/accounting/budget`} isActive={accountingPage === "budget"}>
-                  <Wallet size={15} />
+                  <Wallet size={14} />
                   <span>Presupuesto</span>
                 </NavLink>
               )}
               {accountingAccess.users && (
                 <NavLink href={`/project/${projectId}/accounting/users`} isActive={accountingPage === "users"}>
-                  <UserCog size={15} />
+                  <UserCog size={14} />
                   <span>Usuarios</span>
                 </NavLink>
               )}
               {accountingAccess.reports && (
                 <NavLink href={`/project/${projectId}/accounting/reports`} isActive={accountingPage === "reports"}>
-                  <BarChart3 size={15} />
+                  <BarChart3 size={14} />
                   <span>Informes</span>
                 </NavLink>
               )}
@@ -310,14 +309,14 @@ export default function Header() {
           {/* Team Menu */}
           {isTeamSection && projectId && (
             <NavLink href={`/project/${projectId}/team`} isActive={true}>
-              <Users size={15} />
+              <Users size={14} />
               <span>Equipo</span>
             </NavLink>
           )}
         </nav>
 
         {/* Right side: Section switcher + Profile */}
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex items-center gap-1">
           {/* Section Switcher - Desktop */}
           <div className="hidden md:flex">
             <SectionSwitcher />
@@ -326,51 +325,44 @@ export default function Header() {
           {/* Profile */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-              <User size={15} />
-            </div>
-            <span className="hidden sm:inline text-sm font-medium text-slate-700">
-              {isLoading ? "..." : userName}
-            </span>
-            <ChevronDown size={14} className={`hidden sm:block text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+            <User size={16} />
           </button>
 
           {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 text-sm z-50 animate-fadeIn overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 mb-1">
-                <p className="text-xs text-slate-400">Sesión iniciada como</p>
-                <p className="text-sm font-medium text-slate-900 truncate">{userName}</p>
+            <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1 text-xs z-50 animate-fadeIn">
+              <div className="px-3 py-2 border-b border-slate-100">
+                <p className="font-medium text-slate-900 truncate">{userName}</p>
                 {isAdmin && (
-                  <span className="inline-block mt-1.5 text-xs bg-purple-100 text-purple-700 px-2.5 py-0.5 rounded-lg font-medium">
+                  <span className="inline-block mt-1 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
                     Admin
                   </span>
                 )}
               </div>
               {isAdmin && (
-                <Link href="/admin" className="flex items-center gap-3 px-4 py-2.5 text-purple-600 hover:bg-purple-50 transition" onClick={() => setProfileOpen(false)}>
-                  <Shield size={15} />
+                <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 transition" onClick={() => setProfileOpen(false)}>
+                  <Shield size={13} />
                   Administración
                 </Link>
               )}
-              <Link href="/profile" className="flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
-                <User size={15} />
+              <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
+                <User size={13} />
                 Mi cuenta
               </Link>
-              <div className="border-t border-slate-100 my-1" />
-              <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
-                <LogOut size={15} />
+              <div className="border-t border-slate-100 my-0.5" />
+              <button onClick={handleLogout} className="flex w-full items-center gap-2 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
+                <LogOut size={13} />
                 Cerrar sesión
               </button>
             </div>
           )}
 
           {/* Mobile Menu Button */}
-          <button className="md:hidden p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          <button className="md:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition" onClick={() => setMenuOpen(!menuOpen)}>
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
@@ -378,227 +370,157 @@ export default function Header() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="md:hidden border-t border-slate-100 bg-white">
-          <nav className="flex flex-col p-3 gap-1">
+          <nav className="flex flex-col p-2 gap-0.5">
             {/* Section Switcher - Mobile */}
             {isInProjectSection && projectId && (
               <>
-                <p className="px-3 py-1 text-xs text-slate-400 uppercase tracking-wider">Ir a sección</p>
-                <div className="flex gap-2 px-3 py-2 mb-2">
+                <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">Ir a sección</p>
+                <div className="flex gap-1.5 px-2 py-1.5 mb-1">
                   {permissions.config && currentSection !== "config" && (
                     <Link
                       href={`/project/${projectId}/config`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
-                      <Settings size={16} />
-                      <span className="text-sm font-medium">Config</span>
+                      <Settings size={14} />
+                      Config
                     </Link>
                   )}
                   {permissions.accounting && currentSection !== "accounting" && (
                     <Link
                       href={`/project/${projectId}/accounting`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
                     >
-                      <BarChart3 size={16} />
-                      <span className="text-sm font-medium">Accounting</span>
+                      <BarChart3 size={14} />
+                      Accounting
                     </Link>
                   )}
                   {permissions.team && currentSection !== "team" && (
                     <Link
                       href={`/project/${projectId}/team`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-amber-600 hover:bg-amber-50 border border-amber-200"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-amber-600 hover:bg-amber-50 border border-amber-200"
                     >
-                      <Users size={16} />
-                      <span className="text-sm font-medium">Team</span>
+                      <Users size={14} />
+                      Team
                     </Link>
                   )}
                 </div>
-                <div className="border-t border-slate-100 my-2"></div>
-                <p className="px-3 py-1 text-xs text-slate-400 uppercase tracking-wider">En esta sección</p>
+                <div className="border-t border-slate-100 my-1"></div>
+                <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">En esta sección</p>
               </>
             )}
 
             {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection ? (
               <>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <Folder size={16} />
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <Folder size={14} />
                   Proyectos
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-purple-600 hover:bg-purple-50">
-                    <Shield size={16} />
+                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-purple-600 hover:bg-purple-50">
+                    <Shield size={14} />
                     Administración
                   </Link>
                 )}
-                <div className="border-t border-slate-100 my-2"></div>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <User size={16} />
+                <div className="border-t border-slate-100 my-1"></div>
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <User size={14} />
                   Mi cuenta
                 </Link>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
-                >
-                  <LogOut size={16} />
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
+                  <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : isAdminSection ? (
               <>
-                <Link
-                  href="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-purple-700 bg-purple-50 font-medium"
-                >
-                  <Shield size={16} />
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-purple-700 bg-purple-50 font-medium">
+                  <Shield size={14} />
                   Panel de administración
                 </Link>
-                <div className="border-t border-slate-100 my-2"></div>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <Folder size={16} />
+                <div className="border-t border-slate-100 my-1"></div>
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <Folder size={14} />
                   Proyectos
                 </Link>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-                  <User size={16} />
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  <User size={14} />
                   Mi cuenta
                 </Link>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
-                >
-                  <LogOut size={16} />
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
+                  <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : isConfigSection ? (
               <>
-                <Link
-                  href={`/project/${projectId}/config`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "general" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <Info size={16} />
+                <Link href={`/project/${projectId}/config`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "general" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Info size={14} />
                   General
                 </Link>
-                <Link
-                  href={`/project/${projectId}/config/users`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <UserCog size={16} />
+                <Link href={`/project/${projectId}/config/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <UserCog size={14} />
                   Usuarios
                 </Link>
-                <Link
-                  href={`/project/${projectId}/config/departments`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${configTab === "departments" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                >
-                  <Briefcase size={16} />
+                <Link href={`/project/${projectId}/config/departments`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "departments" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Briefcase size={14} />
                   Departamentos
                 </Link>
-                <div className="border-t border-slate-100 my-2"></div>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
-                >
-                  <LogOut size={16} />
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
+                  <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : isAccountingSection ? (
               <>
                 {accountingAccess.panel && (
-                  <Link
-                    href={`/project/${projectId}/accounting`}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                  >
-                    <LayoutDashboard size={16} />
+                  <Link href={`/project/${projectId}/accounting`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                    <LayoutDashboard size={14} />
                     Panel
                   </Link>
                 )}
                 {accountingAccess.suppliers && (
-                  <Link
-                    href={`/project/${projectId}/accounting/suppliers`}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "suppliers" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                  >
-                    <Building2 size={16} />
+                  <Link href={`/project/${projectId}/accounting/suppliers`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "suppliers" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                    <Building2 size={14} />
                     Proveedores
                   </Link>
                 )}
                 {accountingAccess.budget && (
-                  <Link
-                    href={`/project/${projectId}/accounting/budget`}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                  >
-                    <Wallet size={16} />
+                  <Link href={`/project/${projectId}/accounting/budget`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                    <Wallet size={14} />
                     Presupuesto
                   </Link>
                 )}
                 {accountingAccess.users && (
-                  <Link
-                    href={`/project/${projectId}/accounting/users`}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                  >
-                    <Users size={16} />
+                  <Link href={`/project/${projectId}/accounting/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                    <Users size={14} />
                     Usuarios
                   </Link>
                 )}
                 {accountingAccess.reports && (
-                  <Link
-                    href={`/project/${projectId}/accounting/reports`}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${accountingPage === "reports" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}
-                  >
-                    <BarChart3 size={16} />
+                  <Link href={`/project/${projectId}/accounting/reports`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "reports" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                    <BarChart3 size={14} />
                     Informes
                   </Link>
                 )}
-                <div className="border-t border-slate-100 my-2"></div>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
-                >
-                  <LogOut size={16} />
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
+                  <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : (
               <>
-                <Link
-                  href={`/project/${projectId}/team`}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-900 bg-slate-100 font-medium"
-                >
-                  <Users size={16} />
+                <Link href={`/project/${projectId}/team`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
+                  <Users size={14} />
                   Equipo
                 </Link>
-                <div className="border-t border-slate-100 my-2"></div>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 text-left"
-                >
-                  <LogOut size={16} />
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
+                  <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
@@ -609,18 +531,10 @@ export default function Header() {
 
       <style jsx>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.15s ease-out;
-        }
+        .animate-fadeIn { animation: fadeIn 0.1s ease-out; }
       `}</style>
     </header>
   );
