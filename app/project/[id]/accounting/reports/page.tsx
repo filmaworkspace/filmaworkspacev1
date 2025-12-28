@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
-import { BarChart3, Download, ArrowLeft, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
+import { Download, ArrowLeft, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -601,10 +601,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <BarChart3 size={24} className="text-indigo-600" />
-              </div>
+            <div>
               <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
             </div>
           </div>
