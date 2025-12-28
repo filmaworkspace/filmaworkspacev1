@@ -464,9 +464,6 @@ export default function SuppliersPage() {
               <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={exportSuppliers} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                <Download size={16} />Exportar
-              </button>
               <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
                 <Plus size={18} />Añadir proveedor
               </button>
@@ -490,46 +487,52 @@ export default function SuppliersPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-3 items-center mb-6">
+        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
           <div className="flex-1 relative w-full">
-            <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
 
-          {/* Status Dropdown personalizado */}
-          <div className="relative" ref={statusDropdownRef}>
-            <button
-              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-sm transition-colors min-w-[200px] ${
-                filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
-              }`}
-            >
-              <Filter size={15} className={filterStatus !== "all" ? "text-white" : "text-slate-400"} />
-              <span className="flex-1 text-left">{getStatusLabel()}</span>
-              <ChevronDown size={14} className={`transition-transform ${showStatusDropdown ? "rotate-180" : ""} ${filterStatus !== "all" ? "text-white" : "text-slate-400"}`} />
-            </button>
-            {showStatusDropdown && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                {STATUS_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => { setFilterStatus(option.value as any); setShowStatusDropdown(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                      filterStatus === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+          <div className="flex gap-2">
+            {/* Status Dropdown personalizado */}
+            <div className="relative" ref={statusDropdownRef}>
+              <button
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors min-w-[180px] ${
+                  filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
+                }`}
+              >
+                <Filter size={14} className={filterStatus !== "all" ? "text-white" : "text-slate-400"} />
+                <span className="flex-1 text-left text-xs">{getStatusLabel()}</span>
+                <ChevronDown size={14} className={`transition-transform ${showStatusDropdown ? "rotate-180" : ""} ${filterStatus !== "all" ? "text-white" : "text-slate-400"}`} />
+              </button>
+              {showStatusDropdown && (
+                <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                  {STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => { setFilterStatus(option.value as any); setShowStatusDropdown(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                        filterStatus === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {(searchTerm || filterStatus !== "all") && (
+              <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+                <X size={14} />Limpiar
+              </button>
             )}
-          </div>
 
-          {(searchTerm || filterStatus !== "all") && (
-            <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-              <X size={14} />Limpiar
+            <button onClick={exportSuppliers} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
+              <Download size={14} />Exportar
             </button>
-          )}
+          </div>
         </div>
 
         {/* Content */}
