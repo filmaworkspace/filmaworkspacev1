@@ -2,10 +2,10 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, Timestamp, orderBy } from "firebase/firestore";
-import { Plus, Search, Download, Edit, Trash2, X, FileCheck, FileX, AlertCircle, CheckCircle, Building2, MapPin, CreditCard, Globe, FileText, Clock, Eye, ArrowLeft, User, Mail, Phone, ShieldCheck, Hash, Lock } from "lucide-react";
+import { Plus, Search, Download, Edit, Trash2, X, FileCheck, FileX, AlertCircle, CheckCircle, Building2, MapPin, CreditCard, Globe, FileText, Clock, Eye, ArrowLeft, User, Mail, Phone, ShieldCheck, Hash, Lock, ChevronDown, Filter } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -33,14 +33,16 @@ const COUNTRIES = [
   { code: "US", name: "Estados Unidos", flag: "🇺🇸", ibanLength: 0, ibanPrefix: "" },
 ];
 
-// Capitalización inteligente
+const STATUS_OPTIONS = [
+  { value: "all", label: "Todos los estados" },
+  { value: "valid", label: "Certificados válidos" },
+  { value: "expiring", label: "Próximos a caducar" },
+  { value: "expired", label: "Acción requerida" },
+];
+
 const capitalizeSupplierName = (name: string): string => {
   if (!name) return "";
-  
-  // Palabras que van en minúscula (artículos, preposiciones)
   const lowercaseWords = ["de", "del", "la", "las", "el", "los", "y", "e", "en", "a", "con", "por", "para"];
-  
-  // Formas societarias a normalizar
   const societyForms: Record<string, string> = {
     "s.l.": "SL", "s. l.": "SL", "sl": "SL", "s.l": "SL",
     "s.a.": "SA", "s. a.": "SA", "sa": "SA", "s.a": "SA",
@@ -51,47 +53,30 @@ const capitalizeSupplierName = (name: string): string => {
     "s.l.l.": "SLL", "s. l. l.": "SLL", "sll": "SLL",
     "coop.": "COOP", "coop": "COOP",
   };
-
-  // Primero normalizar formas societarias
   let normalized = name.toLowerCase();
   Object.entries(societyForms).forEach(([pattern, replacement]) => {
     const regex = new RegExp(`\\b${pattern.replace(/\./g, "\\.")}\\b`, "gi");
     normalized = normalized.replace(regex, replacement);
   });
-
-  // Capitalizar cada palabra
   const words = normalized.split(/\s+/);
   const capitalized = words.map((word, index) => {
-    // Si es forma societaria, mantener mayúsculas
-    if (["SL", "SA", "SC", "SLU", "SCP", "SAU", "SLL", "COOP"].includes(word.toUpperCase())) {
-      return word.toUpperCase();
-    }
-    // Si es artículo/preposición y no es la primera palabra
-    if (index > 0 && lowercaseWords.includes(word.toLowerCase())) {
-      return word.toLowerCase();
-    }
-    // Capitalizar primera letra
+    if (["SL", "SA", "SC", "SLU", "SCP", "SAU", "SLL", "COOP"].includes(word.toUpperCase())) return word.toUpperCase();
+    if (index > 0 && lowercaseWords.includes(word.toLowerCase())) return word.toLowerCase();
     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
   });
-
   return capitalized.join(" ");
 };
 
-// Formatear IBAN con espacios
 const formatIBAN = (iban: string): string => {
   const clean = iban.replace(/\s/g, "").toUpperCase();
   return clean.match(/.{1,4}/g)?.join(" ") || clean;
 };
 
-// Validar NIF/CIF español
 const validateSpanishTaxId = (taxId: string): boolean => {
   const clean = taxId.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (clean.length !== 9) return false;
-  
   const letters = "TRWAGMYFPDXBNJZSQVHLCKE";
   const firstChar = clean.charAt(0);
-  
-  // NIF (empieza por número o X, Y, Z)
   if (/^[0-9XYZ]/.test(firstChar)) {
     let num = clean.slice(0, 8);
     if (firstChar === "X") num = "0" + num.slice(1);
@@ -100,8 +85,6 @@ const validateSpanishTaxId = (taxId: string): boolean => {
     const expectedLetter = letters[parseInt(num) % 23];
     return clean.charAt(8) === expectedLetter;
   }
-  
-  // CIF (empieza por letra)
   return /^[ABCDEFGHJKLMNPQRSUVW][0-9]{7}[0-9A-J]$/.test(clean);
 };
 
@@ -116,7 +99,7 @@ export default function SuppliersPage() {
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired">("all");
   const [errorMessage, setErrorMessage] = useState("");
@@ -124,18 +107,17 @@ export default function SuppliersPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [userAccountingLevel, setUserAccountingLevel] = useState<string>("");
-  const [previewSupplier, setPreviewSupplier] = useState<Supplier | null>(null);
   const [taxIdError, setTaxIdError] = useState("");
 
+  // Dropdown personalizado
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
-    fiscalName: "",
-    commercialName: "",
-    country: "ES",
-    taxId: "",
+    fiscalName: "", commercialName: "", country: "ES", taxId: "",
     address: { street: "", number: "", city: "", province: "", postalCode: "" },
     contact: { name: "", email: "", phone: "" },
-    paymentMethod: "transferencia" as PaymentMethod,
-    bankAccount: "",
+    paymentMethod: "transferencia" as PaymentMethod, bankAccount: "",
   });
 
   const [certificates, setCertificates] = useState({
@@ -150,12 +132,9 @@ export default function SuppliersPage() {
       if (user) {
         setUserId(user.uid);
         setUserName(user.displayName || user.email || "Usuario");
-        // Cargar nivel de acceso
         try {
           const memberDoc = await getDoc(doc(db, `projects/${id}/members`, user.uid));
-          if (memberDoc.exists()) {
-            setUserAccountingLevel(memberDoc.data().accountingAccessLevel || "user");
-          }
+          if (memberDoc.exists()) setUserAccountingLevel(memberDoc.data().accountingAccessLevel || "user");
         } catch (e) { console.error(e); }
       }
     });
@@ -164,6 +143,16 @@ export default function SuppliersPage() {
 
   useEffect(() => { if (userId && id) loadData(); }, [userId, id]);
   useEffect(() => { filterSuppliers(); }, [searchTerm, filterStatus, suppliers]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -178,38 +167,19 @@ export default function SuppliersPage() {
       const suppliersData = suppliersSnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
-          id: doc.id,
-          fiscalName: data.fiscalName || "",
-          commercialName: data.commercialName || "",
-          country: data.country || "ES",
-          taxId: data.taxId || "",
+          id: doc.id, fiscalName: data.fiscalName || "", commercialName: data.commercialName || "",
+          country: data.country || "ES", taxId: data.taxId || "",
           address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
           contact: data.contact || { name: "", email: "", phone: "" },
-          paymentMethod: data.paymentMethod || "transferencia",
-          bankAccount: data.bankAccount || "",
+          paymentMethod: data.paymentMethod || "transferencia", bankAccount: data.bankAccount || "",
           certificates: {
-            bankOwnership: {
-              ...data.certificates?.bankOwnership,
-              expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(),
-              uploaded: data.certificates?.bankOwnership?.uploaded || false,
-              verified: data.certificates?.bankOwnership?.verified || false,
-              verifiedAt: data.certificates?.bankOwnership?.verifiedAt?.toDate(),
-            },
-            contractorsCertificate: {
-              ...data.certificates?.contractorsCertificate,
-              expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(),
-              uploaded: data.certificates?.contractorsCertificate?.uploaded || false,
-              verified: data.certificates?.contractorsCertificate?.verified || false,
-              verifiedAt: data.certificates?.contractorsCertificate?.verifiedAt?.toDate(),
-            },
+            bankOwnership: { ...data.certificates?.bankOwnership, expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(), uploaded: data.certificates?.bankOwnership?.uploaded || false, verified: data.certificates?.bankOwnership?.verified || false, verifiedAt: data.certificates?.bankOwnership?.verifiedAt?.toDate() },
+            contractorsCertificate: { ...data.certificates?.contractorsCertificate, expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(), uploaded: data.certificates?.contractorsCertificate?.uploaded || false, verified: data.certificates?.contractorsCertificate?.verified || false, verifiedAt: data.certificates?.contractorsCertificate?.verifiedAt?.toDate() },
           },
-          createdAt: data.createdAt?.toDate() || new Date(),
-          createdBy: data.createdBy || "",
-          hasAssignedPOs: data.hasAssignedPOs || false,
-          hasAssignedInvoices: data.hasAssignedInvoices || false,
+          createdAt: data.createdAt?.toDate() || new Date(), createdBy: data.createdBy || "",
+          hasAssignedPOs: data.hasAssignedPOs || false, hasAssignedInvoices: data.hasAssignedInvoices || false,
         };
       }) as Supplier[];
-
       setSuppliers(suppliersData);
     } catch (error: any) {
       setErrorMessage(`Error cargando datos: ${error.message}`);
@@ -227,9 +197,7 @@ export default function SuppliersPage() {
         s.taxId.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((s) => getCertificateStatus(s) === filterStatus);
-    }
+    if (filterStatus !== "all") filtered = filtered.filter((s) => getCertificateStatus(s) === filterStatus);
     setFilteredSuppliers(filtered);
   };
 
@@ -238,7 +206,6 @@ export default function SuppliersPage() {
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const bankCert = supplier.certificates.bankOwnership;
     const contractorCert = supplier.certificates.contractorsCertificate;
-
     if (!bankCert.uploaded || !contractorCert.uploaded) return "expired";
     if ((bankCert.expiryDate && bankCert.expiryDate < now) || (contractorCert.expiryDate && contractorCert.expiryDate < now)) return "expired";
     if ((bankCert.expiryDate && bankCert.expiryDate < thirtyDaysFromNow) || (contractorCert.expiryDate && contractorCert.expiryDate < thirtyDaysFromNow)) return "expiring";
@@ -246,61 +213,38 @@ export default function SuppliersPage() {
   };
 
   const getCountryInfo = (code: string) => COUNTRIES.find(c => c.code === code) || COUNTRIES[0];
+  const getStatusLabel = () => STATUS_OPTIONS.find((o) => o.value === filterStatus)?.label || "Todos los estados";
 
   const handleCountryChange = (newCountry: string) => {
     const countryInfo = getCountryInfo(newCountry);
     let newBankAccount = formData.bankAccount;
-    
-    // Si el IBAN actual tiene un prefijo de otro país, cambiarlo
     const currentPrefix = formData.bankAccount.replace(/\s/g, "").slice(0, 2);
     const oldCountry = COUNTRIES.find(c => c.ibanPrefix === currentPrefix);
-    
-    if (oldCountry || !formData.bankAccount) {
-      newBankAccount = countryInfo.ibanPrefix;
-    }
-    
+    if (oldCountry || !formData.bankAccount) newBankAccount = countryInfo.ibanPrefix;
     setFormData({ ...formData, country: newCountry, bankAccount: newBankAccount });
   };
 
   const handleBankAccountChange = (value: string) => {
     const countryInfo = getCountryInfo(formData.country);
     let clean = value.replace(/\s/g, "").toUpperCase();
-    
-    // Asegurar que empiece con el prefijo del país
     if (countryInfo.ibanPrefix && !clean.startsWith(countryInfo.ibanPrefix)) {
       clean = countryInfo.ibanPrefix + clean.replace(/^[A-Z]{0,2}/, "");
     }
-    
-    // Limitar longitud
-    if (countryInfo.ibanLength > 0) {
-      clean = clean.slice(0, countryInfo.ibanLength);
-    }
-    
+    if (countryInfo.ibanLength > 0) clean = clean.slice(0, countryInfo.ibanLength);
     setFormData({ ...formData, bankAccount: formatIBAN(clean) });
   };
 
   const handleTaxIdChange = (value: string) => {
     const clean = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
     setFormData({ ...formData, taxId: clean });
-    
     if (formData.country === "ES" && clean.length === 9) {
-      if (!validateSpanishTaxId(clean)) {
-        setTaxIdError("NIF/CIF no válido");
-      } else {
-        setTaxIdError("");
-      }
-    } else {
-      setTaxIdError("");
-    }
+      if (!validateSpanishTaxId(clean)) setTaxIdError("NIF/CIF no válido");
+      else setTaxIdError("");
+    } else setTaxIdError("");
   };
 
-  const handleFiscalNameBlur = () => {
-    setFormData({ ...formData, fiscalName: capitalizeSupplierName(formData.fiscalName) });
-  };
-
-  const handleCommercialNameBlur = () => {
-    setFormData({ ...formData, commercialName: capitalizeSupplierName(formData.commercialName) });
-  };
+  const handleFiscalNameBlur = () => setFormData({ ...formData, fiscalName: capitalizeSupplierName(formData.fiscalName) });
+  const handleCommercialNameBlur = () => setFormData({ ...formData, commercialName: capitalizeSupplierName(formData.commercialName) });
 
   const validateForm = () => {
     if (!formData.fiscalName.trim()) { setErrorMessage("El nombre fiscal es obligatorio"); return false; }
@@ -313,7 +257,6 @@ export default function SuppliersPage() {
     if (!validateForm()) return;
     setSaving(true);
     setErrorMessage("");
-
     try {
       const newSupplier = {
         fiscalName: capitalizeSupplierName(formData.fiscalName.trim()),
@@ -321,40 +264,23 @@ export default function SuppliersPage() {
         country: formData.country,
         taxId: formData.taxId.trim().toUpperCase(),
         address: {
-          street: formData.address.street.trim(),
-          number: formData.address.number.trim(),
-          city: formData.address.city.trim(),
-          province: formData.address.province.trim(),
+          street: formData.address.street.trim(), number: formData.address.number.trim(),
+          city: formData.address.city.trim(), province: formData.address.province.trim(),
           postalCode: formData.address.postalCode.trim(),
         },
         contact: {
-          name: formData.contact.name.trim(),
-          email: formData.contact.email.trim(),
+          name: formData.contact.name.trim(), email: formData.contact.email.trim(),
           phone: formData.contact.phone.trim(),
         },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.replace(/\s/g, ""),
         certificates: {
-          bankOwnership: {
-            uploaded: !!certificates.bankOwnership.file,
-            expiryDate: certificates.bankOwnership.expiryDate ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) : null,
-            fileName: certificates.bankOwnership.file?.name || "",
-            verified: false,
-          },
-          contractorsCertificate: {
-            uploaded: !!certificates.contractorsCertificate.file,
-            expiryDate: certificates.contractorsCertificate.expiryDate ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) : null,
-            fileName: certificates.contractorsCertificate.file?.name || "",
-            verified: false,
-            aeatVerified: false,
-          },
+          bankOwnership: { uploaded: !!certificates.bankOwnership.file, expiryDate: certificates.bankOwnership.expiryDate ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) : null, fileName: certificates.bankOwnership.file?.name || "", verified: false },
+          contractorsCertificate: { uploaded: !!certificates.contractorsCertificate.file, expiryDate: certificates.contractorsCertificate.expiryDate ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) : null, fileName: certificates.contractorsCertificate.file?.name || "", verified: false, aeatVerified: false },
         },
-        createdAt: Timestamp.now(),
-        createdBy: userId || "",
-        hasAssignedPOs: false,
-        hasAssignedInvoices: false,
+        createdAt: Timestamp.now(), createdBy: userId || "",
+        hasAssignedPOs: false, hasAssignedInvoices: false,
       };
-
       await addDoc(collection(db, `projects/${id}/suppliers`), newSupplier);
       setSuccessMessage("Proveedor creado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -373,7 +299,6 @@ export default function SuppliersPage() {
     if (!validateForm()) return;
     setSaving(true);
     setErrorMessage("");
-
     try {
       const updatedData: any = {
         fiscalName: capitalizeSupplierName(formData.fiscalName.trim()),
@@ -381,69 +306,37 @@ export default function SuppliersPage() {
         country: formData.country,
         taxId: formData.taxId.trim().toUpperCase(),
         address: {
-          street: formData.address.street.trim(),
-          number: formData.address.number.trim(),
-          city: formData.address.city.trim(),
-          province: formData.address.province.trim(),
+          street: formData.address.street.trim(), number: formData.address.number.trim(),
+          city: formData.address.city.trim(), province: formData.address.province.trim(),
           postalCode: formData.address.postalCode.trim(),
         },
         contact: {
-          name: formData.contact.name.trim(),
-          email: formData.contact.email.trim(),
+          name: formData.contact.name.trim(), email: formData.contact.email.trim(),
           phone: formData.contact.phone.trim(),
         },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.replace(/\s/g, ""),
       };
 
-      // Certificados - solo actualizar si hay cambios
       const bankOwnershipUpdate: any = { ...selectedSupplier.certificates.bankOwnership };
-      if (certificates.bankOwnership.file) {
-        bankOwnershipUpdate.uploaded = true;
-        bankOwnershipUpdate.fileName = certificates.bankOwnership.file.name;
-      }
-      if (certificates.bankOwnership.expiryDate) {
-        bankOwnershipUpdate.expiryDate = Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate));
-      }
+      if (certificates.bankOwnership.file) { bankOwnershipUpdate.uploaded = true; bankOwnershipUpdate.fileName = certificates.bankOwnership.file.name; }
+      if (certificates.bankOwnership.expiryDate) bankOwnershipUpdate.expiryDate = Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate));
       if (canVerifyCertificates && certificates.bankOwnership.verified !== selectedSupplier.certificates.bankOwnership.verified) {
         bankOwnershipUpdate.verified = certificates.bankOwnership.verified;
-        if (certificates.bankOwnership.verified) {
-          bankOwnershipUpdate.verifiedBy = userId;
-          bankOwnershipUpdate.verifiedByName = userName;
-          bankOwnershipUpdate.verifiedAt = Timestamp.now();
-        } else {
-          bankOwnershipUpdate.verifiedBy = null;
-          bankOwnershipUpdate.verifiedByName = null;
-          bankOwnershipUpdate.verifiedAt = null;
-        }
+        if (certificates.bankOwnership.verified) { bankOwnershipUpdate.verifiedBy = userId; bankOwnershipUpdate.verifiedByName = userName; bankOwnershipUpdate.verifiedAt = Timestamp.now(); }
+        else { bankOwnershipUpdate.verifiedBy = null; bankOwnershipUpdate.verifiedByName = null; bankOwnershipUpdate.verifiedAt = null; }
       }
 
       const contractorsCertUpdate: any = { ...selectedSupplier.certificates.contractorsCertificate };
-      if (certificates.contractorsCertificate.file) {
-        contractorsCertUpdate.uploaded = true;
-        contractorsCertUpdate.fileName = certificates.contractorsCertificate.file.name;
-      }
-      if (certificates.contractorsCertificate.expiryDate) {
-        contractorsCertUpdate.expiryDate = Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate));
-      }
+      if (certificates.contractorsCertificate.file) { contractorsCertUpdate.uploaded = true; contractorsCertUpdate.fileName = certificates.contractorsCertificate.file.name; }
+      if (certificates.contractorsCertificate.expiryDate) contractorsCertUpdate.expiryDate = Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate));
       if (canVerifyCertificates && certificates.contractorsCertificate.verified !== selectedSupplier.certificates.contractorsCertificate.verified) {
         contractorsCertUpdate.verified = certificates.contractorsCertificate.verified;
-        if (certificates.contractorsCertificate.verified) {
-          contractorsCertUpdate.verifiedBy = userId;
-          contractorsCertUpdate.verifiedByName = userName;
-          contractorsCertUpdate.verifiedAt = Timestamp.now();
-        } else {
-          contractorsCertUpdate.verifiedBy = null;
-          contractorsCertUpdate.verifiedByName = null;
-          contractorsCertUpdate.verifiedAt = null;
-        }
+        if (certificates.contractorsCertificate.verified) { contractorsCertUpdate.verifiedBy = userId; contractorsCertUpdate.verifiedByName = userName; contractorsCertUpdate.verifiedAt = Timestamp.now(); }
+        else { contractorsCertUpdate.verifiedBy = null; contractorsCertUpdate.verifiedByName = null; contractorsCertUpdate.verifiedAt = null; }
       }
 
-      updatedData.certificates = {
-        bankOwnership: bankOwnershipUpdate,
-        contractorsCertificate: contractorsCertUpdate,
-      };
-
+      updatedData.certificates = { bankOwnership: bankOwnershipUpdate, contractorsCertificate: contractorsCertUpdate };
       await updateDoc(doc(db, `projects/${id}/suppliers`, selectedSupplier.id), updatedData);
       setSuccessMessage("Proveedor actualizado correctamente");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -495,49 +388,28 @@ export default function SuppliersPage() {
   const openEditModal = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setFormData({
-      fiscalName: supplier.fiscalName,
-      commercialName: supplier.commercialName,
-      country: supplier.country,
-      taxId: supplier.taxId,
-      address: supplier.address,
+      fiscalName: supplier.fiscalName, commercialName: supplier.commercialName,
+      country: supplier.country, taxId: supplier.taxId, address: supplier.address,
       contact: supplier.contact || { name: "", email: "", phone: "" },
       paymentMethod: supplier.paymentMethod as PaymentMethod,
       bankAccount: formatIBAN(supplier.bankAccount),
     });
     setCertificates({
-      bankOwnership: {
-        file: null,
-        expiryDate: supplier.certificates.bankOwnership.expiryDate ? new Date(supplier.certificates.bankOwnership.expiryDate).toISOString().split('T')[0] : "",
-        verified: supplier.certificates.bankOwnership.verified || false,
-      },
-      contractorsCertificate: {
-        file: null,
-        expiryDate: supplier.certificates.contractorsCertificate.expiryDate ? new Date(supplier.certificates.contractorsCertificate.expiryDate).toISOString().split('T')[0] : "",
-        verified: supplier.certificates.contractorsCertificate.verified || false,
-      },
+      bankOwnership: { file: null, expiryDate: supplier.certificates.bankOwnership.expiryDate ? new Date(supplier.certificates.bankOwnership.expiryDate).toISOString().split('T')[0] : "", verified: supplier.certificates.bankOwnership.verified || false },
+      contractorsCertificate: { file: null, expiryDate: supplier.certificates.contractorsCertificate.expiryDate ? new Date(supplier.certificates.contractorsCertificate.expiryDate).toISOString().split('T')[0] : "", verified: supplier.certificates.contractorsCertificate.verified || false },
     });
     setModalMode("edit");
     setShowModal(true);
   };
 
   const getCertificateBadge = (cert: Certificate) => {
-    if (!cert.uploaded) {
-      return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700"><FileX size={12} />No subido</span>);
-    }
-    if (cert.verified) {
-      return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"><ShieldCheck size={12} />Verificado</span>);
-    }
-    if (!cert.expiryDate) {
-      return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700"><FileCheck size={12} />Subido</span>);
-    }
+    if (!cert.uploaded) return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700"><FileX size={12} />No subido</span>);
+    if (cert.verified) return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"><ShieldCheck size={12} />Verificado</span>);
+    if (!cert.expiryDate) return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700"><FileCheck size={12} />Subido</span>);
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    if (cert.expiryDate < now) {
-      return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700"><AlertCircle size={12} />Caducado</span>);
-    }
-    if (cert.expiryDate < thirtyDaysFromNow) {
-      return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700"><Clock size={12} />Por caducar</span>);
-    }
+    if (cert.expiryDate < now) return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700"><AlertCircle size={12} />Caducado</span>);
+    if (cert.expiryDate < thirtyDaysFromNow) return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700"><Clock size={12} />Por caducar</span>);
     return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"><CheckCircle size={12} />Válido</span>);
   };
 
@@ -588,23 +460,15 @@ export default function SuppliersPage() {
           </div>
 
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <Building2 size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
-              </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
             </div>
-
             <div className="flex items-center gap-2">
               <button onClick={exportSuppliers} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                <Download size={16} />
-                Exportar
+                <Download size={16} />Exportar
               </button>
               <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
-                <Plus size={18} />
-                Añadir proveedor
+                <Plus size={18} />Añadir proveedor
               </button>
             </div>
           </div>
@@ -615,33 +479,57 @@ export default function SuppliersPage() {
         {/* Messages */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
-            <AlertCircle size={20} />
-            <span className="flex-1">{errorMessage}</span>
+            <AlertCircle size={20} /><span className="flex-1">{errorMessage}</span>
             <button onClick={() => setErrorMessage("")}><X size={16} /></button>
           </div>
         )}
-
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700">
-            <CheckCircle size={20} />
-            <span>{successMessage}</span>
+            <CheckCircle size={20} /><span>{successMessage}</span>
           </div>
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
+        <div className="flex flex-col md:flex-row gap-3 items-center mb-6">
           <div className="flex-1 relative w-full">
-            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <Search size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
-          <div className="flex gap-2">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm">
-              <option value="all">Todos los estados</option>
-              <option value="valid">Certificados válidos</option>
-              <option value="expiring">Próximos a caducar</option>
-              <option value="expired">Acción requerida</option>
-            </select>
+
+          {/* Status Dropdown personalizado */}
+          <div className="relative" ref={statusDropdownRef}>
+            <button
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-sm bg-white transition-colors min-w-[200px] ${
+                filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700"
+              }`}
+            >
+              <Filter size={15} className={filterStatus !== "all" ? "text-white" : "text-slate-400"} />
+              <span className="flex-1 text-left">{getStatusLabel()}</span>
+              <ChevronDown size={14} className={`transition-transform ${showStatusDropdown ? "rotate-180" : ""} ${filterStatus !== "all" ? "text-white" : "text-slate-400"}`} />
+            </button>
+            {showStatusDropdown && (
+              <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                {STATUS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => { setFilterStatus(option.value as any); setShowStatusDropdown(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                      filterStatus === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {(searchTerm || filterStatus !== "all") && (
+            <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+              <X size={14} />Limpiar
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -674,10 +562,10 @@ export default function SuppliersPage() {
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-4 py-2">
-                        <button onClick={() => setPreviewSupplier(supplier)} className="text-left hover:text-indigo-600 transition-colors">
+                        <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="text-left hover:text-indigo-600 transition-colors block">
                           <p className="font-semibold text-slate-900 group-hover:text-indigo-600 text-xs">{supplier.fiscalName}</p>
                           {supplier.commercialName && <p className="text-[11px] text-slate-500">{supplier.commercialName}</p>}
-                        </button>
+                        </Link>
                       </td>
                       <td className="px-4 py-2">
                         <span className="text-xs font-mono text-slate-700">{supplier.taxId}</span>
@@ -692,18 +580,12 @@ export default function SuppliersPage() {
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        {getCertificateBadge(supplier.certificates.bankOwnership)}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {getCertificateBadge(supplier.certificates.contractorsCertificate)}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {getStatusBadge(status)}
-                      </td>
+                      <td className="px-3 py-2 text-center">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
+                      <td className="px-3 py-2 text-center">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
+                      <td className="px-3 py-2 text-center">{getStatusBadge(status)}</td>
                       <td className="px-4 py-2">
                         <div className="flex items-center justify-end gap-0.5">
-                          <button onClick={() => setPreviewSupplier(supplier)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Ver"><Eye size={14} /></button>
+                          <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Ver"><Eye size={14} /></Link>
                           <button onClick={() => openEditModal(supplier)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
                           <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed" title="Eliminar"><Trash2 size={14} /></button>
                         </div>
@@ -717,202 +599,43 @@ export default function SuppliersPage() {
         )}
       </main>
 
-      {/* Preview Modal */}
-      {previewSupplier && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewSupplier(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* Header with gradient */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Building2 size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-lg">{previewSupplier.fiscalName}</h3>
-                    {previewSupplier.commercialName && <p className="text-white/80 text-sm">{previewSupplier.commercialName}</p>}
-                  </div>
-                </div>
-                <button onClick={() => setPreviewSupplier(null)} className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-colors"><X size={18} /></button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Info Grid */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Hash size={12} />NIF/CIF</p>
-                  <p className="text-sm font-mono font-bold text-slate-900">{previewSupplier.taxId}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Globe size={12} />País</p>
-                  <p className="text-sm font-bold text-slate-900">{getCountryInfo(previewSupplier.country).name}</p>
-                </div>
-              </div>
-
-              {/* Bank Account */}
-              {previewSupplier.bankAccount && (
-                <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <p className="text-xs text-indigo-600 mb-1 flex items-center gap-1"><CreditCard size={12} />Cuenta bancaria</p>
-                  <p className="text-sm font-mono font-bold text-indigo-900">{formatIBAN(previewSupplier.bankAccount)}</p>
-                </div>
-              )}
-
-              {/* Contact */}
-              {previewSupplier.contact?.name && (
-                <div className="mb-6">
-                  <p className="text-xs text-slate-500 uppercase mb-3 font-medium">Contacto</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                      <User size={16} className="text-slate-400" />
-                      <span className="text-sm text-slate-900">{previewSupplier.contact.name}</span>
-                    </div>
-                    {previewSupplier.contact.email && (
-                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                        <Mail size={16} className="text-slate-400" />
-                        <a href={`mailto:${previewSupplier.contact.email}`} className="text-sm text-indigo-600 hover:underline">{previewSupplier.contact.email}</a>
-                      </div>
-                    )}
-                    {previewSupplier.contact.phone && (
-                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                        <Phone size={16} className="text-slate-400" />
-                        <a href={`tel:${previewSupplier.contact.phone}`} className="text-sm text-slate-900">{previewSupplier.contact.phone}</a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Certificates */}
-              <div className="mb-6">
-                <p className="text-xs text-slate-500 uppercase mb-3 font-medium">Certificados</p>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Titularidad bancaria</p>
-                      {previewSupplier.certificates.bankOwnership.expiryDate && (
-                        <p className="text-xs text-slate-500">Caduca: {formatDate(previewSupplier.certificates.bankOwnership.expiryDate)}</p>
-                      )}
-                      {previewSupplier.certificates.bankOwnership.verified && previewSupplier.certificates.bankOwnership.verifiedByName && (
-                        <p className="text-xs text-emerald-600 mt-1">Verificado por {previewSupplier.certificates.bankOwnership.verifiedByName}</p>
-                      )}
-                    </div>
-                    {getCertificateBadge(previewSupplier.certificates.bankOwnership)}
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Certificado contratistas</p>
-                      {previewSupplier.certificates.contractorsCertificate.expiryDate && (
-                        <p className="text-xs text-slate-500">Caduca: {formatDate(previewSupplier.certificates.contractorsCertificate.expiryDate)}</p>
-                      )}
-                      {previewSupplier.certificates.contractorsCertificate.verified && previewSupplier.certificates.contractorsCertificate.verifiedByName && (
-                        <p className="text-xs text-emerald-600 mt-1">Verificado por {previewSupplier.certificates.contractorsCertificate.verifiedByName}</p>
-                      )}
-                    </div>
-                    {getCertificateBadge(previewSupplier.certificates.contractorsCertificate)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick info */}
-              <div className="text-xs text-slate-500 space-y-2 pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center py-2">
-                  <span>Creado</span>
-                  <span className="text-slate-700 font-medium">{formatDate(previewSupplier.createdAt)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span>Método de pago</span>
-                  <span className="text-slate-700 font-medium">{PAYMENT_METHODS.find(m => m.value === previewSupplier.paymentMethod)?.label || previewSupplier.paymentMethod}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex gap-3">
-              <button onClick={() => { openEditModal(previewSupplier); setPreviewSupplier(null); }} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-white transition-colors">
-                <Edit size={16} />
-                Editar
-              </button>
-              <button onClick={() => setPreviewSupplier(null)} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); resetForm(); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {modalMode === "create" ? "Nuevo proveedor" : "Editar proveedor"}
-              </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                <X size={18} />
-              </button>
+              <h2 className="text-lg font-semibold text-slate-900">{modalMode === "create" ? "Nuevo proveedor" : "Editar proveedor"}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"><X size={18} /></button>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               {errorMessage && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-                  <AlertCircle size={16} />
-                  {errorMessage}
-                </div>
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2"><AlertCircle size={16} />{errorMessage}</div>
               )}
 
               <div className="space-y-6">
                 {/* Información básica */}
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                    <Building2 size={14} />
-                    Información básica
-                  </h3>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2"><Building2 size={14} />Información básica</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Nombre fiscal *</label>
-                      <input
-                        type="text"
-                        value={formData.fiscalName}
-                        onChange={(e) => setFormData({ ...formData, fiscalName: e.target.value })}
-                        onBlur={handleFiscalNameBlur}
-                        placeholder="Ej: Neumáticos García SL"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      />
+                      <input type="text" value={formData.fiscalName} onChange={(e) => setFormData({ ...formData, fiscalName: e.target.value })} onBlur={handleFiscalNameBlur} placeholder="Ej: Neumáticos García SL" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
                       <p className="text-xs text-slate-500 mt-1">Se formateará automáticamente</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Nombre comercial</label>
-                      <input
-                        type="text"
-                        value={formData.commercialName}
-                        onChange={(e) => setFormData({ ...formData, commercialName: e.target.value })}
-                        onBlur={handleCommercialNameBlur}
-                        placeholder="Ej: Neumáticos García"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      />
+                      <input type="text" value={formData.commercialName} onChange={(e) => setFormData({ ...formData, commercialName: e.target.value })} onBlur={handleCommercialNameBlur} placeholder="Ej: Neumáticos García" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">País</label>
-                      <select
-                        value={formData.country}
-                        onChange={(e) => handleCountryChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
-                      >
-                        {COUNTRIES.map((country) => (
-                          <option key={country.code} value={country.code}>{country.name}</option>
-                        ))}
+                      <select value={formData.country} onChange={(e) => handleCountryChange(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900">
+                        {COUNTRIES.map((country) => (<option key={country.code} value={country.code}>{country.name}</option>))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">NIF/CIF *</label>
-                      <input
-                        type="text"
-                        value={formData.taxId}
-                        onChange={(e) => handleTaxIdChange(e.target.value)}
-                        placeholder={formData.country === "ES" ? "B12345678" : "ID fiscal"}
-                        className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono uppercase ${taxIdError ? "border-red-300 bg-red-50" : "border-slate-200"}`}
-                      />
+                      <input type="text" value={formData.taxId} onChange={(e) => handleTaxIdChange(e.target.value)} placeholder={formData.country === "ES" ? "B12345678" : "ID fiscal"} className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono uppercase ${taxIdError ? "border-red-300 bg-red-50" : "border-slate-200"}`} />
                       {taxIdError && <p className="text-xs text-red-600 mt-1 flex items-center gap-1"><AlertCircle size={12} />{taxIdError}</p>}
                     </div>
                   </div>
@@ -920,10 +643,7 @@ export default function SuppliersPage() {
 
                 {/* Persona de contacto */}
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                    <User size={14} />
-                    Persona de contacto
-                  </h3>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2"><User size={14} />Persona de contacto</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Nombre</label>
@@ -951,10 +671,7 @@ export default function SuppliersPage() {
 
                 {/* Dirección */}
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                    <MapPin size={14} />
-                    Dirección
-                  </h3>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2"><MapPin size={14} />Dirección</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-slate-700 mb-2">Calle</label>
@@ -981,10 +698,7 @@ export default function SuppliersPage() {
 
                 {/* Información de pago */}
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                    <CreditCard size={14} />
-                    Información de pago
-                  </h3>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2"><CreditCard size={14} />Información de pago</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Método de pago</label>
@@ -994,13 +708,7 @@ export default function SuppliersPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Cuenta bancaria (IBAN)</label>
-                      <input
-                        type="text"
-                        value={formData.bankAccount}
-                        onChange={(e) => handleBankAccountChange(e.target.value)}
-                        placeholder={`${getCountryInfo(formData.country).ibanPrefix}XX XXXX XXXX XXXX XXXX XXXX`}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono"
-                      />
+                      <input type="text" value={formData.bankAccount} onChange={(e) => handleBankAccountChange(e.target.value)} placeholder={`${getCountryInfo(formData.country).ibanPrefix}XX XXXX XXXX XXXX XXXX XXXX`} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
                       <p className="text-xs text-slate-500 mt-1">Prefijo {getCountryInfo(formData.country).ibanPrefix} automático</p>
                     </div>
                   </div>
@@ -1008,10 +716,7 @@ export default function SuppliersPage() {
 
                 {/* Certificados */}
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2">
-                    <FileText size={14} />
-                    Certificados
-                  </h3>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider flex items-center gap-2"><FileText size={14} />Certificados</h3>
                   <div className="space-y-4">
                     {/* Bank Ownership Certificate */}
                     <div className="border border-slate-200 rounded-xl p-4">
@@ -1026,15 +731,12 @@ export default function SuppliersPage() {
                           <span className="text-xs text-slate-400 flex items-center gap-1"><Lock size={12} />Solo contabilidad ampliada</span>
                         )}
                       </div>
-                      
-                      {/* Mostrar IBAN para verificación */}
                       {certificates.bankOwnership.verified && formData.bankAccount && (
                         <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                           <p className="text-xs text-emerald-700 mb-1">IBAN verificado:</p>
                           <p className="font-mono text-sm font-bold text-emerald-900">{formatIBAN(formData.bankAccount)}</p>
                         </div>
                       )}
-                      
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs text-slate-600 mb-1">Archivo</label>
@@ -1084,9 +786,7 @@ export default function SuppliersPage() {
 
             {/* Actions */}
             <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-white font-medium transition-colors">
-                Cancelar
-              </button>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-white font-medium transition-colors">Cancelar</button>
               <button onClick={modalMode === "create" ? handleCreateSupplier : handleUpdateSupplier} disabled={saving} className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2">
                 {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {modalMode === "create" ? "Crear proveedor" : "Guardar cambios"}
@@ -1098,4 +798,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-
