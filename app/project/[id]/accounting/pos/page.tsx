@@ -759,15 +759,11 @@ export default function POsPage() {
             </div>
           </div>
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FileText size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
-                  {getRoleBadge()}
-                </div>
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-indigo-600" />
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
+                {getRoleBadge()}
               </div>
             </div>
             {permissions.canCreatePO && (
