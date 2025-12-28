@@ -67,7 +67,9 @@ export default function POsPage() {
   const [processing, setProcessing] = useState(false);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; openUpward: boolean }>({ top: 0, left: 0, openUpward: false });
   const menuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!permissionsLoading && permissions.userId && id) loadData();
@@ -83,6 +85,17 @@ export default function POsPage() {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  // Recalcular posición del menú cuando cambia el scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (openMenuId) {
+        updateMenuPosition(openMenuId);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [openMenuId]);
 
   const loadData = async () => {
     try {
@@ -172,7 +185,10 @@ export default function POsPage() {
       canView: fullPerms.canView,
       canEdit: fullPerms.canEdit,
       canDelete: fullPerms.canDelete,
-      canPerformActions: fullPerms.canClose || fullPerms.canCancel || fullPerms.canCreateInvoice,
+      canClose: fullPerms.canClose,
+      canReopen: fullPerms.canReopen,
+      canCancel: fullPerms.canCancel,
+      canCreateInvoice: fullPerms.canCreateInvoice,
       isOwn: po.createdBy === permissions.userId,
     };
   };
@@ -197,11 +213,35 @@ export default function POsPage() {
     return (<span className={`inline-flex items-center gap-1.5 rounded-lg font-medium ${config.bg} ${config.text} ${sizeClasses}`}><Icon size={size === "sm" ? 12 : 14} />{config.label}</span>);
   };
 
-  const getMenuPosition = (poId: string) => {
+  const updateMenuPosition = (poId: string) => {
     const button = menuButtonRefs.current.get(poId);
-    if (!button) return { top: 0, left: 0 };
+    if (!button) return;
+    
     const rect = button.getBoundingClientRect();
-    return { top: rect.bottom + 4, left: rect.right - 192 };
+    const menuHeight = 280; // Altura estimada del menú
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    // Determinar si abrir hacia arriba o hacia abajo
+    const openUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+    
+    setMenuPosition({
+      top: openUpward ? rect.top - 8 : rect.bottom + 4,
+      left: Math.max(8, rect.right - 192), // 192px = ancho del menú, 8px = margen mínimo
+      openUpward
+    });
+  };
+
+  const handleMenuToggle = (poId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (openMenuId === poId) {
+      setOpenMenuId(null);
+    } else {
+      setOpenMenuId(poId);
+      // Pequeño delay para asegurar que el ref está actualizado
+      setTimeout(() => updateMenuPosition(poId), 0);
+    }
   };
 
   const closeMenu = () => setOpenMenuId(null);
@@ -243,7 +283,7 @@ export default function POsPage() {
 
   const handleCreateInvoice = (po: PO) => {
     const perms = getPOPermissions(po);
-    if (!perms.canPerformActions) { alert("No tienes permisos para crear facturas en esta PO"); return; }
+    if (!perms.canCreateInvoice) { alert("No tienes permisos para crear facturas en esta PO"); return; }
     closeMenu();
     router.push(`/project/${id}/accounting/invoices/new?poId=${po.id}`);
   };
@@ -251,7 +291,7 @@ export default function POsPage() {
   const handleClosePO = (po: PO) => {
     if (po.status !== "approved") return;
     const perms = getPOPermissions(po);
-    if (!perms.canPerformActions) { alert("No tienes permisos para cerrar esta PO"); return; }
+    if (!perms.canClose) { alert("No tienes permisos para cerrar esta PO"); return; }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -274,7 +314,7 @@ export default function POsPage() {
   const handleReopenPO = (po: PO) => {
     if (po.status !== "closed") return;
     const perms = getPOPermissions(po);
-    if (!perms.canPerformActions) { alert("No tienes permisos para reabrir esta PO"); return; }
+    if (!perms.canReopen) { alert("No tienes permisos para reabrir esta PO"); return; }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -295,10 +335,19 @@ export default function POsPage() {
   };
 
   const handleCancelPO = (po: PO) => {
-    if ((po.status !== "approved" && po.status !== "draft") || po.invoicedAmount > 0) return;
+    // Solo se puede anular si está aprobada o en borrador Y no tiene facturas
+    if (po.status !== "approved" && po.status !== "draft") return;
+    if (po.invoicedAmount > 0) return;
+    
     const perms = getPOPermissions(po);
-    if (!perms.canPerformActions && po.status === "approved") { alert("No tienes permisos para anular esta PO"); return; }
-    if (!perms.canEdit && po.status === "draft") { alert("No tienes permisos para anular esta PO"); return; }
+    if (po.status === "approved" && !perms.canCancel) { 
+      alert("No tienes permisos para anular esta PO"); 
+      return; 
+    }
+    if (po.status === "draft" && !perms.canEdit) { 
+      alert("No tienes permisos para anular esta PO"); 
+      return; 
+    }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -311,6 +360,7 @@ export default function POsPage() {
     if (!verified) return;
     setProcessing(true);
     try {
+      // Si está aprobada, liberar el presupuesto comprometido
       if (selectedPO.status === "approved") {
         for (const item of selectedPO.items) {
           if (item.subAccountId) {
@@ -329,7 +379,14 @@ export default function POsPage() {
           }
         }
       }
-      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), { status: "cancelled", cancelledAt: Timestamp.now(), cancelledBy: permissions.userId, cancelledByName: permissions.userName, cancellationReason: cancellationReason.trim(), committedAmount: 0 });
+      await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), { 
+        status: "cancelled", 
+        cancelledAt: Timestamp.now(), 
+        cancelledBy: permissions.userId, 
+        cancelledByName: permissions.userName, 
+        cancellationReason: cancellationReason.trim(), 
+        committedAmount: 0 
+      });
       setShowCancelModal(false);
       resetModalState();
       await loadData();
@@ -338,8 +395,11 @@ export default function POsPage() {
 
   const handleModifyPO = (po: PO) => {
     if (po.status !== "approved") return;
-    const perms = getPOPermissions(po);
-    if (!perms.canPerformActions) { alert("No tienes permisos para modificar esta PO"); return; }
+    // Solo usuarios con rol de proyecto pueden modificar POs aprobadas
+    if (!permissions.isProjectRole) { 
+      alert("No tienes permisos para modificar esta PO"); 
+      return; 
+    }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -352,9 +412,20 @@ export default function POsPage() {
     try {
       const newVersion = (selectedPO.version || 1) + 1;
       await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
-        version: newVersion, status: "draft",
-        modificationHistory: [...(selectedPO.modificationHistory || []), { date: Timestamp.now(), userId: permissions.userId || "", userName: permissions.userName, reason: modificationReason.trim(), previousVersion: selectedPO.version || 1 }],
-        approvedAt: null, approvedBy: null, approvedByName: null, approvalSteps: null, currentApprovalStep: null,
+        version: newVersion, 
+        status: "draft",
+        modificationHistory: [...(selectedPO.modificationHistory || []), { 
+          date: Timestamp.now(), 
+          userId: permissions.userId || "", 
+          userName: permissions.userName, 
+          reason: modificationReason.trim(), 
+          previousVersion: selectedPO.version || 1 
+        }],
+        approvedAt: null, 
+        approvedBy: null, 
+        approvedByName: null, 
+        approvalSteps: null, 
+        currentApprovalStep: null,
       });
       setShowModifyModal(false);
       router.push(`/project/${id}/accounting/pos/${selectedPO.id}/edit`);
@@ -581,7 +652,13 @@ export default function POsPage() {
                       <td className="px-6 py-4 text-center"><p className="text-sm text-slate-600">{formatDateRelative(po.createdAt)}</p></td>
                       <td className="px-6 py-4">
                         <div className="relative menu-container">
-                          <button ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }} onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === po.id ? null : po.id); }} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={18} /></button>
+                          <button 
+                            ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }} 
+                            onClick={(e) => handleMenuToggle(po.id, e)} 
+                            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <MoreHorizontal size={18} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -612,7 +689,13 @@ export default function POsPage() {
                       <p className="text-sm text-slate-600 font-medium">{po.supplier}</p>
                     </button>
                     <div className="relative menu-container">
-                      <button ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }} onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === po.id ? null : po.id); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"><MoreHorizontal size={16} /></button>
+                      <button 
+                        ref={(el) => { if (el) menuButtonRefs.current.set(po.id, el); }} 
+                        onClick={(e) => handleMenuToggle(po.id, e)} 
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
                     </div>
                   </div>
                   {(po.generalDescription || po.description) && (
@@ -635,9 +718,19 @@ export default function POsPage() {
           </div>
         )}
 
-        {/* Floating Menu */}
+        {/* Floating Menu - Mejorado para no cortarse */}
         {openMenuId && (
-          <div className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1" style={getMenuPosition(openMenuId)}>
+          <div 
+            ref={menuRef}
+            className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1 menu-container"
+            style={{ 
+              top: menuPosition.openUpward ? 'auto' : menuPosition.top,
+              bottom: menuPosition.openUpward ? `calc(100vh - ${menuPosition.top}px)` : 'auto',
+              left: menuPosition.left,
+              maxHeight: 'calc(100vh - 32px)',
+              overflowY: 'auto'
+            }}
+          >
             {(() => {
               const po = filteredPOs.find((p) => p.id === openMenuId);
               if (!po) return null;
@@ -646,6 +739,8 @@ export default function POsPage() {
                 <>
                   <Link href={`/project/${id}/accounting/pos/${po.id}`} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3" onClick={closeMenu}><Eye size={15} className="text-slate-400" />Ver detalle</Link>
                   <button onClick={() => generatePDF(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Download size={15} className="text-slate-400" />Descargar PDF</button>
+                  
+                  {/* Acciones para borradores */}
                   {po.status === "draft" && poPerms.canEdit && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
@@ -655,16 +750,28 @@ export default function POsPage() {
                       )}
                     </>
                   )}
-                  {po.status === "approved" && poPerms.canPerformActions && (
+                  
+                  {/* Acciones para POs aprobadas */}
+                  {po.status === "approved" && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
-                      <button onClick={() => handleCreateInvoice(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Receipt size={15} className="text-slate-400" />Crear factura</button>
-                      <button onClick={() => handleModifyPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><FileEdit size={15} className="text-slate-400" />Modificar PO</button>
-                      <button onClick={() => handleClosePO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Lock size={15} className="text-slate-400" />Cerrar PO</button>
-                      {po.invoicedAmount === 0 && (<button onClick={() => handleCancelPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><XCircle size={15} />Anular PO</button>)}
+                      {poPerms.canCreateInvoice && (
+                        <button onClick={() => handleCreateInvoice(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Receipt size={15} className="text-slate-400" />Crear factura</button>
+                      )}
+                      {permissions.isProjectRole && (
+                        <button onClick={() => handleModifyPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><FileEdit size={15} className="text-slate-400" />Modificar PO</button>
+                      )}
+                      {poPerms.canClose && (
+                        <button onClick={() => handleClosePO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Lock size={15} className="text-slate-400" />Cerrar PO</button>
+                      )}
+                      {poPerms.canCancel && po.invoicedAmount === 0 && (
+                        <button onClick={() => handleCancelPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"><XCircle size={15} />Anular PO</button>
+                      )}
                     </>
                   )}
-                  {po.status === "closed" && poPerms.canPerformActions && (
+                  
+                  {/* Acciones para POs cerradas */}
+                  {po.status === "closed" && poPerms.canReopen && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
                       <button onClick={() => handleReopenPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"><Unlock size={15} className="text-slate-400" />Reabrir PO</button>
