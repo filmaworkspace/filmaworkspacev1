@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Folder, Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, FolderOpen, Clapperboard, Filter, ArrowUpDown } from "lucide-react";
+import { Folder, Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, FolderOpen, Filter, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
@@ -421,15 +421,15 @@ export default function Dashboard() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-12 pb-8">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-10 pb-6">
           <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
         {/* Invitaciones */}
         {invitations.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
@@ -507,127 +507,121 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Barra de filtros unificada */}
+            {/* Barra de filtros */}
             {activeProjectsCount > 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                   {/* Buscador */}
                   <div className="relative flex-1">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Buscar proyectos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
                     />
                   </div>
 
-                  {/* Separador vertical (solo desktop) */}
-                  <div className="hidden md:block w-px h-8 bg-slate-200" />
-
                   {/* Filtros */}
                   <div className="flex gap-2">
-                    {/* Phase Dropdown */}
-                    <div className="relative" ref={phaseDropdownRef}>
-                      <button
-                        onClick={() => {
-                          setShowPhaseDropdown(!showPhaseDropdown);
-                          setShowSortDropdown(false);
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl text-sm bg-white transition-colors min-w-[140px] ${
-                          selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700"
-                        }`}
-                      >
-                        <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
-                        <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
-                        <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
-                      </button>
-                      {showPhaseDropdown && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                          {PHASE_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSelectedPhase(option.value);
-                                setShowPhaseDropdown(false);
-                              }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                                selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <div className="relative" ref={sortDropdownRef}>
-                      <button
-                        onClick={() => {
-                          setShowSortDropdown(!showSortDropdown);
-                          setShowPhaseDropdown(false);
-                        }}
-                        className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors"
-                      >
-                        <ArrowUpDown size={14} className="text-slate-400" />
-                        <span className="text-slate-700">{getSortLabel()}</span>
-                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
-                      </button>
-                      {showSortDropdown && (
-                        <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                          {SORT_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSortBy(option.value as "recent" | "name" | "phase");
-                                setShowSortDropdown(false);
-                              }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                                sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Limpiar filtros */}
-                    {(searchTerm || selectedPhase !== "all") && (
-                      <button
-                        onClick={() => {
-                          setSearchTerm("");
-                          setSelectedPhase("all");
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm transition-colors"
-                      >
-                        <XIcon size={14} />
-                        <span className="hidden sm:inline">Limpiar</span>
-                      </button>
+                  {/* Phase Dropdown */}
+                  <div className="relative" ref={phaseDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setShowPhaseDropdown(!showPhaseDropdown);
+                        setShowSortDropdown(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-medium transition-colors min-w-[140px] ${
+                        selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
+                      }`}
+                    >
+                      <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                      <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
+                      <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
+                    </button>
+                    {showPhaseDropdown && (
+                      <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                        {PHASE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSelectedPhase(option.value);
+                              setShowPhaseDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                              selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
 
-                {/* Contador de resultados */}
-                <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
-                  <p className="text-xs text-slate-500">
-                    {filteredProjects.length === activeProjectsCount
-                      ? `${activeProjectsCount} proyecto${activeProjectsCount !== 1 ? "s" : ""}`
-                      : `${filteredProjects.length} de ${activeProjectsCount} proyectos`}
-                  </p>
+                  {/* Sort Dropdown */}
+                  <div className="relative" ref={sortDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setShowSortDropdown(!showSortDropdown);
+                        setShowPhaseDropdown(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white hover:border-slate-300 transition-colors"
+                    >
+                      <ArrowUpDown size={14} className="text-slate-400" />
+                      <span className="text-slate-700">{getSortLabel()}</span>
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                    </button>
+                    {showSortDropdown && (
+                      <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                        {SORT_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortBy(option.value as "recent" | "name" | "phase");
+                              setShowSortDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                              sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Limpiar filtros */}
+                  {(searchTerm || selectedPhase !== "all") && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedPhase("all");
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-medium transition-colors"
+                    >
+                      <XIcon size={14} />
+                      Limpiar
+                    </button>
+                  )}
+
+                  {/* Archivados - SIEMPRE VISIBLE SI HAY ARCHIVADOS */}
                   {archivedProjects.length > 0 && (
                     <button
                       onClick={() => setShowArchived(!showArchived)}
-                      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        showArchived 
+                          ? "bg-slate-900 text-white" 
+                          : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
+                      }`}
                     >
-                      <Archive size={12} />
+                      <Archive size={14} />
                       <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
                     </button>
                   )}
+                  </div>
                 </div>
               </div>
             )}
