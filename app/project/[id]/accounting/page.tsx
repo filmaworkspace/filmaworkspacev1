@@ -134,12 +134,12 @@ export default function AccountingPage() {
 
             <div className="flex items-center gap-2">
               <Link href={`/project/${id}/accounting/pos/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
                   <Plus size={16} />Nueva PO
                 </button>
               </Link>
               <Link href={`/project/${id}/accounting/invoices/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
                   <Upload size={16} />Subir factura
                 </button>
               </Link>
@@ -218,7 +218,7 @@ export default function AccountingPage() {
                       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex-shrink-0">
-                            <p className="text-sm font-semibold text-slate-900">PO-{po.number}</p>
+                            <p className="text-sm font-semibold text-slate-900 font-mono">PO-{po.number}</p>
                             <p className="text-xs text-slate-500 truncate max-w-[160px]">{po.supplier || "Sin proveedor"}</p>
                           </div>
                         </div>
@@ -283,7 +283,7 @@ export default function AccountingPage() {
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex-shrink-0">
                               <div className="flex items-center gap-1.5">
-                                <p className="text-sm font-semibold text-slate-900">FAC-{invoice.number}</p>
+                                <p className="text-sm font-semibold text-slate-900 font-mono">FAC-{invoice.number}</p>
                                 {isOverdue && <AlertCircle size={12} className="text-red-500" />}
                               </div>
                               <p className="text-xs text-slate-500 truncate max-w-[160px]">{invoice.supplier || "Sin proveedor"}</p>
@@ -309,4 +309,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
