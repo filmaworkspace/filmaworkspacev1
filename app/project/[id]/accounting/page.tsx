@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
-import { FileText, Receipt, ArrowRight, ArrowLeft, Settings, Bell, ChevronRight, BarChart3, Plus, Upload, Clock, AlertCircle, CreditCard } from "lucide-react";
+import { FileText, Receipt, ArrowRight, ArrowLeft, Settings, Bell, ChevronRight, Plus, Upload, Clock, AlertCircle, CreditCard } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -128,13 +128,8 @@ export default function AccountingPage() {
 
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <BarChart3 size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Panel de contabilidad</h1>
-              </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Panel de contabilidad</h1>
             </div>
 
             <div className="flex items-center gap-2">
