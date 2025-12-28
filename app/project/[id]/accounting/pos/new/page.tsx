@@ -748,21 +748,18 @@ export default function NewPOPage() {
 
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FileText size={24} className="text-indigo-600" />
-              </div>
-              <div>
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-indigo-600" />
+              <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold text-slate-900">Nueva orden de compra</h1>
-                <p className="text-slate-500 text-sm mt-0.5">
-                  PO-{nextPONumber} · {permissions.userName}
-                  {/* ============ MOSTRAR DEPARTAMENTO FIJO SI APLICA ============ */}
-                  {permissions.fixedDepartment && (
-                    <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
-                      {permissions.fixedDepartment}
-                    </span>
-                  )}
-                </p>
+                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
+                  PO-{nextPONumber}
+                </span>
+                {permissions.fixedDepartment && (
+                  <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+                    {permissions.fixedDepartment}
+                  </span>
+                )}
               </div>
             </div>
 
