@@ -612,10 +612,8 @@ export default function InvoicesPage() {
 
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                <Receipt size={24} className="text-emerald-600" />
-              </div>
+            <div className="flex items-center gap-3">
+              <Receipt size={24} className="text-emerald-600" />
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
                 {!permissions.canViewAllPOs && (
