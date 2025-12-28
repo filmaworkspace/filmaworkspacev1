@@ -899,7 +899,7 @@ export default function POsPage() {
                       <td className="px-6 py-4">
                         <button onClick={() => setPreviewPO(po)} className="text-left hover:text-indigo-600 transition-colors">
                           <div className="flex items-center gap-2">
-                            <p className="font-semibold text-slate-900 group-hover:text-indigo-600">PO-{po.number}</p>
+                            <p className="font-semibold text-slate-900 group-hover:text-indigo-600 font-mono">PO-{po.number}</p>
                             {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
                             {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                           </div>
@@ -956,7 +956,7 @@ export default function POsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <button onClick={() => setPreviewPO(po)} className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">PO-{po.number}</p>
+                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors font-mono">PO-{po.number}</p>
                         {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
                         {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                       </div>
@@ -1100,7 +1100,7 @@ export default function POsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-white text-lg">PO-{previewPO.number}</h3>
+                    <h3 className="font-bold text-white text-lg font-mono">PO-{previewPO.number}</h3>
                     {previewPO.version > 1 && <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-lg backdrop-blur-sm">V{String(previewPO.version).padStart(2, "0")}</span>}
                   </div>
                   <p className="text-white/80 text-sm mt-0.5">{previewPO.supplier}</p>
