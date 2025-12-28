@@ -806,24 +806,24 @@ export default function NewInvoicePage() {
             </div>
           </div>
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 ${currentDocType.bgColor} rounded-2xl flex items-center justify-center`}>
-                <DocIcon size={24} className={currentDocType.textColor} />
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-900">{replaceMode ? "Factura definitiva" : `Subir ${currentDocType.label.toLowerCase()}`}</h1>
-                  {replaceMode && (
-                    <span className="px-2.5 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs font-medium flex items-center gap-1.5">
-                      <RefreshCw size={12} />
-                      Sustitución
-                    </span>
-                  )}
-                </div>
-                <p className="text-slate-500 text-sm mt-0.5">
-                  {getDocumentNumber()} · {permissions.userName}
-                  {permissions.fixedDepartment && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">{permissions.fixedDepartment}</span>}
-                </p>
+            <div className="flex items-center gap-3">
+              <DocIcon size={24} className={currentDocType.textColor} />
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-slate-900">{replaceMode ? "Factura definitiva" : `Subir ${currentDocType.label.toLowerCase()}`}</h1>
+                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
+                  {getDocumentNumber()}
+                </span>
+                {replaceMode && (
+                  <span className="px-2.5 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs font-medium flex items-center gap-1.5">
+                    <RefreshCw size={12} />
+                    Sustitución
+                  </span>
+                )}
+                {permissions.fixedDepartment && (
+                  <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+                    {permissions.fixedDepartment}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">
