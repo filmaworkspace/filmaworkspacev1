@@ -422,13 +422,7 @@ export default function Dashboard() {
       {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 pt-12 pb-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
-              <Folder size={28} className="text-slate-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900">Panel de proyectos</h1>
-            <p className="text-slate-500 mt-2">Gestiona y accede a tus proyectos</p>
-          </div>
+          <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
