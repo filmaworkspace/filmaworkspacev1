@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { UserCog, UserPlus, Search, Trash2, Shield, X, AlertCircle, CheckCircle2, UserCheck, UserX, Clock, Info, Edit, ArrowLeft, Building2, Users } from "lucide-react";
+import { UserCog, UserPlus, Search, Trash2, Shield, X, AlertCircle, CheckCircle2, UserCheck, UserX, Clock, Info, Edit, ArrowLeft, Building2, Users, Download } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, setDoc, deleteDoc, updateDoc, query, where, Timestamp } from "firebase/firestore";
@@ -187,11 +187,21 @@ export default function AccountingUsersPage() {
     } catch (error) { console.error("Error eliminando acceso:", error); setErrorMessage("Error al eliminar el acceso"); setTimeout(() => setErrorMessage(""), 3000); } finally { setSaving(false); }
   };
 
+  const exportUsers = () => {
+    const rows = [["NOMBRE", "EMAIL", "ROL", "DEPARTAMENTO", "POSICIÓN", "NIVEL DE ACCESO"]];
+    accountingMembers.forEach((member) => {
+      const accessLevel = ACCOUNTING_ACCESS_LEVELS[member.accountingAccessLevel as keyof typeof ACCOUNTING_ACCESS_LEVELS]?.label || "Usuario";
+      rows.push([member.name, member.email, member.role || "", member.department || "", member.position || "", accessLevel]);
+    });
+    const csvContent = rows.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `usuarios_contabilidad_${new Date().toISOString().split("T")[0]}.csv`); link.click();
+  };
+
   const resetForm = () => { setInviteForm({ email: "", name: "", roleType: "project", role: "", department: "", position: "", accountingAccessLevel: "user" }); setUserExists(null); setFoundUser(null); };
 
   const filteredMembers = accountingMembers.filter((member) => member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // Agrupar por tipo: primero roles de proyecto, luego por departamento
   const projectRoleMembers = filteredMembers.filter(m => PROJECT_ROLES.includes(m.role || ""));
   const departmentGroups = filteredMembers.filter(m => !PROJECT_ROLES.includes(m.role || "") && m.department).reduce((acc, member) => {
     const dept = member.department || "Sin departamento";
@@ -230,13 +240,8 @@ export default function AccountingUsersPage() {
           </div>
 
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <UserCog size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
-              </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
             </div>
             <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
               <UserPlus size={18} />Dar acceso
@@ -269,11 +274,21 @@ export default function AccountingUsersPage() {
           </div>
         )}
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        {/* Search and Export */}
+        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
+          <div className="flex-1 relative w-full">
             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input type="text" placeholder="Buscar usuario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+          </div>
+          <div className="flex gap-2">
+            {searchTerm && (
+              <button onClick={() => setSearchTerm("")} className="px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+                <X size={14} />Limpiar
+              </button>
+            )}
+            <button onClick={exportUsers} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
+              <Download size={14} />Exportar
+            </button>
           </div>
         </div>
 
