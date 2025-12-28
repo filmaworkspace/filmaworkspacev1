@@ -18,6 +18,21 @@ const phaseColors: Record<string, { bg: string; border: string; text: string; do
   Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
 };
 
+const PHASE_OPTIONS = [
+  { value: "all", label: "Todas las fases" },
+  { value: "Desarrollo", label: "Desarrollo" },
+  { value: "Preproducción", label: "Preproducción" },
+  { value: "Rodaje", label: "Rodaje" },
+  { value: "Postproducción", label: "Postproducción" },
+  { value: "Finalizado", label: "Finalizado" },
+];
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recientes" },
+  { value: "name", label: "Nombre" },
+  { value: "phase", label: "Fase" },
+];
+
 interface Project {
   id: string;
   name: string;
@@ -253,6 +268,16 @@ export default function Dashboard() {
     }
   };
 
+  const getPhaseLabel = () => {
+    const opt = PHASE_OPTIONS.find((o) => o.value === selectedPhase);
+    return opt?.label || "Todas las fases";
+  };
+
+  const getSortLabel = () => {
+    const opt = SORT_OPTIONS.find((o) => o.value === sortBy);
+    return opt?.label || "Recientes";
+  };
+
   const renderProjectCard = (project: Project) => {
     const hasConfig = project.permissions.config;
     const hasAccounting = project.permissions.accounting;
@@ -394,10 +419,16 @@ export default function Dashboard() {
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      {/* Header */}
+      {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-10 pb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Panel de proyectos</h1>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-12 pb-8">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-2xl mb-4">
+              <Folder size={28} className="text-slate-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900">Panel de proyectos</h1>
+            <p className="text-slate-500 mt-2">Gestiona y accede a tus proyectos</p>
+          </div>
         </div>
       </div>
 
@@ -482,20 +513,26 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Filtros */}
+            {/* Barra de filtros unificada */}
             {activeProjectsCount > 0 && (
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-6">
-                <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
-                  <div className="relative flex-1 max-w-md">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                  {/* Buscador */}
+                  <div className="relative flex-1">
                     <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Buscar proyectos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
+                      className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
                     />
                   </div>
+
+                  {/* Separador vertical (solo desktop) */}
+                  <div className="hidden md:block w-px h-8 bg-slate-200" />
+
+                  {/* Filtros */}
                   <div className="flex gap-2">
                     {/* Phase Dropdown */}
                     <div className="relative" ref={phaseDropdownRef}>
@@ -504,22 +541,17 @@ export default function Dashboard() {
                           setShowPhaseDropdown(!showPhaseDropdown);
                           setShowSortDropdown(false);
                         }}
-                        className="flex items-center gap-2 pl-3 pr-3 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors"
+                        className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl text-sm bg-white transition-colors min-w-[140px] ${
+                          selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700"
+                        }`}
                       >
-                        <Filter size={15} className="text-slate-400" />
-                        <span className="text-slate-700">{selectedPhase === "all" ? "Todas las fases" : selectedPhase}</span>
-                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${showPhaseDropdown ? "rotate-180" : ""}`} />
+                        <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                        <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
+                        <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
                       </button>
                       {showPhaseDropdown && (
                         <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                          {[
-                            { value: "all", label: "Todas las fases" },
-                            { value: "Desarrollo", label: "Desarrollo" },
-                            { value: "Preproducción", label: "Preproducción" },
-                            { value: "Rodaje", label: "Rodaje" },
-                            { value: "Postproducción", label: "Postproducción" },
-                            { value: "Finalizado", label: "Finalizado" },
-                          ].map((option) => (
+                          {PHASE_OPTIONS.map((option) => (
                             <button
                               key={option.value}
                               onClick={() => {
@@ -527,9 +559,7 @@ export default function Dashboard() {
                                 setShowPhaseDropdown(false);
                               }}
                               className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                                selectedPhase === option.value
-                                  ? "bg-slate-100 text-slate-900 font-medium"
-                                  : "text-slate-700 hover:bg-slate-50"
+                                selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
                               }`}
                             >
                               {option.label}
@@ -538,6 +568,7 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
+
                     {/* Sort Dropdown */}
                     <div className="relative" ref={sortDropdownRef}>
                       <button
@@ -545,19 +576,15 @@ export default function Dashboard() {
                           setShowSortDropdown(!showSortDropdown);
                           setShowPhaseDropdown(false);
                         }}
-                        className="flex items-center gap-2 pl-3 pr-3 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors"
                       >
-                        <ArrowUpDown size={15} className="text-slate-400" />
-                        <span className="text-slate-700">{sortBy === "recent" ? "Recientes" : sortBy === "name" ? "Nombre" : "Fase"}</span>
+                        <ArrowUpDown size={14} className="text-slate-400" />
+                        <span className="text-slate-700">{getSortLabel()}</span>
                         <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
                       </button>
                       {showSortDropdown && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                          {[
-                            { value: "recent", label: "Recientes" },
-                            { value: "name", label: "Nombre" },
-                            { value: "phase", label: "Fase" },
-                          ].map((option) => (
+                        <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                          {SORT_OPTIONS.map((option) => (
                             <button
                               key={option.value}
                               onClick={() => {
@@ -574,7 +601,39 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
+
+                    {/* Limpiar filtros */}
+                    {(searchTerm || selectedPhase !== "all") && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedPhase("all");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm transition-colors"
+                      >
+                        <XIcon size={14} />
+                        <span className="hidden sm:inline">Limpiar</span>
+                      </button>
+                    )}
                   </div>
+                </div>
+
+                {/* Contador de resultados */}
+                <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+                  <p className="text-xs text-slate-500">
+                    {filteredProjects.length === activeProjectsCount
+                      ? `${activeProjectsCount} proyecto${activeProjectsCount !== 1 ? "s" : ""}`
+                      : `${filteredProjects.length} de ${activeProjectsCount} proyectos`}
+                  </p>
+                  {archivedProjects.length > 0 && (
+                    <button
+                      onClick={() => setShowArchived(!showArchived)}
+                      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                    >
+                      <Archive size={12} />
+                      <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -597,31 +656,24 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <p className="text-xs text-slate-500 mb-4">
-                      {filteredProjects.length} de {activeProjectsCount} proyectos
-                    </p>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{filteredProjects.map((project) => renderProjectCard(project))}</div>
-                  </>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredProjects.map((project) => renderProjectCard(project))}
+                  </div>
                 )}
               </>
             )}
 
             {/* Archivados */}
-            {archivedProjects.length > 0 && (
+            {showArchived && archivedProjects.length > 0 && (
               <div className="mt-8 pt-8 border-t border-slate-200">
-                <button
-                  onClick={() => setShowArchived(!showArchived)}
-                  className="flex items-center gap-2 mb-4 text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  <Archive size={16} />
-                  <span className="text-sm font-medium">Archivados</span>
-                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{archivedProjects.length}</span>
-                  <ChevronDown size={14} className={`transition-transform ${showArchived ? "rotate-180" : ""}`} />
-                </button>
-                {showArchived && (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{archivedProjects.map((project) => renderArchivedCard(project))}</div>
-                )}
+                <div className="flex items-center gap-2 mb-4">
+                  <Archive size={16} className="text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600">Proyectos archivados</span>
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {archivedProjects.map((project) => renderArchivedCard(project))}
+                </div>
               </div>
             )}
           </>
