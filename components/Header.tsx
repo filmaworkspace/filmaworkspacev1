@@ -35,13 +35,6 @@ const inter = Inter({
   weight: ["400", "500", "600"],
 });
 
-const sectionColors: Record<string, { text: string; bg: string }> = {
-  config: { text: "text-slate-600", bg: "bg-slate-100" },
-  accounting: { text: "text-indigo-600", bg: "bg-indigo-50" },
-  team: { text: "text-amber-600", bg: "bg-amber-50" },
-  admin: { text: "text-purple-600", bg: "bg-purple-50" },
-};
-
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -63,6 +56,7 @@ export default function Header() {
   
   const { user, isLoading } = useUser();
   const userName = user?.name || "Usuario";
+  const userInitial = userName.charAt(0).toUpperCase();
   const isAdmin = user?.role === "admin";
 
   useEffect(() => {
@@ -189,17 +183,11 @@ export default function Header() {
       <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
         {availableSections.map((section) => {
           const Icon = section.icon;
-          const colorClass = section.key === "config" 
-            ? "hover:text-slate-700 hover:bg-slate-100" 
-            : section.key === "accounting" 
-            ? "hover:text-indigo-600 hover:bg-indigo-50" 
-            : "hover:text-amber-600 hover:bg-amber-50";
-          
           return (
             <Link
               key={section.key}
               href={section.href}
-              className={`p-2 rounded-lg text-slate-400 transition-colors ${colorClass}`}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               title={section.label}
             >
               <Icon size={16} />
@@ -219,7 +207,7 @@ export default function Header() {
           {currentSection && (
             <>
               <span className="text-slate-300 mx-1.5">/</span>
-              <span className={`font-medium tracking-tight ${sectionColors[currentSection]?.text || "text-slate-600"}`}>
+              <span className="font-medium tracking-tight text-slate-600">
                 {currentSection}
               </span>
             </>
@@ -322,12 +310,12 @@ export default function Header() {
             <SectionSwitcher />
           </div>
 
-          {/* Profile */}
+          {/* Profile Avatar */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
+            className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold hover:bg-slate-800 transition-colors"
           >
-            <User size={16} />
+            {userInitial}
           </button>
 
           {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
@@ -337,13 +325,13 @@ export default function Header() {
               <div className="px-3 py-2 border-b border-slate-100">
                 <p className="font-medium text-slate-900 truncate">{userName}</p>
                 {isAdmin && (
-                  <span className="inline-block mt-1 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                  <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
                     Admin
                   </span>
                 )}
               </div>
               {isAdmin && (
-                <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 transition" onClick={() => setProfileOpen(false)}>
+                <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
                   <Shield size={13} />
                   Administración
                 </Link>
@@ -390,7 +378,7 @@ export default function Header() {
                     <Link
                       href={`/project/${projectId}/accounting`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <BarChart3 size={14} />
                       Accounting
@@ -400,7 +388,7 @@ export default function Header() {
                     <Link
                       href={`/project/${projectId}/team`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-amber-600 hover:bg-amber-50 border border-amber-200"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <Users size={14} />
                       Team
@@ -419,7 +407,7 @@ export default function Header() {
                   Proyectos
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-purple-600 hover:bg-purple-50">
+                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                     <Shield size={14} />
                     Administración
                   </Link>
@@ -436,7 +424,7 @@ export default function Header() {
               </>
             ) : isAdminSection ? (
               <>
-                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-purple-700 bg-purple-50 font-medium">
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
                   <Shield size={14} />
                   Panel de administración
                 </Link>
