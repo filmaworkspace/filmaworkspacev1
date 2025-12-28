@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
-import { Plus, ChevronDown, ChevronRight, Edit, Trash2, X, Search, Download, Upload, AlertCircle, CheckCircle, FileSpreadsheet, Eye, EyeOff, Wallet, ArrowLeft, TrendingUp, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Edit, Trash2, X, Search, Download, Upload, AlertCircle, CheckCircle, FileSpreadsheet, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -76,7 +76,6 @@ export default function BudgetPage() {
         })
       );
       setAccounts(accountsData);
-      // Expandir todas por defecto
       setExpandedAccounts(new Set(accountsData.map(a => a.id)));
     } catch (error: any) {
       setErrorMessage(`Error cargando datos: ${error.message}`);
@@ -292,13 +291,8 @@ export default function BudgetPage() {
 
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <Wallet size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
-              </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Presupuesto</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -605,4 +599,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
