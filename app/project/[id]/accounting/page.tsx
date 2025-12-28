@@ -9,8 +9,8 @@ import { FileText, Receipt, ArrowRight, ArrowLeft, Settings, Bell, ChevronRight,
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-interface PO { id: string; number: string; supplier: string; baseAmount: number; status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled"; createdAt: Date | null; }
-interface Invoice { id: string; number: string; supplier: string; baseAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled"; dueDate: Date | null; createdAt: Date | null; }
+interface PO { id: string; number: string; supplier: string; description: string; baseAmount: number; status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled"; createdAt: Date | null; }
+interface Invoice { id: string; number: string; supplier: string; description: string; baseAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled"; dueDate: Date | null; createdAt: Date | null; }
 
 export default function AccountingPage() {
   const params = useParams();
@@ -71,14 +71,14 @@ export default function AccountingPage() {
         const posRecentSnapshot = await getDocs(posRecentQuery);
         setRecentPOs(posRecentSnapshot.docs.map(doc => {
           const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
+          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", description: data.generalDescription || data.description || "", baseAmount: data.baseAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
         }));
 
         const invoicesRecentQuery = query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc"), limit(5));
         const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
         setRecentInvoices(invoicesRecentSnapshot.docs.map(doc => {
           const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
+          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", description: data.description || "", baseAmount: data.baseAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
         }));
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -193,6 +193,7 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+                  <p className="text-xs text-slate-500">Órdenes de compra recientes</p>
                 </div>
               </div>
               <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
@@ -215,19 +216,23 @@ export default function AccountingPage() {
                 <div className="space-y-2">
                   {recentPOs.map((po) => (
                     <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`} className="block">
-                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex-shrink-0">
-                            <p className="text-sm font-semibold text-slate-900 font-mono">PO-{po.number}</p>
-                            <p className="text-xs text-slate-500 truncate max-w-[160px]">{po.supplier || "Sin proveedor"}</p>
+                      <div className="flex items-center justify-between px-3 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-semibold text-slate-900 font-mono">PO-{po.number}</span>
+                            <span className="text-slate-300">/</span>
+                            <span className="text-sm font-medium text-slate-700 truncate">{po.supplier || "Sin proveedor"}</span>
                           </div>
+                          {po.description && (
+                            <p className="text-xs text-slate-500 truncate">{po.description}</p>
+                          )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-shrink-0">
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.baseAmount)} €</p>
                             {getStatusBadge(po.status)}
                           </div>
-                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
                         </div>
                       </div>
                     </Link>
@@ -246,6 +251,7 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
+                  <p className="text-xs text-slate-500">Facturas recientes</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -279,22 +285,24 @@ export default function AccountingPage() {
                     const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
                     return (
                       <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`} className="block">
-                        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex-shrink-0">
-                              <div className="flex items-center gap-1.5">
-                                <p className="text-sm font-semibold text-slate-900 font-mono">FAC-{invoice.number}</p>
-                                {isOverdue && <AlertCircle size={12} className="text-red-500" />}
-                              </div>
-                              <p className="text-xs text-slate-500 truncate max-w-[160px]">{invoice.supplier || "Sin proveedor"}</p>
+                        <div className="flex items-center justify-between px-3 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
+                          <div className="flex-1 min-w-0 mr-3">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-sm font-semibold text-slate-900 font-mono">FAC-{invoice.number}</span>
+                              {isOverdue && <AlertCircle size={12} className="text-red-500" />}
+                              <span className="text-slate-300">/</span>
+                              <span className="text-sm font-medium text-slate-700 truncate">{invoice.supplier || "Sin proveedor"}</span>
                             </div>
+                            {invoice.description && (
+                              <p className="text-xs text-slate-500 truncate">{invoice.description}</p>
+                            )}
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-shrink-0">
                             <div className="text-right">
                               <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.baseAmount)} €</p>
                               {getStatusBadge(invoice.status)}
                             </div>
-                            <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
                           </div>
                         </div>
                       </Link>
