@@ -528,14 +528,19 @@ export default function PODetailPage() {
           </div>
 
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br ${config.gradient}`}>
-                <FileText size={24} className="text-white" />
-              </div>
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-indigo-600" />
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-900">PO-{po.number}</h1>
-                  {po.version > 1 && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">V{String(po.version).padStart(2, "0")}</span>}
+                  <h1 className="text-2xl font-semibold text-slate-900">Orden de compra</h1>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
+                    PO-{po.number}
+                  </span>
+                  {po.version > 1 && (
+                    <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
+                      V{String(po.version).padStart(2, "0")}
+                    </span>
+                  )}
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium text-sm ${config.bg} ${config.text}`}>
                     <Icon size={14} />
                     {config.label}
