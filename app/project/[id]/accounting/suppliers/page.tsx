@@ -500,8 +500,8 @@ export default function SuppliersPage() {
           <div className="relative" ref={statusDropdownRef}>
             <button
               onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-sm bg-white transition-colors min-w-[200px] ${
-                filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700"
+              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-sm transition-colors min-w-[200px] ${
+                filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
               }`}
             >
               <Filter size={15} className={filterStatus !== "all" ? "text-white" : "text-slate-400"} />
