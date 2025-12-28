@@ -506,29 +506,26 @@ export default function EditPOPage() {
           </div>
 
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FileText size={24} className="text-indigo-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-900">
-                    Editar PO-{poNumber}
-                    {poVersion > 1 && <span className="ml-2 text-sm bg-purple-50 text-purple-700 px-2 py-0.5 rounded-lg font-medium">V{String(poVersion).padStart(2, "0")}</span>}
-                  </h1>
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${poStatus === "draft" ? "bg-slate-100 text-slate-700" : poStatus === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
-                    {poStatus === "draft" ? "Borrador" : poStatus === "rejected" ? "Rechazada" : "Pendiente"}
+            <div className="flex items-center gap-3">
+              <FileText size={24} className="text-indigo-600" />
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-slate-900">Editar orden de compra</h1>
+                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
+                  PO-{poNumber}
+                </span>
+                {poVersion > 1 && (
+                  <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
+                    V{String(poVersion).padStart(2, "0")}
                   </span>
-                </div>
-                <p className="text-slate-500 text-sm mt-0.5">
-                  {formData.supplierName || "Sin proveedor"} · {permissions.userName}
-                  {/* ============ MOSTRAR DEPARTAMENTO FIJO SI APLICA ============ */}
-                  {permissions.fixedDepartment && (
-                    <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
-                      {permissions.fixedDepartment}
-                    </span>
-                  )}
-                </p>
+                )}
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${poStatus === "draft" ? "bg-slate-100 text-slate-700" : poStatus === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                  {poStatus === "draft" ? "Borrador" : poStatus === "rejected" ? "Rechazada" : "Pendiente"}
+                </span>
+                {permissions.fixedDepartment && (
+                  <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+                    {permissions.fixedDepartment}
+                  </span>
+                )}
               </div>
             </div>
 
