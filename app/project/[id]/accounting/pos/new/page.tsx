@@ -10,6 +10,7 @@ import {
   collection,
   getDocs,
   addDoc,
+  updateDoc,
   query,
   orderBy,
   Timestamp,
@@ -498,6 +499,44 @@ export default function NewPOPage() {
     if (file) handleFileUpload(file);
   }, []);
 
+  // ============ FUNCIÓN AUXILIAR: Actualizar committed en subcuentas ============
+  const updateSubAccountsCommitted = async (itemsToCommit: POItem[]) => {
+    // Agrupar por subAccountId para hacer una sola actualización por cuenta
+    const commitmentsByAccount: Record<string, number> = {};
+    
+    for (const item of itemsToCommit) {
+      if (item.subAccountId && item.baseAmount > 0) {
+        commitmentsByAccount[item.subAccountId] = 
+          (commitmentsByAccount[item.subAccountId] || 0) + item.baseAmount;
+      }
+    }
+
+    // Actualizar cada subcuenta
+    const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
+    
+    for (const [subAccountId, amountToAdd] of Object.entries(commitmentsByAccount)) {
+      for (const accountDoc of accountsSnapshot.docs) {
+        try {
+          const subAccountRef = doc(
+            db,
+            `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
+            subAccountId
+          );
+          const subAccountSnap = await getDoc(subAccountRef);
+          
+          if (subAccountSnap.exists()) {
+            const currentCommitted = subAccountSnap.data().committed || 0;
+            await updateDoc(subAccountRef, {
+              committed: currentCommitted + amountToAdd,
+            });
+            break; // Encontramos la subcuenta, salir del loop de accounts
+          }
+        } catch (e) {
+          console.error(`Error updating subaccount ${subAccountId}:`, e);
+        }
+      }
+    }
+  };
 
   const savePO = async (status: "draft" | "pending") => {
     if (status === "pending" && !validateForm()) return;
@@ -557,6 +596,9 @@ export default function NewPOPage() {
           poData.approvedBy = permissions.userId;
           poData.approvedByName = permissions.userName;
           poData.autoApproved = true;
+          // ============ NUEVO: Guardar committedAmount y remainingAmount ============
+          poData.committedAmount = totals.baseAmount;
+          poData.remainingAmount = totals.baseAmount;
         } else {
           poData.status = "pending";
           poData.approvalSteps = approvalSteps;
@@ -567,6 +609,12 @@ export default function NewPOPage() {
       }
 
       await addDoc(collection(db, `projects/${id}/pos`), poData);
+
+      // ============ NUEVO: Si se auto-aprueba, actualizar committed en subcuentas ============
+      if (poData.status === "approved") {
+        await updateSubAccountsCommitted(items);
+      }
+
       setSuccessMessage(
         poData.status === "approved"
           ? "PO aprobada automáticamente"
