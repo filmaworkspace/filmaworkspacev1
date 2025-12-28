@@ -1,312 +1,673 @@
 "use client";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
-import { FileText, Receipt, ArrowRight, ArrowLeft, Settings, Bell, ChevronRight, Plus, Upload, Clock, AlertCircle, CreditCard } from "lucide-react";
+import { Folder, Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, FolderOpen, Filter, ArrowUpDown } from "lucide-react";
+import Link from "next/link";
+import { db } from "@/lib/firebase";
+import { useUser } from "@/contexts/UserContext";
+import { collection, getDocs, getDoc, doc, query, where, updateDoc, setDoc, Timestamp, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-interface PO { id: string; number: string; supplier: string; baseAmount: number; status: "draft" | "pending" | "approved" | "rejected" | "closed" | "cancelled"; createdAt: Date | null; }
-interface Invoice { id: string; number: string; supplier: string; baseAmount: number; status: "pending_approval" | "pending" | "paid" | "overdue" | "rejected" | "cancelled"; dueDate: Date | null; createdAt: Date | null; }
+const phaseColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  Desarrollo: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", dot: "bg-sky-500" },
+  Preproducción: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
+  Rodaje: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+  Postproducción: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
+  Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
+};
 
-export default function AccountingPage() {
-  const params = useParams();
-  const id = params?.id as string;
-  const [projectName, setProjectName] = useState<string>("");
+const PHASE_OPTIONS = [
+  { value: "all", label: "Todas las fases" },
+  { value: "Desarrollo", label: "Desarrollo" },
+  { value: "Preproducción", label: "Preproducción" },
+  { value: "Rodaje", label: "Rodaje" },
+  { value: "Postproducción", label: "Postproducción" },
+  { value: "Finalizado", label: "Finalizado" },
+];
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recientes" },
+  { value: "name", label: "Nombre" },
+  { value: "phase", label: "Fase" },
+];
+
+interface Project {
+  id: string;
+  name: string;
+  phase: string;
+  description?: string;
+  producers?: string[];
+  producerNames?: string[];
+  role: string;
+  department?: string;
+  position?: string;
+  permissions: { config: boolean; accounting: boolean; team: boolean };
+  createdAt: Timestamp | null;
+  addedAt: Timestamp | null;
+  memberCount?: number;
+  archived?: boolean;
+}
+
+interface Invitation {
+  id: string;
+  projectId: string;
+  projectName: string;
+  invitedBy: string;
+  invitedByName: string;
+  roleType: "project" | "department";
+  role?: string;
+  department?: string;
+  position?: string;
+  permissions: { config?: boolean; accounting: boolean; team: boolean };
+  status: string;
+  createdAt: Date | Timestamp;
+  expiresAt: Date | Timestamp;
+}
+
+export default function Dashboard() {
+  const router = useRouter();
+  const { user, isLoading: userLoading } = useUser();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recentPOs, setRecentPOs] = useState<PO[]>([]);
-  const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState("");
-  const [accountingAccessLevel, setAccountingAccessLevel] = useState<string>("");
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const [processingInvite, setProcessingInvite] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPhase, setSelectedPhase] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "phase">("recent");
+  const [showArchived, setShowArchived] = useState(false);
+  const [showPhaseDropdown, setShowPhaseDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const phaseDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  const userId = user?.uid || null;
+  const userName = user?.name || "Usuario";
+  const userEmail = user?.email || "";
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => { if (user) setUserId(user.uid); });
-    return () => unsubscribe();
+    const handleClickOutside = (event: MouseEvent) => {
+      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(event.target as Node)) {
+        setShowPhaseDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setShowSortDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
-    const loadProjectData = async () => {
-      if (!userId || !id) return;
+    if (!userLoading && !user) {
+      router.push("/");
+      return;
+    }
+    if (!userLoading && user?.role === "admin") router.push("/admindashboard");
+  }, [user, userLoading, router]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const loadData = async () => {
       try {
-        const projectDoc = await getDoc(doc(db, "projects", id));
-        if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
+        const userProjectsRef = collection(db, `userProjects/${userId}/projects`);
+        const userProjectsSnapshot = await getDocs(userProjectsRef);
+        const projectsData: Project[] = [];
 
-        const memberDoc = await getDoc(doc(db, `projects/${id}/members`, userId));
-        if (memberDoc.exists()) {
-          const memberData = memberDoc.data();
-          setUserRole(memberData.role || "");
-          setAccountingAccessLevel(memberData.accountingAccessLevel || "user");
-        }
+        for (const userProjectDoc of userProjectsSnapshot.docs) {
+          const userProjectData = userProjectDoc.data();
+          const projectId = userProjectDoc.id;
+          const projectRef = doc(db, "projects", projectId);
+          const projectSnapshot = await getDoc(projectRef);
 
-        let approvalCount = 0;
-        const posRef = collection(db, `projects/${id}/pos`);
-        const posQuery = query(posRef, where("status", "==", "pending"));
-        const posSnapshot = await getDocs(posQuery);
-        for (const poDoc of posSnapshot.docs) {
-          const poData = poDoc.data();
-          if (poData.approvalSteps && poData.currentApprovalStep !== undefined) {
-            const currentStep = poData.approvalSteps[poData.currentApprovalStep];
-            if (currentStep?.approvers?.includes(userId)) approvalCount++;
+          if (projectSnapshot.exists()) {
+            const projectData = projectSnapshot.data();
+            let producerNames: string[] = [];
+            if (projectData.producers && Array.isArray(projectData.producers)) {
+              for (const producerId of projectData.producers) {
+                const producerDoc = await getDoc(doc(db, "producers", producerId));
+                if (producerDoc.exists()) producerNames.push(producerDoc.data().name);
+              }
+            }
+            const membersSnapshot = await getDocs(collection(db, `projects/${projectId}/members`));
+
+            projectsData.push({
+              id: projectSnapshot.id,
+              name: projectData.name,
+              phase: projectData.phase,
+              description: projectData.description || "",
+              producers: projectData.producers || [],
+              producerNames: producerNames.length > 0 ? producerNames : undefined,
+              role: userProjectData.role,
+              department: userProjectData.department,
+              position: userProjectData.position,
+              permissions: userProjectData.permissions || { config: false, accounting: false, team: false },
+              createdAt: projectData.createdAt || null,
+              addedAt: userProjectData.addedAt || null,
+              memberCount: membersSnapshot.size,
+              archived: projectData.archived || false,
+            });
           }
         }
 
-        const invoicesRef = collection(db, `projects/${id}/invoices`);
-        const invoicesQuery = query(invoicesRef, where("status", "==", "pending_approval"));
-        const invoicesSnapshot = await getDocs(invoicesQuery);
-        for (const invDoc of invoicesSnapshot.docs) {
-          const invData = invDoc.data();
-          if (invData.approvalSteps && invData.currentApprovalStep !== undefined) {
-            const currentStep = invData.approvalSteps[invData.currentApprovalStep];
-            if (currentStep?.approvers?.includes(userId)) approvalCount++;
-          }
-        }
-        setPendingApprovalsCount(approvalCount);
+        projectsData.sort((a, b) => (b.addedAt?.toMillis() || 0) - (a.addedAt?.toMillis() || 0));
+        setProjects(projectsData);
+        setFilteredProjects(projectsData.filter((p) => !p.archived));
 
-        const posRecentQuery = query(collection(db, `projects/${id}/pos`), orderBy("createdAt", "desc"), limit(5));
-        const posRecentSnapshot = await getDocs(posRecentQuery);
-        setRecentPOs(posRecentSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "draft", createdAt: data.createdAt?.toDate() || null };
-        }));
-
-        const invoicesRecentQuery = query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc"), limit(5));
-        const invoicesRecentSnapshot = await getDocs(invoicesRecentQuery);
-        setRecentInvoices(invoicesRecentSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return { id: doc.id, number: data.number || "", supplier: data.supplier || "", baseAmount: data.baseAmount || 0, status: data.status || "pending", createdAt: data.createdAt?.toDate() || null, dueDate: data.dueDate?.toDate() || null };
-        }));
+        const invitationsRef = collection(db, "invitations");
+        const q = query(invitationsRef, where("invitedEmail", "==", userEmail), where("status", "==", "pending"));
+        const invitationsSnapshot = await getDocs(q);
+        const invitationsData: Invitation[] = invitationsSnapshot.docs.map((invDoc: QueryDocumentSnapshot<DocumentData>) => {
+          const data = invDoc.data();
+          return {
+            id: invDoc.id,
+            projectId: data.projectId,
+            projectName: data.projectName,
+            invitedBy: data.invitedBy,
+            invitedByName: data.invitedByName,
+            roleType: data.roleType,
+            role: data.role,
+            department: data.department,
+            position: data.position,
+            permissions: data.permissions,
+            status: data.status,
+            createdAt: data.createdAt,
+            expiresAt: data.expiresAt,
+          };
+        });
+        setInvitations(invitationsData);
       } catch (error) {
-        console.error("Error cargando datos:", error);
+        console.error("Error al cargar datos:", error);
       } finally {
         setLoading(false);
       }
     };
-    loadProjectData();
-  }, [id, userId]);
+    loadData();
+  }, [userId, userEmail]);
 
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { bg: string; text: string; label: string }> = {
-      draft: { bg: "bg-slate-100", text: "text-slate-600", label: "Borrador" },
-      pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente" },
-      approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada" },
-      rejected: { bg: "bg-red-50", text: "text-red-700", label: "Rechazada" },
-      closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada" },
-      cancelled: { bg: "bg-slate-100", text: "text-slate-600", label: "Anulada" },
-      pending_approval: { bg: "bg-purple-50", text: "text-purple-700", label: "Pend. aprob." },
-      paid: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Pagada" },
-      overdue: { bg: "bg-red-50", text: "text-red-700", label: "Vencida" },
-    };
-    const c = config[status] || config.pending;
-    return <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
+  useEffect(() => {
+    let filtered = [...projects].filter((p) => !p.archived);
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.producerNames?.some((name) => name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    if (selectedPhase !== "all") {
+      filtered = filtered.filter((p) => p.phase === selectedPhase);
+    }
+    switch (sortBy) {
+      case "name":
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "phase":
+        filtered.sort((a, b) => a.phase.localeCompare(b.phase));
+        break;
+      default:
+        filtered.sort((a, b) => (b.addedAt?.toMillis() || 0) - (a.addedAt?.toMillis() || 0));
+    }
+    setFilteredProjects(filtered);
+  }, [searchTerm, selectedPhase, sortBy, projects]);
+
+  const archivedProjects = projects.filter((p) => p.archived);
+  const activeProjectsCount = projects.filter((p) => !p.archived).length;
+
+  const handleAcceptInvitation = async (invitation: Invitation) => {
+    if (!userId) return;
+    setProcessingInvite(invitation.id);
+    try {
+      await updateDoc(doc(db, "invitations", invitation.id), { status: "accepted", respondedAt: new Date() });
+      await setDoc(doc(db, `projects/${invitation.projectId}/members`, userId), {
+        userId,
+        name: userName,
+        email: userEmail,
+        role: invitation.role || null,
+        department: invitation.department || null,
+        position: invitation.position || null,
+        permissions: {
+          config: invitation.permissions.config || false,
+          accounting: invitation.permissions.accounting,
+          team: invitation.permissions.team,
+        },
+        addedAt: new Date(),
+      });
+      await setDoc(doc(db, `userProjects/${userId}/projects/${invitation.projectId}`), {
+        projectId: invitation.projectId,
+        role: invitation.role || null,
+        department: invitation.department || null,
+        position: invitation.position || null,
+        permissions: {
+          config: invitation.permissions.config || false,
+          accounting: invitation.permissions.accounting,
+          team: invitation.permissions.team,
+        },
+        addedAt: new Date(),
+      });
+      window.location.reload();
+    } catch (error) {
+      console.error("Error aceptando invitación:", error);
+      alert("Error al aceptar la invitación");
+      setProcessingInvite(null);
+    }
   };
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
-  const hasExtendedAccess = accountingAccessLevel === "accounting_extended";
+  const handleRejectInvitation = async (invitationId: string) => {
+    if (!confirm("¿Estás seguro de que deseas rechazar esta invitación?")) return;
+    setProcessingInvite(invitationId);
+    try {
+      await updateDoc(doc(db, "invitations", invitationId), { status: "rejected", respondedAt: new Date() });
+      setInvitations(invitations.filter((i) => i.id !== invitationId));
+      setProcessingInvite(null);
+    } catch (error) {
+      console.error("Error rechazando invitación:", error);
+      alert("Error al rechazar la invitación");
+      setProcessingInvite(null);
+    }
+  };
 
-  if (loading) {
-    return (<div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>);
+  const getPhaseLabel = () => {
+    const opt = PHASE_OPTIONS.find((o) => o.value === selectedPhase);
+    return opt?.label || "Todas las fases";
+  };
+
+  const getSortLabel = () => {
+    const opt = SORT_OPTIONS.find((o) => o.value === sortBy);
+    return opt?.label || "Recientes";
+  };
+
+  const renderProjectCard = (project: Project) => {
+    const hasConfig = project.permissions.config;
+    const hasAccounting = project.permissions.accounting;
+    const hasTeam = project.permissions.team;
+    const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+
+    return (
+      <div key={project.id} className="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:shadow-lg transition-all">
+        <div className="flex items-start justify-between mb-3">
+          <h2 className="text-base font-semibold text-slate-900 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} ml-2 flex-shrink-0`}>
+            {project.phase}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {project.role && (
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
+          )}
+          {project.position && (
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
+          )}
+          {project.memberCount !== undefined && (
+            <span className="text-[10px] text-slate-500 flex items-center gap-1 ml-auto">
+              <Users size={10} />
+              {project.memberCount}
+            </span>
+          )}
+        </div>
+
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-slate-100">
+          {hasConfig && (
+            <Link href={`/project/${project.id}/config`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all text-slate-600 text-xs font-medium">
+                <Settings size={12} />
+                Config
+              </div>
+            </Link>
+          )}
+          {hasAccounting && (
+            <Link href={`/project/${project.id}/accounting`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-all text-indigo-700 text-xs font-medium">
+                <BarChart3 size={12} />
+                Accounting
+              </div>
+            </Link>
+          )}
+          {hasTeam && (
+            <Link href={`/project/${project.id}/team`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all text-amber-700 text-xs font-medium">
+                <Users size={12} />
+                Team
+              </div>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderArchivedCard = (project: Project) => {
+    const hasConfig = project.permissions.config;
+    const hasAccounting = project.permissions.accounting;
+    const hasTeam = project.permissions.team;
+    const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
+
+    return (
+      <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
+        <div className="flex items-start justify-between mb-3">
+          <h2 className="text-base font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 ml-2 flex-shrink-0">
+            Archivado
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${phaseStyle.bg} ${phaseStyle.text}`}>
+            {project.phase}
+          </span>
+          {project.role && (
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
+          )}
+          {project.position && (
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
+          )}
+        </div>
+
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-slate-200">
+          {hasConfig && (
+            <Link href={`/project/${project.id}/config`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <Settings size={12} />
+                Config
+              </div>
+            </Link>
+          )}
+          {hasAccounting && (
+            <Link href={`/project/${project.id}/accounting`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <BarChart3 size={12} />
+                Accounting
+              </div>
+            </Link>
+          )}
+          {hasTeam && (
+            <Link href={`/project/${project.id}/team`} className="flex-1">
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <Users size={12} />
+                Team
+              </div>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading || userLoading) {
+    return (
+      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      {/* Header */}
+      {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Breadcrumb */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
-          {/* Page header */}
-          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Panel de contabilidad</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link href={`/project/${id}/accounting/pos/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
-                  <Plus size={16} />Nueva PO
-                </button>
-              </Link>
-              <Link href={`/project/${id}/accounting/invoices/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
-                  <Upload size={16} />Subir factura
-                </button>
-              </Link>
-              {pendingApprovalsCount > 0 && (
-                <Link href={`/project/${id}/accounting/approvals`}>
-                  <button className="relative p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200">
-                    <Bell size={18} />
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{pendingApprovalsCount}</span>
-                  </button>
-                </Link>
-              )}
-              {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
-                <Link href={`/project/${id}/accounting/approvalsconfig`}>
-                  <button className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><Settings size={18} /></button>
-                </Link>
-              )}
-            </div>
-          </div>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-8 pb-4">
+          <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        {/* Pending Approvals Alert */}
-        {pendingApprovalsCount > 0 && (
-          <Link href={`/project/${id}/accounting/approvals`}>
-            <div className="mb-8 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 cursor-pointer hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                    <Clock size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{pendingApprovalsCount} {pendingApprovalsCount === 1 ? "documento pendiente" : "documentos pendientes"} de tu aprobación</h3>
-                    <p className="text-white/80 text-sm">Revisa y aprueba para continuar el flujo</p>
-                  </div>
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-4">
+        {/* Invitaciones */}
+        {invitations.length > 0 && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                  <Mail size={20} className="text-white" />
                 </div>
-                <ArrowRight size={24} className="text-white/80" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    Tienes {invitations.length} {invitations.length === 1 ? "invitación pendiente" : "invitaciones pendientes"}
+                  </h2>
+                  <p className="text-sm text-white/70">Te han invitado a unirte a nuevos proyectos</p>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {invitations.map((invitation) => (
+                  <div key={invitation.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Folder size={18} className="text-slate-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">{invitation.projectName}</h3>
+                        <p className="text-xs text-slate-500">Invitado por {invitation.invitedByName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-lg px-2 py-1">
+                        {invitation.roleType === "project" ? invitation.role : invitation.position}
+                      </span>
+                      {invitation.permissions.accounting && (
+                        <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">Accounting</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAcceptInvitation(invitation)}
+                        disabled={processingInvite === invitation.id}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl py-2 text-sm transition-all disabled:opacity-50"
+                      >
+                        <Check size={14} />
+                        {processingInvite === invitation.id ? "..." : "Aceptar"}
+                      </button>
+                      <button
+                        onClick={() => handleRejectInvitation(invitation.id)}
+                        disabled={processingInvite === invitation.id}
+                        className="flex items-center justify-center px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl py-2 transition-all disabled:opacity-50"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </Link>
+          </div>
         )}
 
-        {/* Recent Activity - Con más espacio */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* Recent POs */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <FileText size={18} className="text-indigo-600" />
+        {/* Empty state */}
+        {projects.length === 0 && invitations.length === 0 ? (
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl">
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center max-w-md">
+                <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles size={32} className="text-slate-400" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">Bienvenido a tu espacio de trabajo</h2>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Aún no tienes proyectos asignados. Cuando un administrador te añada a un proyecto, aparecerá aquí automáticamente.
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <Clock size={14} />
+                  <span>Las invitaciones a proyectos también aparecerán aquí</span>
                 </div>
               </div>
-              <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
-                Ver todas <ChevronRight size={14} />
-              </Link>
-            </div>
-
-            <div className="p-5">
-              {recentPOs.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText size={24} className="text-slate-400" />
-                  </div>
-                  <p className="text-sm text-slate-500 mb-4">Sin órdenes de compra</p>
-                  <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:text-indigo-700 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">
-                    <Plus size={16} /> Crear primera PO
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {recentPOs.map((po) => (
-                    <Link key={po.id} href={`/project/${id}/accounting/pos/${po.id}`} className="block">
-                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex-shrink-0">
-                            <p className="text-sm font-semibold text-slate-900">PO-{po.number}</p>
-                            <p className="text-xs text-slate-500 truncate max-w-[160px]">{po.supplier || "Sin proveedor"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-900">{formatCurrency(po.baseAmount)} €</p>
-                            {getStatusBadge(po.status)}
-                          </div>
-                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors" />
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
+        ) : (
+          <>
+            {/* Barra de filtros unificada */}
+            {activeProjectsCount > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                  {/* Buscador */}
+                  <div className="relative flex-1">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar proyectos..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
+                    />
+                  </div>
 
-          {/* Recent Invoices */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                  <Receipt size={18} className="text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
+                  {/* Separador vertical (solo desktop) */}
+                  <div className="hidden md:block w-px h-8 bg-slate-200" />
+
+                  {/* Filtros */}
+                  <div className="flex gap-2">
+                    {/* Phase Dropdown */}
+                    <div className="relative" ref={phaseDropdownRef}>
+                      <button
+                        onClick={() => {
+                          setShowPhaseDropdown(!showPhaseDropdown);
+                          setShowSortDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl text-sm bg-white transition-colors min-w-[140px] ${
+                          selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700"
+                        }`}
+                      >
+                        <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                        <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
+                        <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
+                      </button>
+                      {showPhaseDropdown && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                          {PHASE_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSelectedPhase(option.value);
+                                setShowPhaseDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                                selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative" ref={sortDropdownRef}>
+                      <button
+                        onClick={() => {
+                          setShowSortDropdown(!showSortDropdown);
+                          setShowPhaseDropdown(false);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors"
+                      >
+                        <ArrowUpDown size={14} className="text-slate-400" />
+                        <span className="text-slate-700">{getSortLabel()}</span>
+                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                      </button>
+                      {showSortDropdown && (
+                        <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                          {SORT_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSortBy(option.value as "recent" | "name" | "phase");
+                                setShowSortDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                                sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Limpiar filtros */}
+                    {(searchTerm || selectedPhase !== "all") && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedPhase("all");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm transition-colors"
+                      >
+                        <XIcon size={14} />
+                        <span className="hidden sm:inline">Limpiar</span>
+                      </button>
+                    )}
+
+                    {/* Archivados */}
+                    {archivedProjects.length > 0 && (
+                      <button
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                          showArchived ? "bg-slate-200 text-slate-700" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Archive size={14} />
+                        <span className="hidden sm:inline">{archivedProjects.length}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {hasExtendedAccess && (
-                  <Link href={`/project/${id}/accounting/payments`}>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg text-sm font-medium transition-colors">
-                      <CreditCard size={14} />Pagos
+            )}
+
+            {/* Proyectos activos */}
+            {activeProjectsCount > 0 && (
+              <>
+                {filteredProjects.length === 0 ? (
+                  <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
+                    <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm font-medium mb-2">No se encontraron proyectos</p>
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedPhase("all");
+                      }}
+                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
+                    >
+                      Limpiar filtros
                     </button>
-                  </Link>
-                )}
-                <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors">
-                  Ver todas <ChevronRight size={14} />
-                </Link>
-              </div>
-            </div>
-
-            <div className="p-5">
-              {recentInvoices.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Receipt size={24} className="text-slate-400" />
                   </div>
-                  <p className="text-sm text-slate-500 mb-4">Sin facturas</p>
-                  <Link href={`/project/${id}/accounting/invoices/new`} className="inline-flex items-center gap-1.5 text-sm text-emerald-600 font-medium hover:text-emerald-700 bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors">
-                    <Upload size={16} /> Subir primera factura
-                  </Link>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredProjects.map((project) => renderProjectCard(project))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Archivados */}
+            {showArchived && archivedProjects.length > 0 && (
+              <div className="mt-8 pt-8 border-t border-slate-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <Archive size={16} className="text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600">Proyectos archivados</span>
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {recentInvoices.map((invoice) => {
-                    const isOverdue = invoice.status === "overdue" || (invoice.dueDate && invoice.dueDate < new Date() && invoice.status === "pending");
-                    return (
-                      <Link key={invoice.id} href={`/project/${id}/accounting/invoices/${invoice.id}`} className="block">
-                        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer group border border-transparent hover:border-slate-200">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex-shrink-0">
-                              <div className="flex items-center gap-1.5">
-                                <p className="text-sm font-semibold text-slate-900">FAC-{invoice.number}</p>
-                                {isOverdue && <AlertCircle size={12} className="text-red-500" />}
-                              </div>
-                              <p className="text-xs text-slate-500 truncate max-w-[160px]">{invoice.supplier || "Sin proveedor"}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(invoice.baseAmount)} €</p>
-                              {getStatusBadge(invoice.status)}
-                            </div>
-                            <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" />
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {archivedProjects.map((project) => renderArchivedCard(project))}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
 }
-
