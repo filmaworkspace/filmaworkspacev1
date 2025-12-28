@@ -831,7 +831,7 @@ export default function InvoicesPage() {
                           >
                             <div className="flex items-center gap-2">
                               {getDocumentTypeBadge(invoice.documentType)}
-                              <p className="font-semibold text-slate-900">{invoice.displayNumber}</p>
+                              <p className="font-semibold text-slate-900 font-mono">{invoice.displayNumber}</p>
                               {needsReplacement && (
                                 <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
                                   <Clock size={10} />
@@ -839,7 +839,7 @@ export default function InvoicesPage() {
                                 </span>
                               )}
                             </div>
-                            {invoice.poNumber && <p className="text-xs text-slate-500 mt-0.5">PO-{invoice.poNumber}</p>}
+                            {invoice.poNumber && <p className="text-xs text-slate-500 mt-0.5 font-mono">PO-{invoice.poNumber}</p>}
                           </button>
                         </td>
                         <td className="px-6 py-4">
@@ -970,7 +970,7 @@ export default function InvoicesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   {getDocumentTypeBadge(selectedInvoice.documentType)}
-                  <h2 className="text-lg font-semibold text-slate-900">{selectedInvoice.displayNumber}</h2>
+                  <h2 className="text-lg font-semibold text-slate-900 font-mono">{selectedInvoice.displayNumber}</h2>
                 </div>
                 <p className="text-sm text-slate-500">{selectedInvoice.supplier}</p>
               </div>
