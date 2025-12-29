@@ -643,7 +643,7 @@ export default function PaymentsPage() {
                 <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium">
                   {forecasts.length} previsiones
                 </span>
-                <span className="px-3 py-1 bg-violet-50 text-violet-700 rounded-lg text-sm font-mono font-medium">
+                <span className="px-3 py-1 bg-violet-50 text-violet-700 rounded-lg text-sm font-medium">
                   {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} €
                 </span>
               </div>
@@ -682,7 +682,7 @@ export default function PaymentsPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 text-sm">Facturas pendientes</h3>
-                      <p className="text-xs text-slate-500">{invoiceStats.filtered} de {invoiceStats.total} · <span className="font-mono">{formatCurrency(invoiceStats.totalAmount)} €</span></p>
+                      <p className="text-xs text-slate-500">{invoiceStats.filtered} de {invoiceStats.total} · {formatCurrency(invoiceStats.totalAmount)} €</p>
                     </div>
                   </div>
                   {hasActiveFilters && (
@@ -847,7 +847,7 @@ export default function PaymentsPage() {
                                   <p className="text-sm font-semibold text-slate-900 truncate font-mono">{invoice.displayNumber || `FAC-${invoice.number}`}</p>
                                   <p className="text-xs text-slate-600 truncate">{invoice.supplier}</p>
                                 </div>
-                                <p className="text-sm font-bold text-slate-900 flex-shrink-0 font-mono">{formatCurrency(invoice.totalAmount)} €</p>
+                                <p className="text-sm font-bold text-slate-900 flex-shrink-0">{formatCurrency(invoice.totalAmount)} €</p>
                               </div>
                               <div className="flex items-center justify-between mt-2">
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>
@@ -972,7 +972,7 @@ export default function PaymentsPage() {
                                       <p className="text-xs text-slate-500 truncate">{item.supplier}</p>
                                       <div className="flex items-center justify-between mt-1">
                                         <span className={`text-xs ${item.status === "completed" ? "text-emerald-600" : "text-slate-400"}`}>{item.status === "completed" ? "✓ Completado" : "Pendiente"}</span>
-                                        <span className="text-xs font-semibold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</span>
+                                        <span className="text-xs font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span>
                                       </div>
                                     </div>
                                   </div>
@@ -986,7 +986,7 @@ export default function PaymentsPage() {
                       <div className="px-4 py-3 border-t border-slate-100 bg-white">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs text-slate-500">{forecast.items.length} pagos</span>
-                          <span className="text-base font-bold text-slate-900 font-mono">{formatCurrency(forecast.totalAmount)} €</span>
+                          <span className="text-base font-bold text-slate-900">{formatCurrency(forecast.totalAmount)} €</span>
                         </div>
                         {forecast.status !== "draft" && forecast.items.length > 0 && (
                           <div className="flex items-center gap-2">
@@ -1062,7 +1062,7 @@ export default function PaymentsPage() {
                               )}
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <span className="text-sm font-bold text-slate-900 font-mono">{formatCurrency(forecast.totalAmount)} €</span>
+                              <span className="text-sm font-bold text-slate-900">{formatCurrency(forecast.totalAmount)} €</span>
                             </td>
                             <td className="px-4 py-4">
                               <button onClick={() => setShowForecastDetail(forecast)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><Eye size={16} /></button>
@@ -1088,7 +1088,7 @@ export default function PaymentsPage() {
                                         </div>
                                         <div className="flex items-center gap-4">
                                           <span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
-                                          <span className="text-sm font-semibold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</span>
+                                          <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span>
                                           {forecast.status === "pending" && item.status === "pending" && (
                                             <button onClick={() => setShowUploadReceipt({ forecast, item })} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Completar</button>
                                           )}
@@ -1241,7 +1241,7 @@ export default function PaymentsPage() {
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 mb-1">Total</p>
-                  <p className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(showForecastDetail.totalAmount)} €</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(showForecastDetail.totalAmount)} €</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-xs text-slate-500 mb-1">Progreso</p>
@@ -1284,7 +1284,7 @@ export default function PaymentsPage() {
                                   <p className="text-xs text-slate-400 mt-1">{typeInfo.label} · Añadido por {item.addedByName}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</p>
+                                  <p className="text-lg font-bold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</p>
                                   <span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
                                 </div>
                               </div>
@@ -1337,7 +1337,7 @@ export default function PaymentsPage() {
                 <p className="text-xs text-slate-500 mb-1">Pago</p>
                 <p className="font-semibold text-slate-900 font-mono">{showUploadReceipt.item.invoiceNumber ? `FAC-${showUploadReceipt.item.invoiceNumber}` : showUploadReceipt.item.description}</p>
                 <p className="text-sm text-slate-600">{showUploadReceipt.item.supplier}</p>
-                <p className="text-lg font-bold text-slate-900 mt-2 font-mono">{formatCurrency(showUploadReceipt.item.partialAmount || showUploadReceipt.item.amount)} €</p>
+                <p className="text-lg font-bold text-slate-900 mt-2">{formatCurrency(showUploadReceipt.item.partialAmount || showUploadReceipt.item.amount)} €</p>
               </div>
               <button onClick={() => handleCompletePaymentItem(showUploadReceipt.forecast.id, showUploadReceipt.item.id)} className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"><CheckCircle2 size={18} />Marcar como completado</button>
             </div>
