@@ -142,7 +142,7 @@ export default function AccountingPage() {
                 </Link>
               )}
               {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
-                <Link href={`/project/${id}/accounting/approvalsconfig`}>
+                <Link href={`/project/${id}/accounting/accountingconfig`}>
                   <button className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"><Settings size={18} /></button>
                 </Link>
               )}
