@@ -279,8 +279,8 @@ export default function ProfilePage() {
           {/* Notificaciones de Accounting */}
           <div className="p-4 flex items-center justify-between border-b border-slate-100 hover:bg-slate-50 transition-colors">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <BarChart3 size={18} className="text-emerald-600" />
+              <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                <BarChart3 size={18} className="text-violet-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-900">Notificaciones de Accounting</p>
@@ -306,8 +306,8 @@ export default function ProfilePage() {
           {/* Notificaciones de Team */}
           <div className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Users size={18} className="text-blue-600" />
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <Users size={18} className="text-amber-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-900">Notificaciones de Team</p>
