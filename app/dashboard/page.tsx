@@ -519,7 +519,7 @@ export default function Dashboard() {
                       placeholder="Buscar proyectos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
+                      className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
                     />
                   </div>
 
@@ -532,7 +532,7 @@ export default function Dashboard() {
                         setShowPhaseDropdown(!showPhaseDropdown);
                         setShowSortDropdown(false);
                       }}
-                      className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-medium transition-colors min-w-[140px] ${
+                      className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[160px] ${
                         selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
                       }`}
                     >
@@ -567,7 +567,7 @@ export default function Dashboard() {
                         setShowSortDropdown(!showSortDropdown);
                         setShowPhaseDropdown(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white hover:border-slate-300 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white hover:border-slate-300 transition-colors"
                     >
                       <ArrowUpDown size={14} className="text-slate-400" />
                       <span className="text-slate-700">{getSortLabel()}</span>
@@ -600,7 +600,7 @@ export default function Dashboard() {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
                     >
                       <XIcon size={14} />
                       Limpiar
@@ -611,7 +611,7 @@ export default function Dashboard() {
                   {archivedProjects.length > 0 && (
                     <button
                       onClick={() => setShowArchived(!showArchived)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         showArchived 
                           ? "bg-slate-900 text-white" 
                           : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
