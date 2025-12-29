@@ -183,9 +183,6 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas POs</h3>
-                  <p className="text-xs text-slate-500">
-                    {recentPOs.length === 0 ? "Sin órdenes de compra" : `Mostrando ${recentPOs.length} más recientes`}
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -248,9 +245,6 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
-                  <p className="text-xs text-slate-500">
-                    {recentInvoices.length === 0 ? "Sin facturas" : `Mostrando ${recentInvoices.length} más recientes`}
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -317,3 +311,4 @@ export default function AccountingPage() {
     </div>
   );
 }
+
