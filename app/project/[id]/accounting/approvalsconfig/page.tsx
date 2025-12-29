@@ -86,9 +86,48 @@ const PRESET_THRESHOLDS = [1000, 2500, 5000, 10000, 25000, 50000];
 // Secciones de configuración
 const CONFIG_SECTIONS = [
   { id: "approvals", label: "Aprobaciones", icon: FileCheck, description: "Flujos de aprobación para POs y facturas" },
+  { id: "permissions", label: "Permisos", icon: Shield, description: "Quién puede realizar cada acción" },
   { id: "notifications", label: "Notificaciones", icon: Bell, description: "Alertas y avisos automáticos", disabled: true },
   { id: "defaults", label: "Valores por defecto", icon: Calculator, description: "IVA, IRPF y otros valores", disabled: true },
 ];
+
+// Configuración de permisos por defecto
+interface PermissionConfig {
+  id: string;
+  label: string;
+  description: string;
+  category: "po" | "invoice" | "general";
+  defaultRoles: string[];
+  allowCustomUsers: boolean;
+}
+
+const PERMISSION_CONFIGS: PermissionConfig[] = [
+  // PO permissions
+  { id: "po_cancel", label: "Anular POs", description: "Anular órdenes de compra aprobadas", category: "po", defaultRoles: ["EP", "PM"], allowCustomUsers: true },
+  { id: "po_close", label: "Cerrar POs", description: "Cerrar órdenes de compra completadas", category: "po", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+  { id: "po_reopen", label: "Reabrir POs", description: "Reabrir órdenes de compra cerradas", category: "po", defaultRoles: ["EP", "PM"], allowCustomUsers: true },
+  { id: "po_modify", label: "Modificar POs aprobadas", description: "Crear nuevas versiones de POs aprobadas", category: "po", defaultRoles: ["EP", "PM"], allowCustomUsers: true },
+  { id: "po_delete_draft", label: "Eliminar borradores de PO", description: "Eliminar POs en estado borrador", category: "po", defaultRoles: ["EP", "PM", "Controller", "PC"], allowCustomUsers: false },
+  
+  // Invoice permissions
+  { id: "invoice_void", label: "Anular facturas", description: "Anular facturas registradas", category: "invoice", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+  { id: "invoice_mark_paid", label: "Marcar como pagada", description: "Cambiar estado de factura a pagada", category: "invoice", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+  { id: "invoice_replace", label: "Sustituir proformas", description: "Subir factura definitiva para sustituir proforma", category: "invoice", defaultRoles: ["EP", "PM", "Controller", "PC"], allowCustomUsers: false },
+  { id: "invoice_delete_draft", label: "Eliminar borradores", description: "Eliminar facturas en estado borrador", category: "invoice", defaultRoles: ["EP", "PM", "Controller", "PC"], allowCustomUsers: false },
+  
+  // General permissions
+  { id: "view_all_departments", label: "Ver todos los departamentos", description: "Acceso a documentos de cualquier departamento", category: "general", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+  { id: "export_data", label: "Exportar datos", description: "Descargar informes y exportar a PDF/Excel", category: "general", defaultRoles: ["EP", "PM", "Controller", "PC"], allowCustomUsers: false },
+  { id: "manage_suppliers", label: "Gestionar proveedores", description: "Crear, editar y eliminar proveedores", category: "general", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+  { id: "manage_payments", label: "Gestionar previsiones de pago", description: "Crear y gestionar remesas de pago", category: "general", defaultRoles: ["EP", "PM", "Controller"], allowCustomUsers: true },
+];
+
+interface PermissionSettings {
+  [permissionId: string]: {
+    roles: string[];
+    users: string[];
+  };
+}
 
 export default function AccountingConfigPage() {
   const { id } = useParams();
@@ -111,6 +150,10 @@ export default function AccountingConfigPage() {
   const [poApprovals, setPoApprovals] = useState<ApprovalStep[]>([]);
   const [invoiceApprovals, setInvoiceApprovals] = useState<ApprovalStep[]>([]);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  
+  // Permisos
+  const [permissionSettings, setPermissionSettings] = useState<PermissionSettings>({});
+  const [expandedPermissions, setExpandedPermissions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -203,6 +246,23 @@ export default function AccountingConfigPage() {
         setInvoiceApprovals([
           { id: "default-inv-1", order: 1, approverType: "role", roles: ["Controller", "PM", "EP"], requireAll: false, hasAmountThreshold: false },
         ]);
+      }
+
+      // Cargar configuración de permisos
+      const permissionsConfigRef = doc(db, `projects/${id}/config/permissions`);
+      const permissionsConfigSnap = await getDoc(permissionsConfigRef);
+      if (permissionsConfigSnap.exists()) {
+        setPermissionSettings(permissionsConfigSnap.data().settings || {});
+      } else {
+        // Inicializar con valores por defecto
+        const defaultSettings: PermissionSettings = {};
+        PERMISSION_CONFIGS.forEach((config) => {
+          defaultSettings[config.id] = {
+            roles: [...config.defaultRoles],
+            users: [],
+          };
+        });
+        setPermissionSettings(defaultSettings);
       }
 
       setLoading(false);
@@ -323,12 +383,21 @@ export default function AccountingConfigPage() {
     setErrorMessage("");
     setSuccessMessage("");
     try {
+      // Guardar aprobaciones
       await setDoc(doc(db, `projects/${id}/config/approvals`), {
         poApprovals: cleanApprovalSteps(poApprovals),
         invoiceApprovals: cleanApprovalSteps(invoiceApprovals),
         updatedAt: Timestamp.now(),
         updatedBy: userId,
       });
+      
+      // Guardar permisos
+      await setDoc(doc(db, `projects/${id}/config/permissions`), {
+        settings: permissionSettings,
+        updatedAt: Timestamp.now(),
+        updatedBy: userId,
+      });
+      
       setSuccessMessage("Configuración guardada");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (e: any) {
@@ -893,6 +962,232 @@ export default function AccountingConfigPage() {
     );
   };
 
+  // Funciones para permisos
+  const togglePermissionRole = (permissionId: string, role: string) => {
+    setPermissionSettings((prev) => {
+      const current = prev[permissionId] || { roles: [], users: [] };
+      const roles = current.roles.includes(role)
+        ? current.roles.filter((r) => r !== role)
+        : [...current.roles, role];
+      return { ...prev, [permissionId]: { ...current, roles } };
+    });
+  };
+
+  const togglePermissionUser = (permissionId: string, usrId: string) => {
+    setPermissionSettings((prev) => {
+      const current = prev[permissionId] || { roles: [], users: [] };
+      const users = current.users.includes(usrId)
+        ? current.users.filter((u) => u !== usrId)
+        : [...current.users, usrId];
+      return { ...prev, [permissionId]: { ...current, users } };
+    });
+  };
+
+  const resetPermissionToDefault = (permissionId: string) => {
+    const config = PERMISSION_CONFIGS.find((c) => c.id === permissionId);
+    if (!config) return;
+    setPermissionSettings((prev) => ({
+      ...prev,
+      [permissionId]: { roles: [...config.defaultRoles], users: [] },
+    }));
+  };
+
+  const toggleExpandedPermission = (permissionId: string) => {
+    setExpandedPermissions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(permissionId)) newSet.delete(permissionId);
+      else newSet.add(permissionId);
+      return newSet;
+    });
+  };
+
+  const getPermissionSummary = (permissionId: string): string => {
+    const setting = permissionSettings[permissionId];
+    if (!setting) return "Sin configurar";
+    
+    const parts: string[] = [];
+    if (setting.roles.length > 0) {
+      parts.push(setting.roles.join(", "));
+    }
+    if (setting.users.length > 0) {
+      parts.push(`+${setting.users.length} usuario${setting.users.length > 1 ? "s" : ""}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Ninguno";
+  };
+
+  // Render de la sección de permisos
+  const renderPermissionsSection = () => {
+    const poPermissions = PERMISSION_CONFIGS.filter((p) => p.category === "po");
+    const invoicePermissions = PERMISSION_CONFIGS.filter((p) => p.category === "invoice");
+    const generalPermissions = PERMISSION_CONFIGS.filter((p) => p.category === "general");
+
+    const renderPermissionItem = (config: PermissionConfig) => {
+      const setting = permissionSettings[config.id] || { roles: [], users: [] };
+      const isExpanded = expandedPermissions.has(config.id);
+      const isDefault = JSON.stringify(setting.roles.sort()) === JSON.stringify([...config.defaultRoles].sort()) && setting.users.length === 0;
+
+      return (
+        <div
+          key={config.id}
+          className={`border rounded-xl overflow-hidden transition-all ${
+            isExpanded ? "border-slate-300 bg-white shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+          }`}
+        >
+          <div
+            className="flex items-center gap-3 px-4 py-3 cursor-pointer"
+            onClick={() => toggleExpandedPermission(config.id)}
+          >
+            <button className="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-900">{config.label}</span>
+                {isDefault && (
+                  <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">Por defecto</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">{getPermissionSummary(config.id)}</p>
+            </div>
+          </div>
+
+          {isExpanded && (
+            <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-4">
+              <p className="text-xs text-slate-500">{config.description}</p>
+
+              {/* Roles */}
+              <div>
+                <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                  Roles con este permiso
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {PROJECT_ROLES.map((role) => {
+                    const isSelected = setting.roles.includes(role);
+                    const count = getMembersByRole(role).length;
+                    return (
+                      <button
+                        key={role}
+                        onClick={() => togglePermissionRole(config.id, role)}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                          isSelected
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {role}
+                        <span className={`ml-1.5 text-xs ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Usuarios adicionales */}
+              {config.allowCustomUsers && (
+                <div>
+                  <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
+                    Usuarios adicionales (sin el rol requerido)
+                  </label>
+                  <div className="border border-slate-200 rounded-xl p-2 max-h-36 overflow-y-auto space-y-1 bg-slate-50">
+                    {members
+                      .filter((m) => !setting.roles.includes(m.role || ""))
+                      .map((m) => (
+                        <label
+                          key={m.userId}
+                          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                            setting.users.includes(m.userId) ? "bg-white border border-slate-200" : "hover:bg-white"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={setting.users.includes(m.userId)}
+                            onChange={() => togglePermissionUser(config.id, m.userId)}
+                            className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{m.name}</p>
+                            <p className="text-xs text-slate-500">{m.role || "Sin rol"}</p>
+                          </div>
+                        </label>
+                      ))}
+                    {members.filter((m) => !setting.roles.includes(m.role || "")).length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-3">
+                        Todos los usuarios ya tienen permiso por su rol
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Botón restaurar */}
+              {!isDefault && (
+                <button
+                  onClick={() => resetPermissionToDefault(config.id)}
+                  className="text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  Restaurar valores por defecto
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-8">
+        {/* Info */}
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex gap-3">
+            <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-slate-600">
+              <p className="font-medium text-slate-700 mb-1">Permisos por acción</p>
+              <p className="text-slate-500">
+                Configura qué roles o usuarios pueden realizar cada acción. Los usuarios con rol EP o PM siempre tienen acceso completo.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* PO Permissions */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={18} className="text-indigo-600" />
+            <h3 className="font-semibold text-slate-900">Órdenes de compra</h3>
+          </div>
+          <div className="space-y-2">
+            {poPermissions.map(renderPermissionItem)}
+          </div>
+        </div>
+
+        {/* Invoice Permissions */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Receipt size={18} className="text-emerald-600" />
+            <h3 className="font-semibold text-slate-900">Facturas</h3>
+          </div>
+          <div className="space-y-2">
+            {invoicePermissions.map(renderPermissionItem)}
+          </div>
+        </div>
+
+        {/* General Permissions */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Settings size={18} className="text-slate-600" />
+            <h3 className="font-semibold text-slate-900">General</h3>
+          </div>
+          <div className="space-y-2">
+            {generalPermissions.map(renderPermissionItem)}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading)
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -1026,6 +1321,7 @@ export default function AccountingConfigPage() {
           {/* Contenido principal */}
           <div className="flex-1 min-w-0">
             {activeSection === "approvals" && renderApprovalsSection()}
+            {activeSection === "permissions" && renderPermissionsSection()}
             {activeSection === "notifications" && renderComingSoonSection("notifications")}
             {activeSection === "defaults" && renderComingSoonSection("defaults")}
           </div>
