@@ -805,12 +805,12 @@ export default function POsPage() {
         </div>
 
         {/* Filters & Controls */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-3 mb-6">
           <div className="flex-1 relative">
             <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por número, proveedor o descripción..."
+              placeholder="Buscar órdenes de compra"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm bg-white"
