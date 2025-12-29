@@ -25,11 +25,7 @@ import {
   DollarSign,
   TrendingUp,
   Zap,
-  Building2,
-  CreditCard,
-  Calculator,
   FileCheck,
-  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -87,8 +83,6 @@ const PRESET_THRESHOLDS = [1000, 2500, 5000, 10000, 25000, 50000];
 const CONFIG_SECTIONS = [
   { id: "approvals", label: "Aprobaciones", icon: FileCheck, description: "Flujos de aprobación para POs y facturas" },
   { id: "permissions", label: "Permisos", icon: Shield, description: "Quién puede realizar cada acción" },
-  { id: "notifications", label: "Notificaciones", icon: Bell, description: "Alertas y avisos automáticos", disabled: true },
-  { id: "defaults", label: "Valores por defecto", icon: Calculator, description: "IVA, IRPF y otros valores", disabled: true },
 ];
 
 // Configuración de permisos por defecto
@@ -942,26 +936,6 @@ export default function AccountingConfigPage() {
     </div>
   );
 
-  // Render de sección próximamente
-  const renderComingSoonSection = (sectionId: string) => {
-    const section = CONFIG_SECTIONS.find(s => s.id === sectionId);
-    if (!section) return null;
-    const Icon = section.icon;
-    
-    return (
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-12 text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Icon size={28} className="text-slate-400" />
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">{section.label}</h3>
-        <p className="text-slate-500 text-sm mb-4">{section.description}</p>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-xs font-medium">
-          Próximamente
-        </span>
-      </div>
-    );
-  };
-
   // Funciones para permisos
   const togglePermissionRole = (permissionId: string, role: string) => {
     setPermissionSettings((prev) => {
@@ -1322,8 +1296,6 @@ export default function AccountingConfigPage() {
           <div className="flex-1 min-w-0">
             {activeSection === "approvals" && renderApprovalsSection()}
             {activeSection === "permissions" && renderPermissionsSection()}
-            {activeSection === "notifications" && renderComingSoonSection("notifications")}
-            {activeSection === "defaults" && renderComingSoonSection("defaults")}
           </div>
         </div>
       </main>
