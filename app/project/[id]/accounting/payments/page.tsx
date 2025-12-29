@@ -247,7 +247,6 @@ export default function PaymentsPage() {
 
   const filteredInvoices = availableInvoices
     .filter((inv) => {
-      // Filtro por búsqueda de texto (número, proveedor, descripción)
       const searchLower = invoiceSearch.toLowerCase().trim();
       if (searchLower) {
         const matchesNumber = (inv.displayNumber || inv.number || "").toLowerCase().includes(searchLower);
@@ -256,13 +255,11 @@ export default function PaymentsPage() {
         if (!matchesNumber && !matchesSupplier && !matchesDescription) return false;
       }
       
-      // Filtro por rango de importe
       const minAmount = amountRange.min ? parseFloat(amountRange.min) : null;
       const maxAmount = amountRange.max ? parseFloat(amountRange.max) : null;
       if (minAmount !== null && inv.totalAmount < minAmount) return false;
       if (maxAmount !== null && inv.totalAmount > maxAmount) return false;
       
-      // Filtro por fecha de vencimiento
       if (invoiceDueDateFilter === "all") return true;
       const days = getDaysUntilPayment(inv.dueDate);
       if (invoiceDueDateFilter === "overdue") return days < 0;
@@ -277,7 +274,6 @@ export default function PaymentsPage() {
       return 0;
     });
 
-  // Estadísticas de facturas
   const invoiceStats = {
     total: availableInvoices.length,
     filtered: filteredInvoices.length,
@@ -638,12 +634,18 @@ export default function PaymentsPage() {
             </div>
           </div>
 
+          {/* Header con icono sin fondo y badges */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center"><CreditCard size={24} className="text-violet-600" /></div>
-              <div>
+            <div className="flex items-center gap-3">
+              <CreditCard size={24} className="text-violet-600" />
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-semibold text-slate-900">Previsiones de pago</h1>
-                <p className="text-slate-500 text-sm mt-0.5">{forecasts.length} previsiones · {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} € total</p>
+                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium">
+                  {forecasts.length} previsiones
+                </span>
+                <span className="px-3 py-1 bg-violet-50 text-violet-700 rounded-lg text-sm font-mono font-medium">
+                  {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} €
+                </span>
               </div>
             </div>
             <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"><Plus size={18} />Nueva previsión</button>
@@ -654,16 +656,17 @@ export default function PaymentsPage() {
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
         {overdueInvoicesCount > 0 && (<div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl"><div className="flex items-center gap-3"><div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0"><AlertTriangle size={20} className="text-red-600" /></div><div className="flex-1"><h3 className="font-semibold text-red-900">{overdueInvoicesCount} factura{overdueInvoicesCount > 1 ? "s" : ""} vencida{overdueInvoicesCount > 1 ? "s" : ""} sin asignar</h3><p className="text-sm text-red-700">Asígnalas a una previsión de pago para evitar retrasos.</p></div></div></div>)}
 
+        {/* Filtros con altura unificada py-2.5 */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
-          <div className="flex-1 relative"><Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" /><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar previsión o proveedor..." className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" /></div>
+          <div className="flex-1 relative"><Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" /><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar previsión o proveedor..." className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" /></div>
           <div className="flex flex-wrap gap-2">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"><option value="all">Todos los estados</option><option value="draft">Borrador</option><option value="pending">Pendiente</option><option value="completed">Completada</option></select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"><option value="all">Todos los estados</option><option value="draft">Borrador</option><option value="pending">Pendiente</option><option value="completed">Completada</option></select>
             <div className="relative" ref={datePickerRef}>
-              <button onClick={(e) => { e.stopPropagation(); setShowDatePicker(!showDatePicker); }} className="px-4 py-3 border border-slate-200 rounded-xl bg-white text-sm flex items-center gap-2 hover:border-slate-300"><Calendar size={16} className="text-slate-400" /><span className="text-slate-700">{DATE_RANGES.find((r) => r.id === dateRange)?.label}</span><ChevronDown size={14} className="text-slate-400" /></button>
+              <button onClick={(e) => { e.stopPropagation(); setShowDatePicker(!showDatePicker); }} className="px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm flex items-center gap-2 hover:border-slate-300"><Calendar size={16} className="text-slate-400" /><span className="text-slate-700">{DATE_RANGES.find((r) => r.id === dateRange)?.label}</span><ChevronDown size={14} className="text-slate-400" /></button>
               {showDatePicker && (<div className="absolute top-full left-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-4"><div className="space-y-1 mb-4">{DATE_RANGES.filter((r) => r.id !== "custom").map((range) => (<button key={range.id} onClick={() => { setDateRange(range.id); if (range.id !== "custom") setShowDatePicker(false); }} className={`w-full px-3 py-2 text-left text-sm rounded-lg transition-colors ${dateRange === range.id ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-50"}`}>{range.label}</button>))}</div><div className="border-t border-slate-100 pt-4"><p className="text-xs font-medium text-slate-500 mb-2">Rango personalizado</p><div className="grid grid-cols-2 gap-2"><input type="date" value={customDateStart} onChange={(e) => { setCustomDateStart(e.target.value); setDateRange("custom"); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm" /><input type="date" value={customDateEnd} onChange={(e) => { setCustomDateEnd(e.target.value); setDateRange("custom"); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm" /></div>{dateRange === "custom" && (<button onClick={() => setShowDatePicker(false)} className="w-full mt-3 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg">Aplicar</button>)}</div></div>)}
             </div>
-            <button onClick={exportFilteredForecastsPDF} className="px-4 py-3 border border-slate-200 rounded-xl bg-white text-sm flex items-center gap-2 hover:border-slate-300 text-slate-700"><Download size={16} />PDF</button>
-            <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white"><button onClick={() => setViewMode("kanban")} className={`px-4 py-3 text-sm transition-colors ${viewMode === "kanban" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={18} /></button><button onClick={() => setViewMode("list")} className={`px-4 py-3 text-sm transition-colors border-l border-slate-200 ${viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={18} /></button></div>
+            <button onClick={exportFilteredForecastsPDF} className="px-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm flex items-center gap-2 hover:border-slate-300 text-slate-700"><Download size={16} />PDF</button>
+            <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white"><button onClick={() => setViewMode("kanban")} className={`px-4 py-2.5 text-sm transition-colors ${viewMode === "kanban" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><LayoutGrid size={18} /></button><button onClick={() => setViewMode("list")} className={`px-4 py-2.5 text-sm transition-colors border-l border-slate-200 ${viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}><List size={18} /></button></div>
           </div>
         </div>
 
@@ -679,7 +682,7 @@ export default function PaymentsPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 text-sm">Facturas pendientes</h3>
-                      <p className="text-xs text-slate-500">{invoiceStats.filtered} de {invoiceStats.total} · {formatCurrency(invoiceStats.totalAmount)} €</p>
+                      <p className="text-xs text-slate-500">{invoiceStats.filtered} de {invoiceStats.total} · <span className="font-mono">{formatCurrency(invoiceStats.totalAmount)} €</span></p>
                     </div>
                   </div>
                   {hasActiveFilters && (
@@ -841,10 +844,10 @@ export default function PaymentsPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900 truncate">{invoice.displayNumber || `FAC-${invoice.number}`}</p>
+                                  <p className="text-sm font-semibold text-slate-900 truncate font-mono">{invoice.displayNumber || `FAC-${invoice.number}`}</p>
                                   <p className="text-xs text-slate-600 truncate">{invoice.supplier}</p>
                                 </div>
-                                <p className="text-sm font-bold text-slate-900 flex-shrink-0">{formatCurrency(invoice.totalAmount)} €</p>
+                                <p className="text-sm font-bold text-slate-900 flex-shrink-0 font-mono">{formatCurrency(invoice.totalAmount)} €</p>
                               </div>
                               <div className="flex items-center justify-between mt-2">
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>
@@ -872,22 +875,475 @@ export default function PaymentsPage() {
           </div>
 
           <div className="flex-1">
-            {filteredForecasts.length === 0 ? (<div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center"><div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><CreditCard size={28} className="text-slate-400" /></div><h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || dateRange !== "all" ? "No se encontraron resultados" : "Sin previsiones de pago"}</h3><p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || dateRange !== "all" ? "Prueba a ajustar los filtros" : "Crea tu primera previsión para organizar los pagos"}</p>{!searchTerm && statusFilter === "all" && dateRange === "all" && (<button onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><Plus size={18} />Nueva previsión</button>)}</div>) : viewMode === "kanban" ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{filteredForecasts.map((forecast) => { const statusConfig = getStatusConfig(forecast.status); const typeConfig = getTypeConfig(forecast.type); const daysUntil = getDaysUntilPayment(forecast.paymentDate); const progress = getCompletionProgress(forecast); const StatusIcon = statusConfig.icon; const TypeIcon = typeConfig.icon; return (<div key={forecast.id} onDragOver={(e) => handleDragOver(e, forecast.id)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, forecast.id)} className={`bg-white border rounded-2xl overflow-hidden transition-all ${dragOverForecast === forecast.id && forecast.status === "draft" ? "border-emerald-400 ring-2 ring-emerald-100 scale-[1.01]" : "border-slate-200 hover:shadow-md"}`}><div className="px-4 py-3 border-b border-slate-100"><div className="flex items-start justify-between mb-2"><div className="flex-1 min-w-0"><h3 className="font-semibold text-slate-900 truncate">{forecast.name}</h3><div className="flex items-center gap-2 mt-1"><Calendar size={12} className="text-slate-400" /><span className={`text-xs ${daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 3 ? "text-amber-600 font-semibold" : "text-slate-500"}`}>{formatDate(forecast.paymentDate)}{daysUntil >= 0 && daysUntil <= 7 && ` (${daysUntil}d)`}{daysUntil < 0 && ` (hace ${Math.abs(daysUntil)}d)`}</span></div></div><div className="relative menu-container"><button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === forecast.id ? null : forecast.id); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><MoreHorizontal size={16} /></button>{openMenuId === forecast.id && (<div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1"><button onClick={() => { setShowForecastDetail(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={14} /> Ver detalles</button><button onClick={() => { exportForecastPDF(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Download size={14} /> Exportar PDF</button>{forecast.status === "draft" && (<><button onClick={() => { setSelectedForecastId(forecast.id); setShowAddPaymentModal(true); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Plus size={14} /> Añadir pago</button>{forecast.items.length > 0 && (<button onClick={() => { handleSendForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"><Send size={14} /> Enviar</button>)}</>)}<div className="border-t border-slate-100 my-1" /><button onClick={() => { handleDeleteForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Eliminar</button></div>)}</div></div><div className="flex items-center gap-2"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${statusConfig.bg} ${statusConfig.text}`}><StatusIcon size={12} />{statusConfig.label}</span><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${typeConfig.bg} ${typeConfig.text}`}><TypeIcon size={12} />{typeConfig.label}</span></div></div><div className="p-2 min-h-[100px] max-h-[220px] overflow-y-auto bg-slate-50/50">{forecast.items.length === 0 ? (<div className="h-full flex items-center justify-center text-center py-6"><div><div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-2"><FolderOpen size={18} className="text-slate-400" /></div><p className="text-xs text-slate-400">Arrastra facturas aquí</p></div></div>) : (<div className="space-y-1.5">{forecast.items.map((item) => { const typeInfo = PAYMENT_TYPES[item.type]; const ItemIcon = typeInfo.icon; return (<div key={item.id} className="bg-white p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors group"><div className="flex items-start gap-2"><div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>{item.status === "completed" ? <CheckCircle2 size={12} className="text-emerald-600" /> : <ItemIcon size={12} className="text-slate-500" />}</div><div className="flex-1 min-w-0"><div className="flex items-center justify-between gap-1"><p className="text-xs font-medium text-slate-900 truncate">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p>{forecast.status === "draft" && (<button onClick={() => handleRemovePaymentItem(forecast.id, item.id)} className="p-0.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>)}</div><p className="text-xs text-slate-500 truncate">{item.supplier}</p><div className="flex items-center justify-between mt-1"><span className={`text-xs ${item.status === "completed" ? "text-emerald-600" : "text-slate-400"}`}>{item.status === "completed" ? "✓ Completado" : "Pendiente"}</span><span className="text-xs font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span></div></div></div></div>); })}</div>)}</div><div className="px-4 py-3 border-t border-slate-100 bg-white"><div className="flex items-center justify-between mb-2"><span className="text-xs text-slate-500">{forecast.items.length} pagos</span><span className="text-base font-bold text-slate-900">{formatCurrency(forecast.totalAmount)} €</span></div>{forecast.status !== "draft" && forecast.items.length > 0 && (<div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${progress.percent}%` }} /></div><span className="text-xs text-slate-500">{progress.completed}/{progress.total}</span></div>)}</div></div>); })}</div>
+            {filteredForecasts.length === 0 ? (
+              <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><CreditCard size={28} className="text-slate-400" /></div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || dateRange !== "all" ? "No se encontraron resultados" : "Sin previsiones de pago"}</h3>
+                <p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || dateRange !== "all" ? "Prueba a ajustar los filtros" : "Crea tu primera previsión para organizar los pagos"}</p>
+                {!searchTerm && statusFilter === "all" && dateRange === "all" && (
+                  <button onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"><Plus size={18} />Nueva previsión</button>
+                )}
+              </div>
+            ) : viewMode === "kanban" ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {filteredForecasts.map((forecast) => {
+                  const statusConfig = getStatusConfig(forecast.status);
+                  const typeConfig = getTypeConfig(forecast.type);
+                  const daysUntil = getDaysUntilPayment(forecast.paymentDate);
+                  const progress = getCompletionProgress(forecast);
+                  const StatusIcon = statusConfig.icon;
+                  const TypeIcon = typeConfig.icon;
+                  
+                  return (
+                    <div
+                      key={forecast.id}
+                      onDragOver={(e) => handleDragOver(e, forecast.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, forecast.id)}
+                      className={`bg-white border rounded-2xl overflow-hidden transition-all ${dragOverForecast === forecast.id && forecast.status === "draft" ? "border-emerald-400 ring-2 ring-emerald-100 scale-[1.01]" : "border-slate-200 hover:shadow-md"}`}
+                    >
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-slate-900 truncate">{forecast.name}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar size={12} className="text-slate-400" />
+                              <span className={`text-xs ${daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 3 ? "text-amber-600 font-semibold" : "text-slate-500"}`}>
+                                {formatDate(forecast.paymentDate)}
+                                {daysUntil >= 0 && daysUntil <= 7 && ` (${daysUntil}d)`}
+                                {daysUntil < 0 && ` (hace ${Math.abs(daysUntil)}d)`}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="relative menu-container">
+                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === forecast.id ? null : forecast.id); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg">
+                              <MoreHorizontal size={16} />
+                            </button>
+                            {openMenuId === forecast.id && (
+                              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                                <button onClick={() => { setShowForecastDetail(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={14} /> Ver detalles</button>
+                                <button onClick={() => { exportForecastPDF(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Download size={14} /> Exportar PDF</button>
+                                {forecast.status === "draft" && (
+                                  <>
+                                    <button onClick={() => { setSelectedForecastId(forecast.id); setShowAddPaymentModal(true); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Plus size={14} /> Añadir pago</button>
+                                    {forecast.items.length > 0 && (
+                                      <button onClick={() => { handleSendForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"><Send size={14} /> Enviar</button>
+                                    )}
+                                  </>
+                                )}
+                                <div className="border-t border-slate-100 my-1" />
+                                <button onClick={() => { handleDeleteForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Eliminar</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${statusConfig.bg} ${statusConfig.text}`}><StatusIcon size={12} />{statusConfig.label}</span>
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${typeConfig.bg} ${typeConfig.text}`}><TypeIcon size={12} />{typeConfig.label}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="p-2 min-h-[100px] max-h-[220px] overflow-y-auto bg-slate-50/50">
+                        {forecast.items.length === 0 ? (
+                          <div className="h-full flex items-center justify-center text-center py-6">
+                            <div>
+                              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-2"><FolderOpen size={18} className="text-slate-400" /></div>
+                              <p className="text-xs text-slate-400">Arrastra facturas aquí</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {forecast.items.map((item) => {
+                              const typeInfo = PAYMENT_TYPES[item.type];
+                              const ItemIcon = typeInfo.icon;
+                              return (
+                                <div key={item.id} className="bg-white p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors group">
+                                  <div className="flex items-start gap-2">
+                                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>
+                                      {item.status === "completed" ? <CheckCircle2 size={12} className="text-emerald-600" /> : <ItemIcon size={12} className="text-slate-500" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <p className="text-xs font-medium text-slate-900 truncate font-mono">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p>
+                                        {forecast.status === "draft" && (
+                                          <button onClick={() => handleRemovePaymentItem(forecast.id, item.id)} className="p-0.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-slate-500 truncate">{item.supplier}</p>
+                                      <div className="flex items-center justify-between mt-1">
+                                        <span className={`text-xs ${item.status === "completed" ? "text-emerald-600" : "text-slate-400"}`}>{item.status === "completed" ? "✓ Completado" : "Pendiente"}</span>
+                                        <span className="text-xs font-semibold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="px-4 py-3 border-t border-slate-100 bg-white">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-slate-500">{forecast.items.length} pagos</span>
+                          <span className="text-base font-bold text-slate-900 font-mono">{formatCurrency(forecast.totalAmount)} €</span>
+                        </div>
+                        {forecast.status !== "draft" && forecast.items.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${progress.percent}%` }} />
+                            </div>
+                            <span className="text-xs text-slate-500">{progress.completed}/{progress.total}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden"><table className="w-full"><thead className="bg-slate-50 border-b border-slate-200"><tr><th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Previsión</th><th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Fecha</th><th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Tipo</th><th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Estado</th><th className="text-center px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Progreso</th><th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Importe</th><th className="w-12"></th></tr></thead><tbody className="divide-y divide-slate-100">{filteredForecasts.map((forecast) => { const statusConfig = getStatusConfig(forecast.status); const typeConfig = getTypeConfig(forecast.type); const progress = getCompletionProgress(forecast); const StatusIcon = statusConfig.icon; const TypeIcon = typeConfig.icon; const isExpanded = expandedRows.has(forecast.id); return (<React.Fragment key={forecast.id}><tr className="hover:bg-slate-50 transition-colors"><td className="px-6 py-4"><button onClick={() => toggleRowExpanded(forecast.id)} className="text-left hover:text-violet-600 flex items-center gap-2"><ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} /><div><p className="font-semibold text-slate-900">{forecast.name}</p><p className="text-xs text-slate-500 mt-0.5">{forecast.items.length} pagos</p></div></button></td><td className="px-4 py-4"><div className="flex items-center gap-1.5"><Calendar size={14} className="text-slate-400" /><span className="text-sm text-slate-700">{formatDate(forecast.paymentDate)}</span></div></td><td className="px-4 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${typeConfig.bg} ${typeConfig.text}`}><TypeIcon size={12} />{typeConfig.label}</span></td><td className="px-4 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${statusConfig.bg} ${statusConfig.text}`}><StatusIcon size={12} />{statusConfig.label}</span></td><td className="px-4 py-4">{forecast.items.length > 0 ? (<div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress.percent}%` }} /></div><span className="text-xs text-slate-500">{progress.completed}/{progress.total}</span></div>) : (<span className="text-xs text-slate-400">-</span>)}</td><td className="px-6 py-4 text-right"><span className="text-sm font-bold text-slate-900">{formatCurrency(forecast.totalAmount)} €</span></td><td className="px-4 py-4"><button onClick={() => setShowForecastDetail(forecast)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><Eye size={16} /></button></td></tr>{isExpanded && forecast.items.length > 0 && (<tr><td colSpan={7} className="bg-slate-50 px-6 py-4"><div className="space-y-2">{forecast.items.map((item) => { const typeInfo = PAYMENT_TYPES[item.type]; const ItemIcon = typeInfo.icon; return (<div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>{item.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ItemIcon size={16} className="text-slate-500" />}</div><div><p className="text-sm font-medium text-slate-900">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p><p className="text-xs text-slate-500">{item.supplier}</p></div></div><div className="flex items-center gap-4"><span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span><span className="text-sm font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span>{forecast.status === "pending" && item.status === "pending" && (<button onClick={() => setShowUploadReceipt({ forecast, item })} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Completar</button>)}{item.receiptUrl && (<a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-slate-700"><ExternalLink size={14} /></a>)}</div></div>); })}</div></td></tr>)}</React.Fragment>); })}</tbody></table></div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Previsión</th>
+                      <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                      <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Tipo</th>
+                      <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Progreso</th>
+                      <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Importe</th>
+                      <th className="w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredForecasts.map((forecast) => {
+                      const statusConfig = getStatusConfig(forecast.status);
+                      const typeConfig = getTypeConfig(forecast.type);
+                      const progress = getCompletionProgress(forecast);
+                      const StatusIcon = statusConfig.icon;
+                      const TypeIcon = typeConfig.icon;
+                      const isExpanded = expandedRows.has(forecast.id);
+                      
+                      return (
+                        <React.Fragment key={forecast.id}>
+                          <tr className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <button onClick={() => toggleRowExpanded(forecast.id)} className="text-left hover:text-violet-600 flex items-center gap-2">
+                                <ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                <div>
+                                  <p className="font-semibold text-slate-900">{forecast.name}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">{forecast.items.length} pagos</p>
+                                </div>
+                              </button>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar size={14} className="text-slate-400" />
+                                <span className="text-sm text-slate-700">{formatDate(forecast.paymentDate)}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${typeConfig.bg} ${typeConfig.text}`}><TypeIcon size={12} />{typeConfig.label}</span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${statusConfig.bg} ${statusConfig.text}`}><StatusIcon size={12} />{statusConfig.label}</span>
+                            </td>
+                            <td className="px-4 py-4">
+                              {forecast.items.length > 0 ? (
+                                <div className="flex items-center gap-2 justify-center">
+                                  <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress.percent}%` }} />
+                                  </div>
+                                  <span className="text-xs text-slate-500">{progress.completed}/{progress.total}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="text-sm font-bold text-slate-900 font-mono">{formatCurrency(forecast.totalAmount)} €</span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <button onClick={() => setShowForecastDetail(forecast)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><Eye size={16} /></button>
+                            </td>
+                          </tr>
+                          {isExpanded && forecast.items.length > 0 && (
+                            <tr>
+                              <td colSpan={7} className="bg-slate-50 px-6 py-4">
+                                <div className="space-y-2">
+                                  {forecast.items.map((item) => {
+                                    const typeInfo = PAYMENT_TYPES[item.type];
+                                    const ItemIcon = typeInfo.icon;
+                                    return (
+                                      <div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-3">
+                                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>
+                                            {item.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ItemIcon size={16} className="text-slate-500" />}
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium text-slate-900 font-mono">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p>
+                                            <p className="text-xs text-slate-500">{item.supplier}</p>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
+                                          <span className="text-sm font-semibold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</span>
+                                          {forecast.status === "pending" && item.status === "pending" && (
+                                            <button onClick={() => setShowUploadReceipt({ forecast, item })} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Completar</button>
+                                          )}
+                                          {item.receiptUrl && (
+                                            <a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-slate-700"><ExternalLink size={14} /></a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       </main>
 
-      {showCreateModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}><div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}><div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between"><h3 className="text-lg font-semibold text-slate-900">Nueva previsión de pago</h3><button onClick={() => setShowCreateModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button></div><div className="p-6 space-y-4"><div><label className="block text-sm font-medium text-slate-700 mb-2">Nombre de la previsión</label><input type="text" value={newForecast.name} onChange={(e) => setNewForecast({ ...newForecast, name: e.target.value })} placeholder="Ej: Remesa Semana 23" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div><div><label className="block text-sm font-medium text-slate-700 mb-2">Fecha de pago</label><input type="date" value={newForecast.paymentDate} onChange={(e) => setNewForecast({ ...newForecast, paymentDate: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div><div><label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pago</label><div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setNewForecast({ ...newForecast, type: "remesa" })} className={`p-4 rounded-xl border-2 transition-all text-left ${newForecast.type === "remesa" ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}><Landmark size={20} className={newForecast.type === "remesa" ? "text-indigo-600" : "text-slate-400"} /><p className="font-semibold text-slate-900 mt-2">Remesa</p><p className="text-xs text-slate-500 mt-1">Pago bancario agrupado</p></button><button type="button" onClick={() => setNewForecast({ ...newForecast, type: "fuera_remesa" })} className={`p-4 rounded-xl border-2 transition-all text-left ${newForecast.type === "fuera_remesa" ? "border-violet-500 bg-violet-50" : "border-slate-200 hover:border-slate-300"}`}><Banknote size={20} className={newForecast.type === "fuera_remesa" ? "text-violet-600" : "text-slate-400"} /><p className="font-semibold text-slate-900 mt-2">Fuera de remesa</p><p className="text-xs text-slate-500 mt-1">Transferencia individual</p></button></div></div><button onClick={handleCreateForecast} disabled={!newForecast.name.trim() || !newForecast.paymentDate} className="w-full mt-4 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl font-medium transition-colors">Crear previsión</button></div></div></div>)}
+      {/* Modal crear previsión */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Nueva previsión de pago</h3>
+              <button onClick={() => setShowCreateModal(false)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nombre de la previsión</label>
+                <input type="text" value={newForecast.name} onChange={(e) => setNewForecast({ ...newForecast, name: e.target.value })} placeholder="Ej: Remesa Semana 23" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Fecha de pago</label>
+                <input type="date" value={newForecast.paymentDate} onChange={(e) => setNewForecast({ ...newForecast, paymentDate: e.target.value })} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pago</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "remesa" })} className={`p-4 rounded-xl border-2 transition-all text-left ${newForecast.type === "remesa" ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
+                    <Landmark size={20} className={newForecast.type === "remesa" ? "text-indigo-600" : "text-slate-400"} />
+                    <p className="font-semibold text-slate-900 mt-2">Remesa</p>
+                    <p className="text-xs text-slate-500 mt-1">Pago bancario agrupado</p>
+                  </button>
+                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "fuera_remesa" })} className={`p-4 rounded-xl border-2 transition-all text-left ${newForecast.type === "fuera_remesa" ? "border-violet-500 bg-violet-50" : "border-slate-200 hover:border-slate-300"}`}>
+                    <Banknote size={20} className={newForecast.type === "fuera_remesa" ? "text-violet-600" : "text-slate-400"} />
+                    <p className="font-semibold text-slate-900 mt-2">Fuera de remesa</p>
+                    <p className="text-xs text-slate-500 mt-1">Transferencia individual</p>
+                  </button>
+                </div>
+              </div>
+              <button onClick={handleCreateForecast} disabled={!newForecast.name.trim() || !newForecast.paymentDate} className="w-full mt-4 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl font-medium transition-colors">Crear previsión</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {showAddPaymentModal && selectedForecastId && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowAddPaymentModal(false); setSelectedForecastId(null); }}><div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}><div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between"><h3 className="text-lg font-semibold text-slate-900">Añadir pago</h3><button onClick={() => { setShowAddPaymentModal(false); setSelectedForecastId(null); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button></div><div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-4"><div><label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pago</label><div className="grid grid-cols-2 gap-2">{Object.entries(PAYMENT_TYPES).map(([key, value]) => { const Icon = value.icon; return (<button key={key} type="button" onClick={() => setNewPayment({ ...newPayment, type: key as PaymentType })} className={`p-3 rounded-xl border-2 transition-all text-left ${newPayment.type === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}><Icon size={16} className={newPayment.type === key ? "text-slate-900" : "text-slate-400"} /><p className="font-medium text-slate-900 text-sm mt-1">{value.label}</p></button>); })}</div></div>{(newPayment.type === "invoice" || newPayment.type === "partial") && availableInvoices.length > 0 && (<div><label className="block text-sm font-medium text-slate-700 mb-2">Seleccionar factura</label><select value={newPayment.invoiceId} onChange={(e) => { const inv = availableInvoices.find((i) => i.id === e.target.value); if (inv) { setNewPayment({ ...newPayment, invoiceId: inv.id, supplier: inv.supplier, description: inv.description, amount: inv.totalAmount }); } }} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"><option value="">Seleccionar...</option>{availableInvoices.map((inv) => (<option key={inv.id} value={inv.id}>{inv.displayNumber || `FAC-${inv.number}`} · {inv.supplier} · {formatCurrency(inv.totalAmount)} €</option>))}</select></div>)}{newPayment.type === "partial" && newPayment.invoiceId && (<div><label className="block text-sm font-medium text-slate-700 mb-2">Importe parcial (de {formatCurrency(newPayment.amount)} €)</label><input type="number" value={newPayment.partialAmount || ""} onChange={(e) => setNewPayment({ ...newPayment, partialAmount: parseFloat(e.target.value) || 0 })} placeholder="0.00" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div>)}{newPayment.type !== "invoice" && newPayment.type !== "partial" && (<><div><label className="block text-sm font-medium text-slate-700 mb-2">Proveedor</label><input type="text" value={newPayment.supplier} onChange={(e) => setNewPayment({ ...newPayment, supplier: e.target.value })} placeholder="Nombre del proveedor" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div><div><label className="block text-sm font-medium text-slate-700 mb-2">Descripción</label><input type="text" value={newPayment.description} onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })} placeholder="Concepto del pago" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div><div><label className="block text-sm font-medium text-slate-700 mb-2">Importe</label><input type="number" value={newPayment.amount || ""} onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })} placeholder="0.00" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" /></div></>)}<button onClick={() => handleAddPaymentToForecast(selectedForecastId)} disabled={(newPayment.type === "invoice" && !newPayment.invoiceId) || (newPayment.type === "partial" && (!newPayment.invoiceId || !newPayment.partialAmount)) || (newPayment.type !== "invoice" && newPayment.type !== "partial" && (!newPayment.supplier || !newPayment.amount))} className="w-full mt-4 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl font-medium transition-colors">Añadir pago</button></div></div></div>)}
+      {/* Modal añadir pago */}
+      {showAddPaymentModal && selectedForecastId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowAddPaymentModal(false); setSelectedForecastId(null); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Añadir pago</h3>
+              <button onClick={() => { setShowAddPaymentModal(false); setSelectedForecastId(null); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pago</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(PAYMENT_TYPES).map(([key, value]) => {
+                    const Icon = value.icon;
+                    return (
+                      <button key={key} type="button" onClick={() => setNewPayment({ ...newPayment, type: key as PaymentType })} className={`p-3 rounded-xl border-2 transition-all text-left ${newPayment.type === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
+                        <Icon size={16} className={newPayment.type === key ? "text-slate-900" : "text-slate-400"} />
+                        <p className="font-medium text-slate-900 text-sm mt-1">{value.label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {(newPayment.type === "invoice" || newPayment.type === "partial") && availableInvoices.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Seleccionar factura</label>
+                  <select value={newPayment.invoiceId} onChange={(e) => { const inv = availableInvoices.find((i) => i.id === e.target.value); if (inv) { setNewPayment({ ...newPayment, invoiceId: inv.id, supplier: inv.supplier, description: inv.description, amount: inv.totalAmount }); } }} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900">
+                    <option value="">Seleccionar...</option>
+                    {availableInvoices.map((inv) => (<option key={inv.id} value={inv.id}>{inv.displayNumber || `FAC-${inv.number}`} · {inv.supplier} · {formatCurrency(inv.totalAmount)} €</option>))}
+                  </select>
+                </div>
+              )}
+              {newPayment.type === "partial" && newPayment.invoiceId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Importe parcial (de {formatCurrency(newPayment.amount)} €)</label>
+                  <input type="number" value={newPayment.partialAmount || ""} onChange={(e) => setNewPayment({ ...newPayment, partialAmount: parseFloat(e.target.value) || 0 })} placeholder="0.00" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                </div>
+              )}
+              {newPayment.type !== "invoice" && newPayment.type !== "partial" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Proveedor</label>
+                    <input type="text" value={newPayment.supplier} onChange={(e) => setNewPayment({ ...newPayment, supplier: e.target.value })} placeholder="Nombre del proveedor" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Descripción</label>
+                    <input type="text" value={newPayment.description} onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })} placeholder="Concepto del pago" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Importe</label>
+                    <input type="number" value={newPayment.amount || ""} onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })} placeholder="0.00" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                  </div>
+                </>
+              )}
+              <button onClick={() => handleAddPaymentToForecast(selectedForecastId)} disabled={(newPayment.type === "invoice" && !newPayment.invoiceId) || (newPayment.type === "partial" && (!newPayment.invoiceId || !newPayment.partialAmount)) || (newPayment.type !== "invoice" && newPayment.type !== "partial" && (!newPayment.supplier || !newPayment.amount))} className="w-full mt-4 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl font-medium transition-colors">Añadir pago</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {showForecastDetail && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForecastDetail(null)}><div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}><div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between"><div><div className="flex items-center gap-2"><h3 className="text-lg font-semibold text-slate-900">{showForecastDetail.name}</h3>{(() => { const config = getStatusConfig(showForecastDetail.status); const Icon = config.icon; return (<span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${config.bg} ${config.text}`}><Icon size={12} />{config.label}</span>); })()}</div><p className="text-sm text-slate-500">Creada por {showForecastDetail.createdByName} · {formatDate(showForecastDetail.createdAt)}</p></div><div className="flex items-center gap-2"><button onClick={() => exportForecastPDF(showForecastDetail)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg" title="Exportar PDF"><Download size={18} /></button><button onClick={() => setShowForecastDetail(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button></div></div><div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]"><div className="grid grid-cols-3 gap-4 mb-6"><div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Fecha de pago</p><p className="text-lg font-bold text-slate-900">{formatDate(showForecastDetail.paymentDate)}</p></div><div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Total</p><p className="text-lg font-bold text-slate-900">{formatCurrency(showForecastDetail.totalAmount)} €</p></div><div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Progreso</p>{(() => { const progress = getCompletionProgress(showForecastDetail); return (<div className="flex items-center gap-2"><div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress.percent}%` }} /></div><span className="text-sm font-bold text-slate-900">{progress.completed}/{progress.total}</span></div>); })()}</div></div><div><h4 className="text-sm font-semibold text-slate-700 uppercase mb-3">Pagos ({showForecastDetail.items.length})</h4>{showForecastDetail.items.length === 0 ? (<div className="text-center py-8 bg-slate-50 rounded-xl"><FolderOpen size={24} className="text-slate-400 mx-auto mb-2" /><p className="text-sm text-slate-500">Sin pagos añadidos</p></div>) : (<div className="space-y-2">{showForecastDetail.items.map((item) => { const typeInfo = PAYMENT_TYPES[item.type]; const ItemIcon = typeInfo.icon; return (<div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200"><div className="flex items-start gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>{item.status === "completed" ? <CheckCircle2 size={18} className="text-emerald-600" /> : <ItemIcon size={18} className="text-slate-500" />}</div><div className="flex-1"><div className="flex items-start justify-between"><div><p className="font-semibold text-slate-900">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p><p className="text-sm text-slate-600">{item.supplier}</p><p className="text-xs text-slate-400 mt-1">{typeInfo.label} · Añadido por {item.addedByName}</p></div><div className="text-right"><p className="text-lg font-bold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</p><span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span></div></div><div className="mt-3 pt-3 border-t border-slate-200">{item.status === "completed" && item.receiptUrl ? (<div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm text-emerald-700"><FileCheck size={14} /><span>{item.receiptName || "Justificante"}</span></div><a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1">Ver <ExternalLink size={12} /></a></div>) : item.status === "completed" ? (<p className="text-xs text-emerald-600">✓ Completado el {formatDate(item.completedAt!)} por {item.completedByName}</p>) : showForecastDetail.status === "pending" ? (<button onClick={() => setShowUploadReceipt({ forecast: showForecastDetail, item })} className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"><Upload size={14} />Subir justificante</button>) : (<p className="text-xs text-slate-400">Pendiente de envío</p>)}</div></div></div></div>); })}</div>)}</div></div><div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">{showForecastDetail.status === "draft" && showForecastDetail.items.length > 0 && (<button onClick={() => { handleSendForecast(showForecastDetail.id); setShowForecastDetail(null); }} className="px-4 py-2 text-sm bg-amber-500 text-white hover:bg-amber-600 rounded-lg flex items-center gap-2"><Send size={14} />Enviar</button>)}{showForecastDetail.status === "draft" && (<button onClick={() => { setSelectedForecastId(showForecastDetail.id); setShowAddPaymentModal(true); setShowForecastDetail(null); }} className="px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800 rounded-lg flex items-center gap-2"><Plus size={14} />Añadir pago</button>)}<button onClick={() => setShowForecastDetail(null)} className="px-4 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-white rounded-lg">Cerrar</button></div></div></div>)}
+      {/* Modal detalle previsión */}
+      {showForecastDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForecastDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900">{showForecastDetail.name}</h3>
+                  {(() => {
+                    const config = getStatusConfig(showForecastDetail.status);
+                    const Icon = config.icon;
+                    return (<span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${config.bg} ${config.text}`}><Icon size={12} />{config.label}</span>);
+                  })()}
+                </div>
+                <p className="text-sm text-slate-500">Creada por {showForecastDetail.createdByName} · {formatDate(showForecastDetail.createdAt)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => exportForecastPDF(showForecastDetail)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg" title="Exportar PDF"><Download size={18} /></button>
+                <button onClick={() => setShowForecastDetail(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Fecha de pago</p>
+                  <p className="text-lg font-bold text-slate-900">{formatDate(showForecastDetail.paymentDate)}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Total</p>
+                  <p className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(showForecastDetail.totalAmount)} €</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Progreso</p>
+                  {(() => {
+                    const progress = getCompletionProgress(showForecastDetail);
+                    return (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress.percent}%` }} />
+                        </div>
+                        <span className="text-sm font-bold text-slate-900">{progress.completed}/{progress.total}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 uppercase mb-3">Pagos ({showForecastDetail.items.length})</h4>
+                {showForecastDetail.items.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-xl">
+                    <FolderOpen size={24} className="text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Sin pagos añadidos</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {showForecastDetail.items.map((item) => {
+                      const typeInfo = PAYMENT_TYPES[item.type];
+                      const ItemIcon = typeInfo.icon;
+                      return (
+                        <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.status === "completed" ? "bg-emerald-100" : "bg-slate-100"}`}>
+                              {item.status === "completed" ? <CheckCircle2 size={18} className="text-emerald-600" /> : <ItemIcon size={18} className="text-slate-500" />}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-semibold text-slate-900 font-mono">{item.invoiceNumber ? `FAC-${item.invoiceNumber}` : item.description}</p>
+                                  <p className="text-sm text-slate-600">{item.supplier}</p>
+                                  <p className="text-xs text-slate-400 mt-1">{typeInfo.label} · Añadido por {item.addedByName}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(item.partialAmount || item.amount)} €</p>
+                                  <span className={`text-xs px-2 py-1 rounded-lg ${item.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
+                                </div>
+                              </div>
+                              <div className="mt-3 pt-3 border-t border-slate-200">
+                                {item.status === "completed" && item.receiptUrl ? (
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-emerald-700"><FileCheck size={14} /><span>{item.receiptName || "Justificante"}</span></div>
+                                    <a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1">Ver <ExternalLink size={12} /></a>
+                                  </div>
+                                ) : item.status === "completed" ? (
+                                  <p className="text-xs text-emerald-600">✓ Completado el {formatDate(item.completedAt!)} por {item.completedByName}</p>
+                                ) : showForecastDetail.status === "pending" ? (
+                                  <button onClick={() => setShowUploadReceipt({ forecast: showForecastDetail, item })} className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"><Upload size={14} />Subir justificante</button>
+                                ) : (
+                                  <p className="text-xs text-slate-400">Pendiente de envío</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+              {showForecastDetail.status === "draft" && showForecastDetail.items.length > 0 && (
+                <button onClick={() => { handleSendForecast(showForecastDetail.id); setShowForecastDetail(null); }} className="px-4 py-2 text-sm bg-amber-500 text-white hover:bg-amber-600 rounded-lg flex items-center gap-2"><Send size={14} />Enviar</button>
+              )}
+              {showForecastDetail.status === "draft" && (
+                <button onClick={() => { setSelectedForecastId(showForecastDetail.id); setShowAddPaymentModal(true); setShowForecastDetail(null); }} className="px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800 rounded-lg flex items-center gap-2"><Plus size={14} />Añadir pago</button>
+              )}
+              <button onClick={() => setShowForecastDetail(null)} className="px-4 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-white rounded-lg">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {showUploadReceipt && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUploadReceipt(null)}><div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}><div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between"><h3 className="text-lg font-semibold text-slate-900">Completar pago</h3><button onClick={() => setShowUploadReceipt(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button></div><div className="p-6"><div className="mb-6 p-4 bg-slate-50 rounded-xl"><p className="text-xs text-slate-500 mb-1">Pago</p><p className="font-semibold text-slate-900">{showUploadReceipt.item.invoiceNumber ? `FAC-${showUploadReceipt.item.invoiceNumber}` : showUploadReceipt.item.description}</p><p className="text-sm text-slate-600">{showUploadReceipt.item.supplier}</p><p className="text-lg font-bold text-slate-900 mt-2">{formatCurrency(showUploadReceipt.item.partialAmount || showUploadReceipt.item.amount)} €</p></div><button onClick={() => handleCompletePaymentItem(showUploadReceipt.forecast.id, showUploadReceipt.item.id)} className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"><CheckCircle2 size={18} />Marcar como completado</button></div></div></div>)}
+      {/* Modal completar pago */}
+      {showUploadReceipt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUploadReceipt(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Completar pago</h3>
+              <button onClick={() => setShowUploadReceipt(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-6">
+              <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                <p className="text-xs text-slate-500 mb-1">Pago</p>
+                <p className="font-semibold text-slate-900 font-mono">{showUploadReceipt.item.invoiceNumber ? `FAC-${showUploadReceipt.item.invoiceNumber}` : showUploadReceipt.item.description}</p>
+                <p className="text-sm text-slate-600">{showUploadReceipt.item.supplier}</p>
+                <p className="text-lg font-bold text-slate-900 mt-2 font-mono">{formatCurrency(showUploadReceipt.item.partialAmount || showUploadReceipt.item.amount)} €</p>
+              </div>
+              <button onClick={() => handleCompletePaymentItem(showUploadReceipt.forecast.id, showUploadReceipt.item.id)} className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"><CheckCircle2 size={18} />Marcar como completado</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
