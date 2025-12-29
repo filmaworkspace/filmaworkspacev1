@@ -25,6 +25,11 @@ import {
   DollarSign,
   TrendingUp,
   Zap,
+  Building2,
+  CreditCard,
+  Calculator,
+  FileCheck,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -50,7 +55,6 @@ interface ApprovalStep {
   roles?: string[];
   department?: string;
   requireAll: boolean;
-  // Nuevos campos para umbral por importe
   hasAmountThreshold: boolean;
   amountThreshold?: number;
   amountCondition?: "above" | "below" | "between";
@@ -79,7 +83,14 @@ const AMOUNT_CONDITIONS: Record<string, { label: string; description: string }> 
 
 const PRESET_THRESHOLDS = [1000, 2500, 5000, 10000, 25000, 50000];
 
-export default function ConfigApprovals() {
+// Secciones de configuración
+const CONFIG_SECTIONS = [
+  { id: "approvals", label: "Aprobaciones", icon: FileCheck, description: "Flujos de aprobación para POs y facturas" },
+  { id: "notifications", label: "Notificaciones", icon: Bell, description: "Alertas y avisos automáticos", disabled: true },
+  { id: "defaults", label: "Valores por defecto", icon: Calculator, description: "IVA, IRPF y otros valores", disabled: true },
+];
+
+export default function AccountingConfigPage() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -91,6 +102,11 @@ export default function ConfigApprovals() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  
+  // Sección activa
+  const [activeSection, setActiveSection] = useState("approvals");
+  
+  // Tab de aprobaciones (PO vs Invoice)
   const [activeTab, setActiveTab] = useState<"po" | "invoice">("po");
   const [poApprovals, setPoApprovals] = useState<ApprovalStep[]>([]);
   const [invoiceApprovals, setInvoiceApprovals] = useState<ApprovalStep[]>([]);
@@ -140,7 +156,7 @@ export default function ConfigApprovals() {
 
       setHasAccess(hasAccountingAccess && (isEPorPM || hasExtendedAccess));
       if (!hasAccountingAccess || (!isEPorPM && !hasExtendedAccess)) {
-        setErrorMessage("No tienes permisos para acceder a la configuración de aprobaciones");
+        setErrorMessage("No tienes permisos para acceder a la configuración de contabilidad");
         setLoading(false);
         return;
       }
@@ -170,7 +186,6 @@ export default function ConfigApprovals() {
       const approvalConfigSnap = await getDoc(approvalConfigRef);
       if (approvalConfigSnap.exists()) {
         const c = approvalConfigSnap.data();
-        // Asegurar que los pasos antiguos tengan los nuevos campos
         const migrateSteps = (steps: any[]): ApprovalStep[] =>
           steps.map((s) => ({
             ...s,
@@ -740,6 +755,144 @@ export default function ConfigApprovals() {
     );
   };
 
+  // Render de la sección de aprobaciones
+  const renderApprovalsSection = () => (
+    <div className="space-y-6">
+      {/* Info box */}
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+        <div className="flex gap-3">
+          <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-slate-600">
+            <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
+            <p className="text-slate-500">
+              Las aprobaciones se procesan en orden secuencial. Puedes configurar niveles que solo se activen a partir de cierto importe 
+              (ej: POs mayores de 5.000€ requieren aprobación del EP). Si no hay niveles configurados, los documentos se aprueban automáticamente.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs PO/Invoice */}
+      <div className="flex gap-1 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab("po")}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "po"
+              ? "border-slate-900 text-slate-900"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <FileText size={16} />
+          Órdenes de compra
+          {poApprovals.length > 0 && (
+            <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+              {poApprovals.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("invoice")}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "invoice"
+              ? "border-slate-900 text-slate-900"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <Receipt size={16} />
+          Facturas
+          {invoiceApprovals.length > 0 && (
+            <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+              {invoiceApprovals.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="space-y-3">
+        {activeTab === "po" ? (
+          <>
+            {poApprovals.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+                <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
+                <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
+                <p className="text-amber-700 text-sm mt-1">Las POs se aprobarán automáticamente</p>
+              </div>
+            ) : (
+              poApprovals.map((step, i) => renderApprovalStep(step, "po", i))
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                onClick={() => addApprovalStep("po", false)}
+                className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+              >
+                <Plus size={18} />
+                Añadir nivel de aprobación
+              </button>
+              <button
+                onClick={() => addApprovalStep("po", true)}
+                className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
+              >
+                <DollarSign size={18} />
+                Añadir nivel por importe
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {invoiceApprovals.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+                <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
+                <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
+                <p className="text-amber-700 text-sm mt-1">Las facturas se aprobarán automáticamente</p>
+              </div>
+            ) : (
+              invoiceApprovals.map((step, i) => renderApprovalStep(step, "invoice", i))
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                onClick={() => addApprovalStep("invoice", false)}
+                className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
+              >
+                <Plus size={18} />
+                Añadir nivel de aprobación
+              </button>
+              <button
+                onClick={() => addApprovalStep("invoice", true)}
+                className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
+              >
+                <DollarSign size={18} />
+                Añadir nivel por importe
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render de sección próximamente
+  const renderComingSoonSection = (sectionId: string) => {
+    const section = CONFIG_SECTIONS.find(s => s.id === sectionId);
+    if (!section) return null;
+    const Icon = section.icon;
+    
+    return (
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-12 text-center">
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Icon size={28} className="text-slate-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">{section.label}</h3>
+        <p className="text-slate-500 text-sm mb-4">{section.description}</p>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-xs font-medium">
+          Próximamente
+        </span>
+      </div>
+    );
+  };
+
   if (loading)
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -785,15 +938,11 @@ export default function ConfigApprovals() {
             </div>
           </div>
 
-          {/* Page header */}
+          {/* Page header - Icono sin fondo */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center">
-                <Settings size={24} className="text-amber-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Configuración de aprobaciones</h1>
-              </div>
+            <div className="flex items-center gap-3">
+              <Settings size={24} className="text-slate-600" />
+              <h1 className="text-2xl font-semibold text-slate-900">Configuración de contabilidad</h1>
             </div>
 
             <button
@@ -836,119 +985,50 @@ export default function ConfigApprovals() {
           </div>
         )}
 
-        {/* Info box */}
-        <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-          <div className="flex gap-3">
-            <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-slate-600">
-              <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
-              <p className="text-slate-500">
-                Las aprobaciones se procesan en orden secuencial. Puedes configurar niveles que solo se activen a partir de cierto importe 
-                (ej: POs mayores de 5.000€ requieren aprobación del EP). Si no hay niveles configurados, los documentos se aprueban automáticamente.
-              </p>
-            </div>
+        {/* Layout con sidebar de secciones */}
+        <div className="flex gap-8">
+          {/* Sidebar de secciones */}
+          <div className="w-64 flex-shrink-0">
+            <nav className="space-y-1 sticky top-24">
+              {CONFIG_SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => !section.disabled && setActiveSection(section.id)}
+                    disabled={section.disabled}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : section.disabled
+                        ? "text-slate-400 cursor-not-allowed"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon size={18} className={isActive ? "text-white" : section.disabled ? "text-slate-300" : "text-slate-400"} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${isActive ? "text-white" : ""}`}>{section.label}</p>
+                      {section.disabled && (
+                        <p className="text-xs text-slate-400">Próximamente</p>
+                      )}
+                    </div>
+                    {!section.disabled && !isActive && (
+                      <ChevronRight size={16} className="text-slate-300" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-slate-200">
-          <button
-            onClick={() => setActiveTab("po")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "po"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <FileText size={16} />
-            Órdenes de compra
-            {poApprovals.length > 0 && (
-              <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                {poApprovals.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("invoice")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "invoice"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <Receipt size={16} />
-            Facturas
-            {invoiceApprovals.length > 0 && (
-              <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                {invoiceApprovals.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="space-y-3">
-          {activeTab === "po" ? (
-            <>
-              {poApprovals.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
-                  <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
-                  <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
-                  <p className="text-amber-700 text-sm mt-1">Las POs se aprobarán automáticamente</p>
-                </div>
-              ) : (
-                poApprovals.map((step, i) => renderApprovalStep(step, "po", i))
-              )}
-              
-              {/* Botones para añadir */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <button
-                  onClick={() => addApprovalStep("po", false)}
-                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-                >
-                  <Plus size={18} />
-                  Añadir nivel de aprobación
-                </button>
-                <button
-                  onClick={() => addApprovalStep("po", true)}
-                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
-                >
-                  <DollarSign size={18} />
-                  Añadir nivel por importe
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {invoiceApprovals.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
-                  <AlertCircle size={28} className="text-amber-600 mx-auto mb-3" />
-                  <p className="text-amber-800 font-medium">Sin niveles de aprobación</p>
-                  <p className="text-amber-700 text-sm mt-1">Las facturas se aprobarán automáticamente</p>
-                </div>
-              ) : (
-                invoiceApprovals.map((step, i) => renderApprovalStep(step, "invoice", i))
-              )}
-              
-              {/* Botones para añadir */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <button
-                  onClick={() => addApprovalStep("invoice", false)}
-                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-slate-300 rounded-2xl hover:border-slate-400 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors text-sm"
-                >
-                  <Plus size={18} />
-                  Añadir nivel de aprobación
-                </button>
-                <button
-                  onClick={() => addApprovalStep("invoice", true)}
-                  className="flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-amber-300 rounded-2xl hover:border-amber-400 hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors text-sm"
-                >
-                  <DollarSign size={18} />
-                  Añadir nivel por importe
-                </button>
-              </div>
-            </>
-          )}
+          {/* Contenido principal */}
+          <div className="flex-1 min-w-0">
+            {activeSection === "approvals" && renderApprovalsSection()}
+            {activeSection === "notifications" && renderComingSoonSection("notifications")}
+            {activeSection === "defaults" && renderComingSoonSection("defaults")}
+          </div>
         </div>
       </main>
     </div>
