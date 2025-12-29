@@ -133,16 +133,6 @@ export default function AccountingPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Link href={`/project/${id}/accounting/pos/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
-                  <Plus size={16} />Nueva PO
-                </button>
-              </Link>
-              <Link href={`/project/${id}/accounting/invoices/new`}>
-                <button className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                  <Upload size={16} />Subir factura
-                </button>
-              </Link>
               {pendingApprovalsCount > 0 && (
                 <Link href={`/project/${id}/accounting/approvals`}>
                   <button className="relative p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200">
@@ -193,11 +183,17 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+                  <p className="text-xs text-slate-500">Órdenes de compra recientes</p>
                 </div>
               </div>
-              <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
-                Ver todas <ChevronRight size={14} />
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href={`/project/${id}/accounting/pos/new`} className="p-2 text-indigo-600 hover:text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
+                  <Plus size={18} />
+                </Link>
+                <Link href={`/project/${id}/accounting/pos`} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-colors">
+                  Abrir <ChevronRight size={14} />
+                </Link>
+              </div>
             </div>
 
             <div className="p-5">
@@ -250,18 +246,20 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
+                  <p className="text-xs text-slate-500">Facturas recientes</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {hasExtendedAccess && (
-                  <Link href={`/project/${id}/accounting/payments`}>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg text-sm font-medium transition-colors">
-                      <CreditCard size={14} />Pagos
-                    </button>
+                  <Link href={`/project/${id}/accounting/payments`} className="p-2 text-violet-600 hover:text-violet-700 bg-violet-50 rounded-lg hover:bg-violet-100 transition-colors" title="Pagos">
+                    <CreditCard size={18} />
                   </Link>
                 )}
-                <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors">
-                  Ver todas <ChevronRight size={14} />
+                <Link href={`/project/${id}/accounting/invoices/new`} className="p-2 text-emerald-600 hover:text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors">
+                  <Upload size={18} />
+                </Link>
+                <Link href={`/project/${id}/accounting/invoices`} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition-colors">
+                  Abrir <ChevronRight size={14} />
                 </Link>
               </div>
             </div>
@@ -315,4 +313,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
