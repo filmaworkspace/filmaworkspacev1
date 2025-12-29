@@ -490,7 +490,7 @@ export default function SuppliersPage() {
         <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
           <div className="flex-1 relative w-full">
             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar por nombre o NIF..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <input type="text" placeholder="Buscar proveedores" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm" />
           </div>
 
           <div className="flex gap-2">
@@ -498,7 +498,7 @@ export default function SuppliersPage() {
             <div className="relative" ref={statusDropdownRef}>
               <button
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors min-w-[180px] ${
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm transition-colors min-w-[180px] ${
                   filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
                 }`}
               >
@@ -524,7 +524,7 @@ export default function SuppliersPage() {
             </div>
 
             {(searchTerm || filterStatus !== "all") && (
-              <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+              <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium transition-colors">
                 <X size={14} />Limpiar
               </button>
             )}
@@ -801,3 +801,4 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
