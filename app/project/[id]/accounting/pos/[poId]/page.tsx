@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, updateDoc, query, where, orderBy, Timestamp } from "firebase/firestore";
-import { FileText, ArrowLeft, Edit, Download, Receipt, Lock, Unlock, XCircle, CheckCircle, Clock, Ban, Archive, Building2, Calendar, User, Hash, FileUp, ChevronLeft, ChevronRight, AlertTriangle, KeyRound, AlertCircle, ShieldAlert, FileEdit, ExternalLink } from "lucide-react";
+import { FileText, ArrowLeft, Edit, Download, Receipt, Lock, Unlock, XCircle, CheckCircle, Clock, Ban, Archive, Building2, Calendar, User, Hash, FileUp, ChevronLeft, ChevronRight, AlertTriangle, KeyRound, AlertCircle, ShieldAlert, FileEdit, ExternalLink, MoreHorizontal } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -115,6 +115,7 @@ export default function PODetailPage() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [modificationReason, setModificationReason] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   useEffect(() => {
     if (projectId && poId && !permissionsLoading) loadData();
@@ -554,6 +555,7 @@ export default function PODetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Navegación entre POs */}
               <div className="flex items-center gap-1 mr-2">
                 <button onClick={() => navigatePO("prev")} disabled={currentIndex <= 0} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg disabled:opacity-30">
                   <ChevronLeft size={18} />
@@ -563,43 +565,19 @@ export default function PODetailPage() {
                   <ChevronRight size={18} />
                 </button>
               </div>
-              <button onClick={generatePDF} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium">
-                <Download size={16} />
-                PDF
-              </button>
+
+              {/* Botón principal según estado */}
               {po.status === "draft" && poPerms.canEdit && (
                 <Link href={`/project/${projectId}/accounting/pos/${po.id}/edit`} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-medium">
                   <Edit size={16} />
                   Editar
                 </Link>
               )}
-              {po.status === "approved" && (
-                <>
-                  {poPerms.canCreateInvoice && (
-                    <Link href={`/project/${projectId}/accounting/invoices/new?poId=${po.id}`} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium">
-                      <Receipt size={16} />
-                      Crear factura
-                    </Link>
-                  )}
-                  {permissions.isProjectRole && (
-                    <button onClick={() => { resetModals(); setShowModifyModal(true); }} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium">
-                      <FileEdit size={16} />
-                      Modificar
-                    </button>
-                  )}
-                  {poPerms.canClose && (
-                    <button onClick={() => { resetModals(); setShowCloseModal(true); }} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium">
-                      <Lock size={16} />
-                      Cerrar
-                    </button>
-                  )}
-                  {poPerms.canCancel && (
-                    <button onClick={() => { resetModals(); setShowCancelModal(true); }} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 text-sm font-medium">
-                      <XCircle size={16} />
-                      Anular
-                    </button>
-                  )}
-                </>
+              {po.status === "approved" && poPerms.canCreateInvoice && (
+                <Link href={`/project/${projectId}/accounting/invoices/new?poId=${po.id}`} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-medium">
+                  <Receipt size={16} />
+                  Crear factura
+                </Link>
               )}
               {po.status === "closed" && poPerms.canReopen && (
                 <button onClick={() => { resetModals(); setShowReopenModal(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-medium">
@@ -607,6 +585,69 @@ export default function PODetailPage() {
                   Reabrir
                 </button>
               )}
+
+              {/* Menú de acciones */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowActionsMenu(!showActionsMenu)} 
+                  className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+                
+                {showActionsMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 animate-fadeIn">
+                      {/* Descargar PDF - Siempre visible */}
+                      <button 
+                        onClick={() => { generatePDF(); setShowActionsMenu(false); }} 
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                      >
+                        <Download size={16} className="text-slate-400" />
+                        Descargar PDF
+                      </button>
+
+                      {/* Acciones para estado Aprobada */}
+                      {po.status === "approved" && (
+                        <>
+                          <div className="border-t border-slate-100 my-1" />
+                          {permissions.isProjectRole && (
+                            <button 
+                              onClick={() => { resetModals(); setShowModifyModal(true); setShowActionsMenu(false); }} 
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                            >
+                              <FileEdit size={16} className="text-slate-400" />
+                              Modificar PO
+                            </button>
+                          )}
+                          {poPerms.canClose && (
+                            <button 
+                              onClick={() => { resetModals(); setShowCloseModal(true); setShowActionsMenu(false); }} 
+                              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
+                            >
+                              <Lock size={16} className="text-slate-400" />
+                              Cerrar PO
+                            </button>
+                          )}
+                          {poPerms.canCancel && (
+                            <>
+                              <div className="border-t border-slate-100 my-1" />
+                              <button 
+                                onClick={() => { resetModals(); setShowCancelModal(true); setShowActionsMenu(false); }} 
+                                className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                              >
+                                <XCircle size={16} className="text-red-400" />
+                                Anular PO
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
