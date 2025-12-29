@@ -813,13 +813,13 @@ export default function POsPage() {
               placeholder="Buscar órdenes de compra"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm bg-white"
+              className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm bg-white"
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={toggleSortOrder}
-              className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl hover:border-slate-300 bg-white text-sm transition-colors group"
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl hover:border-slate-300 bg-white text-sm transition-colors group"
               title={sortOrder === "desc" ? "Más recientes primero" : "Más antiguas primero"}
             >
               <div className="relative w-4 h-4">
@@ -829,7 +829,7 @@ export default function POsPage() {
               <span className="text-slate-700 hidden sm:inline">{sortOrder === "desc" ? "Recientes" : "Antiguas"}</span>
             </button>
             <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <button onClick={() => setViewMode("table")} className={`px-4 py-3 text-sm transition-colors ${viewMode === "table" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+              <button onClick={() => setViewMode("table")} className={`px-4 py-2.5 text-sm transition-colors ${viewMode === "table" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
                 <List size={18} />
               </button>
               <button onClick={() => setViewMode("cards")} className={`px-4 py-3 text-sm transition-colors border-l border-slate-200 ${viewMode === "cards" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
@@ -837,7 +837,7 @@ export default function POsPage() {
               </button>
             </div>
             {(statusFilter !== "all" || searchTerm) && (
-              <button onClick={() => { setStatusFilter("all"); setSearchTerm(""); }} className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl hover:border-red-300 hover:bg-red-50 text-sm text-slate-600 hover:text-red-600 transition-colors">
+              <button onClick={() => { setStatusFilter("all"); setSearchTerm(""); }} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl hover:border-red-300 hover:bg-red-50 text-sm text-slate-600 hover:text-red-600 transition-colors">
                 <X size={16} />
                 <span className="hidden sm:inline">Limpiar</span>
               </button>
