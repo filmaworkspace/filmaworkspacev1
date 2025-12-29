@@ -182,7 +182,10 @@ export default function AccountingPage() {
                   <FileText size={18} className="text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Órdenes de compra<h3>
+                  <h3 className="font-semibold text-slate-900">Últimas POs</h3>
+                  <p className="text-xs text-slate-500">
+                    {recentPOs.length === 0 ? "Sin órdenes de compra" : `Mostrando ${recentPOs.length} más recientes`}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -244,7 +247,10 @@ export default function AccountingPage() {
                   <Receipt size={18} className="text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Facturas</h3>
+                  <h3 className="font-semibold text-slate-900">Últimas facturas</h3>
+                  <p className="text-xs text-slate-500">
+                    {recentInvoices.length === 0 ? "Sin facturas" : `Mostrando ${recentInvoices.length} más recientes`}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -311,4 +317,3 @@ export default function AccountingPage() {
     </div>
   );
 }
-
