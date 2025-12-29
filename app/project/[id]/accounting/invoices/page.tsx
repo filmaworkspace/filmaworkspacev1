@@ -679,7 +679,7 @@ export default function InvoicesPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por número, proveedor, PO..."
+              placeholder="Buscar facturas"
               className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm"
             />
           </div>
