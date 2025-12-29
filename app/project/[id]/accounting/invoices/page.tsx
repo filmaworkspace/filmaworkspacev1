@@ -116,9 +116,7 @@ export default function InvoicesPage() {
 
   // Dropdowns personalizados
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
-  const typeDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!permissionsLoading && permissions.userId && id) loadData();
@@ -137,9 +135,6 @@ export default function InvoicesPage() {
       }
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(target)) {
         setShowStatusDropdown(false);
-      }
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(target)) {
-        setShowTypeDropdown(false);
       }
     };
     document.addEventListener("click", handleClickOutside);
@@ -499,12 +494,6 @@ export default function InvoicesPage() {
     return opt?.label || "Todos los estados";
   };
 
-  const getTypeLabel = () => {
-    if (typeFilter === "all") return "Todos los tipos";
-    const config = DOCUMENT_TYPES[typeFilter as DocumentType];
-    return config?.label || "Todos los tipos";
-  };
-
   if (permissionsLoading || loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -691,7 +680,7 @@ export default function InvoicesPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por número, proveedor, PO..."
-              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm"
+              className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white text-sm"
             />
           </div>
 
@@ -700,9 +689,8 @@ export default function InvoicesPage() {
             <button
               onClick={() => {
                 setShowStatusDropdown(!showStatusDropdown);
-                setShowTypeDropdown(false);
               }}
-              className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[180px]"
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[180px]"
             >
               <Filter size={15} className="text-slate-400" />
               <span className="text-slate-700 flex-1 text-left">{getStatusLabel()}</span>
@@ -728,57 +716,12 @@ export default function InvoicesPage() {
             )}
           </div>
 
-          {/* Type Dropdown */}
-          <div className="relative" ref={typeDropdownRef}>
-            <button
-              onClick={() => {
-                setShowTypeDropdown(!showTypeDropdown);
-                setShowStatusDropdown(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[160px]"
-            >
-              <ArrowUpDown size={15} className="text-slate-400" />
-              <span className="text-slate-700 flex-1 text-left">{getTypeLabel()}</span>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${showTypeDropdown ? "rotate-180" : ""}`} />
-            </button>
-            {showTypeDropdown && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                <button
-                  onClick={() => {
-                    setTypeFilter("all");
-                    setShowTypeDropdown(false);
-                  }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                    typeFilter === "all" ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  Todos los tipos
-                </button>
-                {(Object.entries(DOCUMENT_TYPES) as [DocumentType, typeof DOCUMENT_TYPES.invoice][]).map(([key, config]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setTypeFilter(key);
-                      setShowTypeDropdown(false);
-                    }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                      typeFilter === key ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {config.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {(statusFilter !== "all" || typeFilter !== "all") && (
+          {statusFilter !== "all" && (
             <button
               onClick={() => {
                 setStatusFilter("all");
-                setTypeFilter("all");
               }}
-              className="px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+              className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
             >
               <X size={14} />
               Limpiar
