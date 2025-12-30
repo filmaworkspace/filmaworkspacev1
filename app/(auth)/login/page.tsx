@@ -92,15 +92,9 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Header - SVG en lugar de texto */}
+          {/* Header */}
           <div className="flex justify-center mb-8">
-            <Image
-              src="/auth/acceder.svg"
-              alt="Acceder"
-              width={100}
-              height={28}
-              priority
-            />
+            <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Acceder</h1>
           </div>
 
           {/* Form */}
