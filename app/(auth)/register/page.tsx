@@ -61,7 +61,7 @@ export default function RegisterPage() {
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
@@ -77,7 +77,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#E8E9EB' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -92,7 +92,7 @@ export default function RegisterPage() {
 
           {/* Header */}
           <div className="flex justify-center mb-8">
-            <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Crear cuenta</h1>
+            <h1 className="text-lg font-medium" style={{ color: '#363636' }}>Crear cuenta</h1>
           </div>
 
           {/* Form */}
@@ -107,8 +107,12 @@ export default function RegisterPage() {
                 placeholder="Nombre completo"
                 disabled={loading}
                 autoComplete="name"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
+                style={{ 
+                  color: '#363636', 
+                  backgroundColor: '#E8E9EB',
+                  borderColor: 'rgba(54, 54, 54, 0.2)'
+                }}
               />
             </div>
 
@@ -122,8 +126,12 @@ export default function RegisterPage() {
                 placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
+                style={{ 
+                  color: '#363636', 
+                  backgroundColor: '#E8E9EB',
+                  borderColor: 'rgba(54, 54, 54, 0.2)'
+                }}
               />
             </div>
 
@@ -138,20 +146,24 @@ export default function RegisterPage() {
                   placeholder="Contraseña"
                   disabled={loading}
                   autoComplete="new-password"
-                  className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
-                  style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                  className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                  style={{ 
+                    color: '#363636', 
+                    backgroundColor: '#E8E9EB',
+                    borderColor: 'rgba(54, 54, 54, 0.2)'
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-50"
-                  style={{ color: '#463E39', opacity: 0.4 }}
+                  style={{ color: 'rgba(54, 54, 54, 0.4)' }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p className="text-[10px] mt-1.5 ml-1" style={{ color: '#463E39', opacity: 0.5 }}>
+              <p className="text-[10px] mt-1.5 ml-1" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
                 Mínimo 6 caracteres
               </p>
             </div>
@@ -170,27 +182,27 @@ export default function RegisterPage() {
                 type="submit"
                 disabled={loading}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: '#463E39' }}
+                style={{ backgroundColor: '#363636' }}
               >
                 {loading ? (
                   <div 
                     className="w-4 h-4 border-2 rounded-full animate-spin"
-                    style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
+                    style={{ borderColor: 'rgba(232, 233, 235, 0.3)', borderTopColor: '#E8E9EB' }}
                   />
                 ) : (
-                  <ArrowRight size={18} style={{ color: '#F4F3EE' }} />
+                  <ArrowRight size={18} style={{ color: '#E8E9EB' }} />
                 )}
               </button>
             </div>
           </form>
 
           {/* Login link */}
-          <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
+          <p className="mt-6 text-center text-xs" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
             ¿Ya tienes cuenta?{" "}
             <Link
               href="/login"
               className="font-medium transition-colors hover:opacity-80"
-              style={{ color: '#463E39', opacity: 1 }}
+              style={{ color: '#363636' }}
             >
               Acceder
             </Link>
