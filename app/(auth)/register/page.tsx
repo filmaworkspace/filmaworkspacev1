@@ -97,7 +97,7 @@ export default function RegisterPage() {
             <Image
               src="/auth/crear-cuenta.svg"
               alt="Crear cuenta"
-              width={120}
+              width={140}
               height={28}
               priority
             />
