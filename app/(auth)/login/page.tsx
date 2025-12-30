@@ -79,24 +79,28 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
             <Image
-              src="/logo.svg"
+              src="/logodark.svg"
               alt="Logo"
-              width={120}
-              height={40}
-              className="opacity-80"
-              style={{ filter: 'brightness(0.3)' }}
+              width={140}
+              height={45}
               priority
             />
           </div>
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-lg font-medium text-slate-900">Iniciar sesión</h1>
+          {/* Header - SVG en lugar de texto */}
+          <div className="flex justify-center mb-8">
+            <Image
+              src="/auth/acceder.svg"
+              alt="Acceder"
+              width={100}
+              height={28}
+              priority
+            />
           </div>
 
           {/* Form */}
@@ -111,7 +115,8 @@ export default function LoginPage() {
                 placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
+                style={{ color: '#463E39' }}
               />
             </div>
 
@@ -125,13 +130,15 @@ export default function LoginPage() {
                 placeholder="Contraseña"
                 disabled={loading}
                 autoComplete="current-password"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                style={{ color: '#463E39' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-50"
+                style={{ color: '#463E39', opacity: 0.4 }}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -148,9 +155,13 @@ export default function LoginPage() {
                     disabled={loading}
                     className="sr-only peer"
                   />
-                  <div className="w-4 h-4 border border-slate-300 rounded peer-checked:border-slate-900 peer-checked:bg-slate-900 transition-all" />
+                  <div 
+                    className="w-4 h-4 border rounded transition-all peer-checked:border-[#463E39] peer-checked:bg-[#463E39]"
+                    style={{ borderColor: 'rgba(70, 62, 57, 0.3)' }}
+                  />
                   <svg
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 opacity-0 peer-checked:opacity-100 transition-opacity"
+                    style={{ color: '#F4F3EE' }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -159,12 +170,13 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-xs text-slate-500">Recordarme</span>
+                <span className="text-xs" style={{ color: '#463E39', opacity: 0.6 }}>Recordarme</span>
               </label>
               
               <Link
                 href="/forgot-password"
-                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-xs transition-colors hover:opacity-80"
+                style={{ color: '#463E39', opacity: 0.5 }}
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -182,25 +194,30 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div 
+                    className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                    style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
+                  />
                   Entrando...
                 </span>
               ) : (
-                "Iniciar sesión"
+                "Acceder"
               )}
             </button>
           </form>
 
           {/* Register link */}
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
             ¿No tienes cuenta?{" "}
             <Link
               href="/register"
-              className="text-slate-600 font-medium hover:text-slate-900 transition-colors"
+              className="font-medium transition-colors hover:opacity-80"
+              style={{ color: '#463E39', opacity: 1 }}
             >
               Crear cuenta
             </Link>
