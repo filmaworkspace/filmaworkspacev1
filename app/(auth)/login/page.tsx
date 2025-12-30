@@ -77,7 +77,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#E8E9EB' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F5F6' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
                 style={{ 
                   color: '#363636', 
-                  backgroundColor: '#E8E9EB',
+                  backgroundColor: '#F4F5F6',
                   borderColor: 'rgba(54, 54, 54, 0.2)'
                 }}
               />
@@ -129,7 +129,7 @@ export default function LoginPage() {
                 className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50 pr-10"
                 style={{ 
                   color: '#363636', 
-                  backgroundColor: '#E8E9EB',
+                  backgroundColor: '#F4F5F6',
                   borderColor: 'rgba(54, 54, 54, 0.2)'
                 }}
               />
@@ -164,7 +164,7 @@ export default function LoginPage() {
                   />
                   <svg
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 transition-opacity ${rememberMe ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ color: '#E8E9EB' }}
+                    style={{ color: '#F4F5F6' }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -204,10 +204,10 @@ export default function LoginPage() {
                 {loading ? (
                   <div 
                     className="w-4 h-4 border-2 rounded-full animate-spin"
-                    style={{ borderColor: 'rgba(232, 233, 235, 0.3)', borderTopColor: '#E8E9EB' }}
+                    style={{ borderColor: 'rgba(244, 245, 246, 0.3)', borderTopColor: '#F4F5F6' }}
                   />
                 ) : (
-                  <ArrowRight size={18} style={{ color: '#E8E9EB' }} />
+                  <ArrowRight size={18} style={{ color: '#F4F5F6' }} />
                 )}
               </button>
             </div>
