@@ -115,8 +115,8 @@ export default function LoginPage() {
                 placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 bg-white border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                style={{ color: '#463E39' }}
+                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
+                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
               />
             </div>
 
@@ -130,8 +130,8 @@ export default function LoginPage() {
                 placeholder="Contraseña"
                 disabled={loading}
                 autoComplete="current-password"
-                className="w-full px-3.5 py-2.5 bg-white border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
-                style={{ color: '#463E39' }}
+                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
               />
               <button
                 type="button"
