@@ -92,15 +92,9 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Header - SVG en lugar de texto */}
+          {/* Header */}
           <div className="flex justify-center mb-8">
-            <Image
-              src="/auth/crear-cuenta.svg"
-              alt="Crear cuenta"
-              width={140}
-              height={28}
-              priority
-            />
+            <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Crear cuenta</h1>
           </div>
 
           {/* Form */}
