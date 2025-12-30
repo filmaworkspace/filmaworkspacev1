@@ -1,15 +1,15 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -60,32 +60,47 @@ export default function RegisterPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900" />
-        <div className="absolute top-1/3 -left-32 w-96 h-96 bg-purple-600/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/3 -right-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Left Side - Brand */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
+        {/* Logo centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
-          <span className={`text-3xl tracking-tighter text-white ${spaceGrotesk.className}`}>
-            <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
-          </span>
+          <Image
+            src="/logo.svg"
+            alt="Logo"
+            width={220}
+            height={70}
+            className="opacity-90"
+            priority
+          />
         </div>
       </div>
 
-      {/* Right Side - Minimal Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
-            <span className={`text-lg tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
-              <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
-            </span>
+            <Image
+              src="/logodark.svg"
+              alt="Logo"
+              width={140}
+              height={45}
+              priority
+            />
           </div>
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-lg font-medium text-slate-900">Crear cuenta</h1>
+          {/* Header - SVG en lugar de texto */}
+          <div className="flex justify-center mb-8">
+            <Image
+              src="/auth/crear-cuenta.svg"
+              alt="Crear cuenta"
+              width={120}
+              height={28}
+              priority
+            />
           </div>
 
           {/* Form */}
@@ -100,7 +115,8 @@ export default function RegisterPage() {
                 placeholder="Nombre completo"
                 disabled={loading}
                 autoComplete="name"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
+                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
               />
             </div>
 
@@ -114,7 +130,8 @@ export default function RegisterPage() {
                 placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
+                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
               />
             </div>
 
@@ -129,18 +146,20 @@ export default function RegisterPage() {
                   placeholder="Contraseña"
                   disabled={loading}
                   autoComplete="new-password"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                  className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                  style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-50"
+                  style={{ color: '#463E39', opacity: 0.4 }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
+              <p className="text-[10px] mt-1.5 ml-1" style={{ color: '#463E39', opacity: 0.5 }}>
                 Mínimo 6 caracteres
               </p>
             </div>
@@ -157,11 +176,15 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div 
+                    className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                    style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
+                  />
                   Creando cuenta...
                 </span>
               ) : (
@@ -171,13 +194,14 @@ export default function RegisterPage() {
           </form>
 
           {/* Login link */}
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
             ¿Ya tienes cuenta?{" "}
             <Link
               href="/login"
-              className="text-slate-600 font-medium hover:text-slate-900 transition-colors"
+              className="font-medium transition-colors hover:opacity-80"
+              style={{ color: '#463E39', opacity: 1 }}
             >
-              Iniciar sesión
+              Acceder
             </Link>
           </p>
         </div>
