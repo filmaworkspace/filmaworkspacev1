@@ -61,7 +61,7 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#6F8F72' }}>
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
@@ -77,7 +77,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F5F6' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#FFFFFF' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -110,7 +110,7 @@ export default function LoginPage() {
                 className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
                 style={{ 
                   color: '#363636', 
-                  backgroundColor: '#F4F5F6',
+                  backgroundColor: '#FFFFFF',
                   borderColor: 'rgba(54, 54, 54, 0.2)'
                 }}
               />
@@ -129,7 +129,7 @@ export default function LoginPage() {
                 className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50 pr-10"
                 style={{ 
                   color: '#363636', 
-                  backgroundColor: '#F4F5F6',
+                  backgroundColor: '#FFFFFF',
                   borderColor: 'rgba(54, 54, 54, 0.2)'
                 }}
               />
@@ -164,7 +164,7 @@ export default function LoginPage() {
                   />
                   <svg
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 transition-opacity ${rememberMe ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ color: '#F4F5F6' }}
+                    style={{ color: '#FFFFFF' }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -204,10 +204,10 @@ export default function LoginPage() {
                 {loading ? (
                   <div 
                     className="w-4 h-4 border-2 rounded-full animate-spin"
-                    style={{ borderColor: 'rgba(244, 245, 246, 0.3)', borderTopColor: '#F4F5F6' }}
+                    style={{ borderColor: 'rgba(255, 255, 255, 0.3)', borderTopColor: '#FFFFFF' }}
                   />
                 ) : (
-                  <ArrowRight size={18} style={{ color: '#F4F5F6' }} />
+                  <ArrowRight size={18} style={{ color: '#FFFFFF' }} />
                 )}
               </button>
             </div>
