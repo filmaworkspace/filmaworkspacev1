@@ -61,7 +61,7 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
@@ -77,7 +77,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#E8E9EB' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
           {/* Header */}
           <div className="flex justify-center mb-8">
-            <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Acceder</h1>
+            <h1 className="text-lg font-medium" style={{ color: '#363636' }}>Acceder</h1>
           </div>
 
           {/* Form */}
@@ -107,8 +107,12 @@ export default function LoginPage() {
                 placeholder="Email"
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
+                style={{ 
+                  color: '#363636', 
+                  backgroundColor: '#E8E9EB',
+                  borderColor: 'rgba(54, 54, 54, 0.2)'
+                }}
               />
             </div>
 
@@ -122,15 +126,19 @@ export default function LoginPage() {
                 placeholder="Contraseña"
                 disabled={loading}
                 autoComplete="current-password"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50 pr-10"
+                style={{ 
+                  color: '#363636', 
+                  backgroundColor: '#E8E9EB',
+                  borderColor: 'rgba(54, 54, 54, 0.2)'
+                }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={loading}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-50"
-                style={{ color: '#463E39', opacity: 0.4 }}
+                style={{ color: 'rgba(54, 54, 54, 0.4)' }}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -148,12 +156,15 @@ export default function LoginPage() {
                     className="sr-only peer"
                   />
                   <div 
-                    className="w-4 h-4 border rounded transition-all peer-checked:border-[#463E39] peer-checked:bg-[#463E39]"
-                    style={{ borderColor: 'rgba(70, 62, 57, 0.3)' }}
+                    className="w-4 h-4 border rounded transition-all"
+                    style={{ 
+                      borderColor: rememberMe ? '#363636' : 'rgba(54, 54, 54, 0.3)',
+                      backgroundColor: rememberMe ? '#363636' : 'transparent'
+                    }}
                   />
                   <svg
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 opacity-0 peer-checked:opacity-100 transition-opacity"
-                    style={{ color: '#F4F3EE' }}
+                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 transition-opacity ${rememberMe ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ color: '#E8E9EB' }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -162,13 +173,13 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-xs" style={{ color: '#463E39', opacity: 0.6 }}>Recordarme</span>
+                <span className="text-xs" style={{ color: 'rgba(54, 54, 54, 0.6)' }}>Recordarme</span>
               </label>
               
               <Link
                 href="/forgot-password"
                 className="text-xs transition-colors hover:opacity-80"
-                style={{ color: '#463E39', opacity: 0.5 }}
+                style={{ color: 'rgba(54, 54, 54, 0.5)' }}
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -188,27 +199,27 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: '#463E39' }}
+                style={{ backgroundColor: '#363636' }}
               >
                 {loading ? (
                   <div 
                     className="w-4 h-4 border-2 rounded-full animate-spin"
-                    style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
+                    style={{ borderColor: 'rgba(232, 233, 235, 0.3)', borderTopColor: '#E8E9EB' }}
                   />
                 ) : (
-                  <ArrowRight size={18} style={{ color: '#F4F3EE' }} />
+                  <ArrowRight size={18} style={{ color: '#E8E9EB' }} />
                 )}
               </button>
             </div>
           </form>
 
           {/* Register link */}
-          <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
+          <p className="mt-6 text-center text-xs" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
             ¿No tienes cuenta?{" "}
             <Link
               href="/register"
               className="font-medium transition-colors hover:opacity-80"
-              style={{ color: '#463E39', opacity: 1 }}
+              style={{ color: '#363636' }}
             >
               Crear cuenta
             </Link>
