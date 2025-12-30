@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#E8E9EB' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#FFFFFF' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
               <Link
                 href="/login"
                 className="block w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-center hover:opacity-90"
-                style={{ backgroundColor: '#363636', color: '#E8E9EB' }}
+                style={{ backgroundColor: '#363636', color: '#FFFFFF' }}
               >
                 Volver a Acceder
               </Link>
@@ -151,7 +151,7 @@ export default function ForgotPasswordPage() {
                     className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
                     style={{ 
                       color: '#363636', 
-                      backgroundColor: '#E8E9EB',
+                      backgroundColor: '#FFFFFF',
                       borderColor: 'rgba(54, 54, 54, 0.2)'
                     }}
                   />
@@ -176,10 +176,10 @@ export default function ForgotPasswordPage() {
                     {loading ? (
                       <div 
                         className="w-4 h-4 border-2 rounded-full animate-spin"
-                        style={{ borderColor: 'rgba(232, 233, 235, 0.3)', borderTopColor: '#E8E9EB' }}
+                        style={{ borderColor: 'rgba(255, 255, 255, 0.3)', borderTopColor: '#FFFFFF' }}
                       />
                     ) : (
-                      <ArrowRight size={18} style={{ color: '#E8E9EB' }} />
+                      <ArrowRight size={18} style={{ color: '#FFFFFF' }} />
                     )}
                   </button>
                 </div>
