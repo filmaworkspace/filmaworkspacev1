@@ -326,7 +326,14 @@ export default function Dashboard() {
           )}
           {hasAccounting && (
             <Link href={`/project/${project.id}/accounting`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-all text-indigo-700 text-xs font-medium">
+              <div 
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
+                style={{ 
+                  backgroundColor: 'rgba(47, 82, 224, 0.1)',
+                  borderColor: 'rgba(47, 82, 224, 0.3)',
+                  color: '#2F52E0'
+                }}
+              >
                 <BarChart3 size={12} />
                 Accounting
               </div>
@@ -334,7 +341,14 @@ export default function Dashboard() {
           )}
           {hasTeam && (
             <Link href={`/project/${project.id}/team`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all text-amber-700 text-xs font-medium">
+              <div 
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
+                style={{ 
+                  backgroundColor: 'rgba(137, 211, 34, 0.15)',
+                  borderColor: 'rgba(137, 211, 34, 0.4)',
+                  color: '#6BA319'
+                }}
+              >
                 <Users size={12} />
                 Team
               </div>
@@ -430,7 +444,7 @@ export default function Dashboard() {
         {/* Invitaciones */}
         {invitations.length > 0 && (
           <div className="mb-6">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 shadow-lg">
+            <div className="rounded-2xl p-6 shadow-lg" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
                   <Mail size={20} className="text-white" />
@@ -459,14 +473,20 @@ export default function Dashboard() {
                         {invitation.roleType === "project" ? invitation.role : invitation.position}
                       </span>
                       {invitation.permissions.accounting && (
-                        <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">Accounting</span>
+                        <span 
+                          className="text-xs px-2 py-1 rounded-lg"
+                          style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0' }}
+                        >
+                          Accounting
+                        </span>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl py-2 text-sm transition-all disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-1.5 font-medium rounded-xl py-2 text-sm transition-all disabled:opacity-50"
+                        style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
                       >
                         <Check size={14} />
                         {processingInvite === invitation.id ? "..." : "Aceptar"}
