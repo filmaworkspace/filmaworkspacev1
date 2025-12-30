@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberedEmail");
@@ -62,10 +63,8 @@ export default function LoginPage() {
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
-        {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
-        {/* Logo centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
           <Image
             src="/logo.svg"
@@ -80,9 +79,9 @@ export default function LoginPage() {
 
       {/* Right Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-sm">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center mb-12">
+          <div className="lg:hidden flex items-center justify-center mb-16">
             <Image
               src="/logodark.svg"
               alt="Logo"
@@ -92,55 +91,72 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Header */}
-          <div className="flex justify-center mb-8">
-            <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Acceder</h1>
-          </div>
-
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
+            <div className="relative">
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
                 disabled={loading}
                 autoComplete="email"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                placeholder=" "
+                className="peer w-full px-0 py-3 bg-transparent border-b-2 text-base outline-none transition-colors"
+                style={{ 
+                  color: '#463E39',
+                  borderColor: focusedField === 'email' ? '#463E39' : 'rgba(70, 62, 57, 0.2)'
+                }}
               />
+              <label 
+                className="absolute left-0 top-3 text-sm transition-all pointer-events-none peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-focus:-top-2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs"
+                style={{ color: 'rgba(70, 62, 57, 0.5)' }}
+              >
+                Email
+              </label>
             </div>
 
-            {/* Password */}
+            {/* Password Field */}
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña"
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 disabled={loading}
                 autoComplete="current-password"
-                className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50 pr-10"
-                style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                placeholder=" "
+                className="peer w-full px-0 py-3 pr-10 bg-transparent border-b-2 text-base outline-none transition-colors"
+                style={{ 
+                  color: '#463E39',
+                  borderColor: focusedField === 'password' ? '#463E39' : 'rgba(70, 62, 57, 0.2)'
+                }}
               />
+              <label 
+                className="absolute left-0 top-3 text-sm transition-all pointer-events-none peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-focus:-top-2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs"
+                style={{ color: 'rgba(70, 62, 57, 0.5)' }}
+              >
+                Contraseña
+              </label>
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-50"
-                style={{ color: '#463E39', opacity: 0.4 }}
+                className="absolute right-0 top-3 transition-opacity disabled:opacity-50"
+                style={{ color: 'rgba(70, 62, 57, 0.4)' }}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
 
             {/* Options row */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex items-center justify-between pt-2">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -150,7 +166,7 @@ export default function LoginPage() {
                     className="sr-only peer"
                   />
                   <div 
-                    className="w-4 h-4 border rounded transition-all peer-checked:border-[#463E39] peer-checked:bg-[#463E39]"
+                    className="w-4 h-4 border-2 rounded transition-all peer-checked:border-[#463E39] peer-checked:bg-[#463E39]"
                     style={{ borderColor: 'rgba(70, 62, 57, 0.3)' }}
                   />
                   <svg
@@ -164,13 +180,13 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-xs" style={{ color: '#463E39', opacity: 0.6 }}>Recordarme</span>
+                <span className="text-xs" style={{ color: 'rgba(70, 62, 57, 0.6)' }}>Recordarme</span>
               </label>
               
               <Link
                 href="/forgot-password"
-                className="text-xs transition-colors hover:opacity-80"
-                style={{ color: '#463E39', opacity: 0.5 }}
+                className="text-xs transition-opacity hover:opacity-70"
+                style={{ color: 'rgba(70, 62, 57, 0.6)' }}
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -178,44 +194,46 @@ export default function LoginPage() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 p-2.5 bg-red-50 rounded-xl">
-                <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
-                <span className="text-xs text-red-600">{error}</span>
+              <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+                <span className="text-sm text-red-600">{error}</span>
               </div>
             )}
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-              style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-1.5">
+            {/* Submit Button - Arrow */}
+            <div className="flex items-center justify-between pt-4">
+              <span className="text-lg font-medium" style={{ color: '#463E39' }}>Acceder</span>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                style={{ backgroundColor: '#463E39' }}
+              >
+                {loading ? (
                   <div 
-                    className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                    className="w-5 h-5 border-2 rounded-full animate-spin"
                     style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
                   />
-                  Entrando...
-                </span>
-              ) : (
-                "Acceder"
-              )}
-            </button>
+                ) : (
+                  <ArrowRight size={24} style={{ color: '#F4F3EE' }} />
+                )}
+              </button>
+            </div>
           </form>
 
           {/* Register link */}
-          <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
-            ¿No tienes cuenta?{" "}
-            <Link
-              href="/register"
-              className="font-medium transition-colors hover:opacity-80"
-              style={{ color: '#463E39', opacity: 1 }}
-            >
-              Crear cuenta
-            </Link>
-          </p>
+          <div className="mt-12 pt-8 border-t" style={{ borderColor: 'rgba(70, 62, 57, 0.1)' }}>
+            <p className="text-sm" style={{ color: 'rgba(70, 62, 57, 0.5)' }}>
+              ¿No tienes cuenta?{" "}
+              <Link
+                href="/register"
+                className="font-medium transition-opacity hover:opacity-70"
+                style={{ color: '#463E39' }}
+              >
+                Crear cuenta
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
