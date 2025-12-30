@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,27 +60,43 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Gradient */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900" />
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Left Side - Brand */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
+        {/* Subtle gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
+        {/* Subtle pattern/texture */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+        
+        {/* Logo centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
-          <span className={`text-3xl tracking-tighter text-white ${spaceGrotesk.className}`}>
-            <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
-          </span>
+          <Image
+            src="/logo.svg"
+            alt="Logo"
+            width={180}
+            height={60}
+            className="opacity-90"
+            priority
+          />
         </div>
       </div>
 
-      {/* Right Side - Minimal Form */}
+      {/* Right Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
-            <span className={`text-lg tracking-tighter text-slate-400 ${spaceGrotesk.className}`}>
-              <span className="font-medium">filma</span> <span className="font-normal">workspace</span>
-            </span>
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={120}
+              height={40}
+              className="opacity-80"
+              style={{ filter: 'brightness(0.3)' }}
+              priority
+            />
           </div>
 
           {/* Header */}
@@ -171,11 +187,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Entrando...
                 </span>
               ) : (
