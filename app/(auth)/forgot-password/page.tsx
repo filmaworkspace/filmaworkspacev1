@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#F4F3EE' }}>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8" style={{ backgroundColor: '#E8E9EB' }}>
         <div className="w-full max-w-xs">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center mb-12">
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
           <Link
             href="/login"
             className="inline-flex items-center gap-1.5 text-xs mb-6 transition-colors hover:opacity-70"
-            style={{ color: '#463E39', opacity: 0.5 }}
+            style={{ color: 'rgba(54, 54, 54, 0.5)' }}
           >
             <ArrowLeft size={14} />
             Volver
@@ -82,26 +82,26 @@ export default function ForgotPasswordPage() {
             <div className="text-center">
               <div 
                 className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                style={{ backgroundColor: 'rgba(70, 62, 57, 0.1)' }}
+                style={{ backgroundColor: 'rgba(54, 54, 54, 0.1)' }}
               >
-                <Mail size={20} style={{ color: '#463E39' }} />
+                <Mail size={20} style={{ color: '#363636' }} />
               </div>
               
-              <h1 className="text-lg font-medium mb-1.5" style={{ color: '#463E39' }}>
+              <h1 className="text-lg font-medium mb-1.5" style={{ color: '#363636' }}>
                 Revisa tu email
               </h1>
-              <p className="text-xs mb-6" style={{ color: '#463E39', opacity: 0.5 }}>
+              <p className="text-xs mb-6" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
                 Hemos enviado un enlace de recuperación a<br />
-                <span className="font-medium" style={{ color: '#463E39', opacity: 1 }}>{email}</span>
+                <span className="font-medium" style={{ color: '#363636' }}>{email}</span>
               </p>
 
               <div 
                 className="p-3 rounded-xl mb-6"
-                style={{ backgroundColor: 'rgba(70, 62, 57, 0.05)' }}
+                style={{ backgroundColor: 'rgba(54, 54, 54, 0.05)' }}
               >
                 <div className="flex items-start gap-2">
-                  <CheckCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#463E39' }} />
-                  <p className="text-[11px] text-left" style={{ color: '#463E39', opacity: 0.6 }}>
+                  <CheckCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#363636' }} />
+                  <p className="text-[11px] text-left" style={{ color: 'rgba(54, 54, 54, 0.6)' }}>
                     Sigue las instrucciones del email para restablecer tu contraseña. Si no lo ves, revisa la carpeta de spam.
                   </p>
                 </div>
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
               <Link
                 href="/login"
                 className="block w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-center hover:opacity-90"
-                style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
+                style={{ backgroundColor: '#363636', color: '#E8E9EB' }}
               >
                 Volver a Acceder
               </Link>
@@ -118,7 +118,7 @@ export default function ForgotPasswordPage() {
               <button
                 onClick={() => { setSuccess(false); setEmail(""); }}
                 className="mt-4 text-xs transition-colors hover:opacity-70"
-                style={{ color: '#463E39', opacity: 0.5 }}
+                style={{ color: 'rgba(54, 54, 54, 0.5)' }}
               >
                 ¿No recibiste el email? Intentar de nuevo
               </button>
@@ -129,8 +129,8 @@ export default function ForgotPasswordPage() {
               {/* Header */}
               <div className="flex justify-center mb-8">
                 <div className="text-center">
-                  <h1 className="text-lg font-medium" style={{ color: '#463E39' }}>Recuperar contraseña</h1>
-                  <p className="text-xs mt-1" style={{ color: '#463E39', opacity: 0.5 }}>
+                  <h1 className="text-lg font-medium" style={{ color: '#363636' }}>Recuperar contraseña</h1>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
                     Te enviaremos un enlace para restablecerla
                   </p>
                 </div>
@@ -148,8 +148,12 @@ export default function ForgotPasswordPage() {
                     placeholder="Email"
                     disabled={loading}
                     autoComplete="email"
-                    className="w-full px-3.5 py-2.5 border border-[#463E39]/20 rounded-xl text-sm placeholder:text-[#463E39]/40 focus:outline-none focus:ring-2 focus:ring-[#463E39] focus:border-transparent transition-all disabled:opacity-50"
-                    style={{ color: '#463E39', backgroundColor: '#F4F3EE' }}
+                    className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all disabled:opacity-50"
+                    style={{ 
+                      color: '#363636', 
+                      backgroundColor: '#E8E9EB',
+                      borderColor: 'rgba(54, 54, 54, 0.2)'
+                    }}
                   />
                 </div>
 
@@ -167,27 +171,27 @@ export default function ForgotPasswordPage() {
                     type="submit"
                     disabled={loading}
                     className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                    style={{ backgroundColor: '#463E39' }}
+                    style={{ backgroundColor: '#363636' }}
                   >
                     {loading ? (
                       <div 
                         className="w-4 h-4 border-2 rounded-full animate-spin"
-                        style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
+                        style={{ borderColor: 'rgba(232, 233, 235, 0.3)', borderTopColor: '#E8E9EB' }}
                       />
                     ) : (
-                      <ArrowRight size={18} style={{ color: '#F4F3EE' }} />
+                      <ArrowRight size={18} style={{ color: '#E8E9EB' }} />
                     )}
                   </button>
                 </div>
               </form>
 
               {/* Back to login */}
-              <p className="mt-6 text-center text-xs" style={{ color: '#463E39', opacity: 0.5 }}>
+              <p className="mt-6 text-center text-xs" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
                 ¿Recordaste tu contraseña?{" "}
                 <Link
                   href="/login"
                   className="font-medium transition-colors hover:opacity-80"
-                  style={{ color: '#463E39', opacity: 1 }}
+                  style={{ color: '#363636' }}
                 >
                   Acceder
                 </Link>
