@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Inter } from "next/font/google";
-import { ArrowLeft, AlertCircle, CheckCircle, Mail } from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle, Mail, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 
@@ -39,10 +39,8 @@ export default function ForgotPasswordPage() {
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#463E39' }}>
-        {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
-        {/* Logo centered */}
         <div className="relative z-10 flex items-center justify-center w-full">
           <Image
             src="/logo.svg"
@@ -163,25 +161,24 @@ export default function ForgotPasswordPage() {
                   </div>
                 )}
 
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                  style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-1.5">
+                {/* Submit - Arrow button */}
+                <div className="flex items-center justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+                    style={{ backgroundColor: '#463E39' }}
+                  >
+                    {loading ? (
                       <div 
-                        className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                        className="w-4 h-4 border-2 rounded-full animate-spin"
                         style={{ borderColor: 'rgba(244, 243, 238, 0.3)', borderTopColor: '#F4F3EE' }}
                       />
-                      Enviando...
-                    </span>
-                  ) : (
-                    "Enviar enlace"
-                  )}
-                </button>
+                    ) : (
+                      <ArrowRight size={18} style={{ color: '#F4F3EE' }} />
+                    )}
+                  </button>
+                </div>
               </form>
 
               {/* Back to login */}
