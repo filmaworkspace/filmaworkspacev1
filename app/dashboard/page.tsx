@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
-import { Folder, Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, FolderOpen, Filter, ArrowUpDown, ArrowRight } from "lucide-react";
+import { Folder, Search, Users, Settings, Clock, Mail, Check, X as XIcon, Building2, Sparkles, BarChart3, Archive, ChevronDown, FolderOpen, Filter, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { useUser } from "@/contexts/UserContext";
@@ -10,12 +10,12 @@ import { collection, getDocs, getDoc, doc, query, where, updateDoc, setDoc, Time
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const phaseColors: Record<string, { bg: string; border: string; text: string }> = {
-  Desarrollo: { bg: "rgba(14, 165, 233, 0.1)", border: "rgba(14, 165, 233, 0.3)", text: "#0284c7" },
-  Preproducción: { bg: "rgba(245, 158, 11, 0.1)", border: "rgba(245, 158, 11, 0.3)", text: "#d97706" },
-  Rodaje: { bg: "rgba(99, 102, 241, 0.1)", border: "rgba(99, 102, 241, 0.3)", text: "#4f46e5" },
-  Postproducción: { bg: "rgba(168, 85, 247, 0.1)", border: "rgba(168, 85, 247, 0.3)", text: "#9333ea" },
-  Finalizado: { bg: "rgba(34, 197, 94, 0.1)", border: "rgba(34, 197, 94, 0.3)", text: "#16a34a" },
+const phaseColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  Desarrollo: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", dot: "bg-sky-500" },
+  Preproducción: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
+  Rodaje: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+  Postproducción: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
+  Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
 };
 
 const PHASE_OPTIONS = [
@@ -285,26 +285,23 @@ export default function Dashboard() {
     const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
 
     return (
-      <div key={project.id} className="group bg-white border rounded-2xl p-5 hover:shadow-lg transition-all" style={{ borderColor: 'rgba(31, 31, 31, 0.1)' }}>
+      <div key={project.id} className="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:shadow-lg transition-all">
         <div className="flex items-start justify-between mb-3">
-          <h2 className="text-base font-semibold truncate flex-1 min-w-0" style={{ color: '#1F1F1F' }}>{project.name}</h2>
-          <span 
-            className="text-[10px] font-medium px-2 py-0.5 rounded-lg ml-2 flex-shrink-0"
-            style={{ backgroundColor: phaseStyle.bg, color: phaseStyle.text }}
-          >
+          <h2 className="text-base font-semibold text-slate-900 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${phaseStyle.bg} ${phaseStyle.text} ml-2 flex-shrink-0`}>
             {project.phase}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
           {project.role && (
-            <span className="text-[10px] rounded-lg px-2 py-0.5" style={{ color: 'rgba(31, 31, 31, 0.6)', backgroundColor: 'rgba(31, 31, 31, 0.05)' }}>{project.role}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
           )}
           {project.position && (
-            <span className="text-[10px] rounded-lg px-2 py-0.5" style={{ color: 'rgba(31, 31, 31, 0.6)', backgroundColor: 'rgba(31, 31, 31, 0.05)' }}>{project.position}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
           )}
           {project.memberCount !== undefined && (
-            <span className="text-[10px] flex items-center gap-1 ml-auto" style={{ color: 'rgba(31, 31, 31, 0.4)' }}>
+            <span className="text-[10px] text-slate-500 flex items-center gap-1 ml-auto">
               <Users size={10} />
               {project.memberCount}
             </span>
@@ -313,22 +310,15 @@ export default function Dashboard() {
 
         {project.producerNames && project.producerNames.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3">
-            <Building2 size={11} style={{ color: 'rgba(31, 31, 31, 0.3)' }} />
-            <span className="text-[11px] truncate" style={{ color: 'rgba(31, 31, 31, 0.5)' }}>{project.producerNames.join(", ")}</span>
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
           </div>
         )}
 
-        <div className="flex gap-2 pt-3 border-t" style={{ borderColor: 'rgba(31, 31, 31, 0.06)' }}>
+        <div className="flex gap-2 pt-3 border-t border-slate-100">
           {hasConfig && (
             <Link href={`/project/${project.id}/config`} className="flex-1">
-              <div 
-                className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
-                style={{ 
-                  backgroundColor: 'rgba(31, 31, 31, 0.03)',
-                  borderColor: 'rgba(31, 31, 31, 0.1)',
-                  color: 'rgba(31, 31, 31, 0.7)'
-                }}
-              >
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all text-slate-600 text-xs font-medium">
                 <Settings size={12} />
                 Config
               </div>
@@ -339,8 +329,8 @@ export default function Dashboard() {
               <div 
                 className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
                 style={{ 
-                  backgroundColor: 'rgba(47, 82, 224, 0.08)',
-                  borderColor: 'rgba(47, 82, 224, 0.2)',
+                  backgroundColor: 'rgba(47, 82, 224, 0.1)',
+                  borderColor: 'rgba(47, 82, 224, 0.3)',
                   color: '#2F52E0'
                 }}
               >
@@ -354,9 +344,9 @@ export default function Dashboard() {
               <div 
                 className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
                 style={{ 
-                  backgroundColor: 'rgba(137, 211, 34, 0.1)',
-                  borderColor: 'rgba(137, 211, 34, 0.25)',
-                  color: '#5C8A1A'
+                  backgroundColor: 'rgba(137, 211, 34, 0.15)',
+                  borderColor: 'rgba(137, 211, 34, 0.4)',
+                  color: '#6BA319'
                 }}
               >
                 <Users size={12} />
@@ -376,33 +366,37 @@ export default function Dashboard() {
     const phaseStyle = phaseColors[project.phase] || phaseColors["Desarrollo"];
 
     return (
-      <div key={project.id} className="group border rounded-2xl p-5 hover:shadow-md transition-all" style={{ backgroundColor: 'rgba(31, 31, 31, 0.02)', borderColor: 'rgba(31, 31, 31, 0.08)' }}>
+      <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
         <div className="flex items-start justify-between mb-3">
-          <h2 className="text-base font-semibold truncate flex-1 min-w-0" style={{ color: 'rgba(31, 31, 31, 0.7)' }}>{project.name}</h2>
-          <span 
-            className="text-[10px] font-medium px-2 py-0.5 rounded-lg ml-2 flex-shrink-0"
-            style={{ backgroundColor: 'rgba(31, 31, 31, 0.08)', color: 'rgba(31, 31, 31, 0.5)' }}
-          >
+          <h2 className="text-base font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 ml-2 flex-shrink-0">
             Archivado
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
-          <span 
-            className="text-[10px] font-medium px-2 py-0.5 rounded-lg"
-            style={{ backgroundColor: phaseStyle.bg, color: phaseStyle.text }}
-          >
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${phaseStyle.bg} ${phaseStyle.text}`}>
             {project.phase}
           </span>
           {project.role && (
-            <span className="text-[10px] rounded-lg px-2 py-0.5" style={{ color: 'rgba(31, 31, 31, 0.5)', backgroundColor: 'rgba(31, 31, 31, 0.05)' }}>{project.role}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
+          )}
+          {project.position && (
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
           )}
         </div>
 
-        <div className="flex gap-2 pt-3 border-t" style={{ borderColor: 'rgba(31, 31, 31, 0.06)' }}>
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-3 border-t border-slate-200">
           {hasConfig && (
             <Link href={`/project/${project.id}/config`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border rounded-xl transition-all text-xs font-medium" style={{ borderColor: 'rgba(31, 31, 31, 0.1)', color: 'rgba(31, 31, 31, 0.5)' }}>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
                 <Settings size={12} />
                 Config
               </div>
@@ -410,7 +404,7 @@ export default function Dashboard() {
           )}
           {hasAccounting && (
             <Link href={`/project/${project.id}/accounting`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border rounded-xl transition-all text-xs font-medium" style={{ borderColor: 'rgba(31, 31, 31, 0.1)', color: 'rgba(31, 31, 31, 0.5)' }}>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
                 <BarChart3 size={12} />
                 Accounting
               </div>
@@ -418,7 +412,7 @@ export default function Dashboard() {
           )}
           {hasTeam && (
             <Link href={`/project/${project.id}/team`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border rounded-xl transition-all text-xs font-medium" style={{ borderColor: 'rgba(31, 31, 31, 0.1)', color: 'rgba(31, 31, 31, 0.5)' }}>
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
                 <Users size={12} />
                 Team
               </div>
@@ -432,73 +426,77 @@ export default function Dashboard() {
   if (loading || userLoading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
-        <div className="w-10 h-10 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(31, 31, 31, 0.1)', borderTopColor: '#1F1F1F' }} />
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
-      {/* Header */}
+      {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-6xl mx-auto px-6 md:px-12 pt-12 pb-8">
-          <h1 className="text-2xl font-semibold" style={{ color: '#1F1F1F' }}>Proyectos</h1>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-10 pb-6">
+          <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 md:px-12 pb-12">
+      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
         {/* Invitaciones */}
         {invitations.length > 0 && (
-          <div className="mb-8">
-            <div className="rounded-2xl p-6" style={{ backgroundColor: '#1F1F1F' }}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
-                  <Mail size={18} className="text-white" />
+          <div className="mb-6">
+            <div className="rounded-2xl p-6 shadow-lg" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                  <Mail size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">
-                    {invitations.length} {invitations.length === 1 ? "invitación pendiente" : "invitaciones pendientes"}
+                  <h2 className="text-lg font-semibold text-white">
+                    Tienes {invitations.length} {invitations.length === 1 ? "invitación pendiente" : "invitaciones pendientes"}
                   </h2>
-                  <p className="text-xs" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>Te han invitado a unirte a nuevos proyectos</p>
+                  <p className="text-sm text-white/70">Te han invitado a unirte a nuevos proyectos</p>
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {invitations.map((invitation) => (
-                  <div key={invitation.id} className="bg-white rounded-xl p-4">
+                  <div key={invitation.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(31, 31, 31, 0.05)' }}>
-                        <Folder size={16} style={{ color: '#1F1F1F' }} />
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Folder size={18} className="text-slate-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold truncate" style={{ color: '#1F1F1F' }}>{invitation.projectName}</h3>
-                        <p className="text-xs" style={{ color: 'rgba(31, 31, 31, 0.5)' }}>por {invitation.invitedByName}</p>
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">{invitation.projectName}</h3>
+                        <p className="text-xs text-slate-500">Invitado por {invitation.invitedByName}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-medium rounded-lg px-2 py-1" style={{ backgroundColor: 'rgba(31, 31, 31, 0.05)', color: 'rgba(31, 31, 31, 0.7)' }}>
+                      <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-lg px-2 py-1">
                         {invitation.roleType === "project" ? invitation.role : invitation.position}
                       </span>
+                      {invitation.permissions.accounting && (
+                        <span 
+                          className="text-xs px-2 py-1 rounded-lg"
+                          style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0' }}
+                        >
+                          Accounting
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={() => handleRejectInvitation(invitation.id)}
-                        disabled={processingInvite === invitation.id}
-                        className="text-xs transition-all disabled:opacity-50"
-                        style={{ color: 'rgba(31, 31, 31, 0.4)' }}
-                      >
-                        Rechazar
-                      </button>
+                    <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 hover:opacity-80"
-                        style={{ backgroundColor: '#1F1F1F' }}
+                        className="flex-1 flex items-center justify-center gap-1.5 font-medium rounded-xl py-2 text-sm transition-all disabled:opacity-50"
+                        style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
                       >
-                        {processingInvite === invitation.id ? (
-                          <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
-                        ) : (
-                          <ArrowRight size={16} className="text-white" />
-                        )}
+                        <Check size={14} />
+                        {processingInvite === invitation.id ? "..." : "Aceptar"}
+                      </button>
+                      <button
+                        onClick={() => handleRejectInvitation(invitation.id)}
+                        disabled={processingInvite === invitation.id}
+                        className="flex items-center justify-center px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl py-2 transition-all disabled:opacity-50"
+                      >
+                        <XIcon size={14} />
                       </button>
                     </div>
                   </div>
@@ -510,19 +508,19 @@ export default function Dashboard() {
 
         {/* Empty state */}
         {projects.length === 0 && invitations.length === 0 ? (
-          <div className="border-2 border-dashed rounded-2xl" style={{ borderColor: 'rgba(31, 31, 31, 0.1)' }}>
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl">
             <div className="flex items-center justify-center py-20">
               <div className="text-center max-w-md">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: 'rgba(31, 31, 31, 0.05)' }}>
-                  <Sparkles size={28} style={{ color: 'rgba(31, 31, 31, 0.3)' }} />
+                <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles size={32} className="text-slate-400" />
                 </div>
-                <h2 className="text-lg font-semibold mb-2" style={{ color: '#1F1F1F' }}>Bienvenido</h2>
-                <p className="text-sm leading-relaxed mb-6" style={{ color: 'rgba(31, 31, 31, 0.5)' }}>
-                  Aún no tienes proyectos asignados. Cuando un administrador te añada a un proyecto, aparecerá aquí.
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">Bienvenido a tu espacio de trabajo</h2>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                  Aún no tienes proyectos asignados. Cuando un administrador te añada a un proyecto, aparecerá aquí automáticamente.
                 </p>
-                <div className="flex items-center justify-center gap-2 text-xs rounded-xl p-4" style={{ backgroundColor: 'rgba(31, 31, 31, 0.03)', color: 'rgba(31, 31, 31, 0.4)' }}>
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-4 border border-slate-200">
                   <Clock size={14} />
-                  <span>Las invitaciones aparecerán aquí</span>
+                  <span>Las invitaciones a proyectos también aparecerán aquí</span>
                 </div>
               </div>
             </div>
@@ -531,131 +529,118 @@ export default function Dashboard() {
           <>
             {/* Barra de filtros */}
             {activeProjectsCount > 0 && (
-              <div className="rounded-2xl p-4 mb-6" style={{ backgroundColor: 'rgba(31, 31, 31, 0.02)', border: '1px solid rgba(31, 31, 31, 0.06)' }}>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                   {/* Buscador */}
                   <div className="relative flex-1">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(31, 31, 31, 0.3)' }} />
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Buscar proyectos"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1F1F1F] focus:border-transparent text-sm bg-white"
-                      style={{ borderColor: 'rgba(31, 31, 31, 0.1)', color: '#1F1F1F' }}
+                      className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
                     />
                   </div>
 
                   {/* Filtros */}
                   <div className="flex gap-2">
-                    {/* Phase Dropdown */}
-                    <div className="relative" ref={phaseDropdownRef}>
-                      <button
-                        onClick={() => {
-                          setShowPhaseDropdown(!showPhaseDropdown);
-                          setShowSortDropdown(false);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[140px]"
-                        style={{ 
-                          borderColor: selectedPhase !== "all" ? '#1F1F1F' : 'rgba(31, 31, 31, 0.1)',
-                          backgroundColor: selectedPhase !== "all" ? '#1F1F1F' : 'white',
-                          color: selectedPhase !== "all" ? 'white' : 'rgba(31, 31, 31, 0.7)'
-                        }}
-                      >
-                        <Filter size={14} />
-                        <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
-                        <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""}`} />
-                      </button>
-                      {showPhaseDropdown && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full" style={{ borderColor: 'rgba(31, 31, 31, 0.1)' }}>
-                          {PHASE_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSelectedPhase(option.value);
-                                setShowPhaseDropdown(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap"
-                              style={{ 
-                                backgroundColor: selectedPhase === option.value ? 'rgba(31, 31, 31, 0.05)' : 'transparent',
-                                color: selectedPhase === option.value ? '#1F1F1F' : 'rgba(31, 31, 31, 0.7)',
-                                fontWeight: selectedPhase === option.value ? 500 : 400
-                              }}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <div className="relative" ref={sortDropdownRef}>
-                      <button
-                        onClick={() => {
-                          setShowSortDropdown(!showSortDropdown);
-                          setShowPhaseDropdown(false);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium bg-white transition-colors"
-                        style={{ borderColor: 'rgba(31, 31, 31, 0.1)', color: 'rgba(31, 31, 31, 0.7)' }}
-                      >
-                        <ArrowUpDown size={14} />
-                        <span>{getSortLabel()}</span>
-                        <ChevronDown size={14} className={`transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
-                      </button>
-                      {showSortDropdown && (
-                        <div className="absolute top-full right-0 mt-2 bg-white border rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full" style={{ borderColor: 'rgba(31, 31, 31, 0.1)' }}>
-                          {SORT_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSortBy(option.value as "recent" | "name" | "phase");
-                                setShowSortDropdown(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap"
-                              style={{ 
-                                backgroundColor: sortBy === option.value ? 'rgba(31, 31, 31, 0.05)' : 'transparent',
-                                color: sortBy === option.value ? '#1F1F1F' : 'rgba(31, 31, 31, 0.7)',
-                                fontWeight: sortBy === option.value ? 500 : 400
-                              }}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Limpiar filtros */}
-                    {(searchTerm || selectedPhase !== "all") && (
-                      <button
-                        onClick={() => {
-                          setSearchTerm("");
-                          setSelectedPhase("all");
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                        style={{ color: 'rgba(31, 31, 31, 0.5)' }}
-                      >
-                        <XIcon size={14} />
-                        Limpiar
-                      </button>
+                  {/* Phase Dropdown */}
+                  <div className="relative" ref={phaseDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setShowPhaseDropdown(!showPhaseDropdown);
+                        setShowSortDropdown(false);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[160px] ${
+                        selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
+                      }`}
+                    >
+                      <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                      <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
+                      <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
+                    </button>
+                    {showPhaseDropdown && (
+                      <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                        {PHASE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSelectedPhase(option.value);
+                              setShowPhaseDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                              selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
+                  </div>
 
-                    {/* Archivados */}
-                    {archivedProjects.length > 0 && (
-                      <button
-                        onClick={() => setShowArchived(!showArchived)}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border"
-                        style={{ 
-                          backgroundColor: showArchived ? '#1F1F1F' : 'white',
-                          borderColor: showArchived ? '#1F1F1F' : 'rgba(31, 31, 31, 0.1)',
-                          color: showArchived ? 'white' : 'rgba(31, 31, 31, 0.6)'
-                        }}
-                      >
-                        <Archive size={14} />
-                        <span>{archivedProjects.length}</span>
-                      </button>
+                  {/* Sort Dropdown */}
+                  <div className="relative" ref={sortDropdownRef}>
+                    <button
+                      onClick={() => {
+                        setShowSortDropdown(!showSortDropdown);
+                        setShowPhaseDropdown(false);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white hover:border-slate-300 transition-colors"
+                    >
+                      <ArrowUpDown size={14} className="text-slate-400" />
+                      <span className="text-slate-700">{getSortLabel()}</span>
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                    </button>
+                    {showSortDropdown && (
+                      <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                        {SORT_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortBy(option.value as "recent" | "name" | "phase");
+                              setShowSortDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                              sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
+                  </div>
+
+                  {/* Limpiar filtros */}
+                  {(searchTerm || selectedPhase !== "all") && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedPhase("all");
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                    >
+                      <XIcon size={14} />
+                      Limpiar
+                    </button>
+                  )}
+
+                  {/* Archivados - SIEMPRE VISIBLE SI HAY ARCHIVADOS */}
+                  {archivedProjects.length > 0 && (
+                    <button
+                      onClick={() => setShowArchived(!showArchived)}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        showArchived 
+                          ? "bg-slate-900 text-white" 
+                          : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
+                      }`}
+                    >
+                      <Archive size={14} />
+                      <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
+                    </button>
+                  )}
                   </div>
                 </div>
               </div>
@@ -665,16 +650,15 @@ export default function Dashboard() {
             {activeProjectsCount > 0 && (
               <>
                 {filteredProjects.length === 0 ? (
-                  <div className="text-center py-16 border-2 border-dashed rounded-2xl" style={{ borderColor: 'rgba(31, 31, 31, 0.1)' }}>
-                    <FolderOpen size={28} style={{ color: 'rgba(31, 31, 31, 0.2)' }} className="mx-auto mb-3" />
-                    <p className="text-sm font-medium mb-2" style={{ color: 'rgba(31, 31, 31, 0.5)' }}>No se encontraron proyectos</p>
+                  <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
+                    <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm font-medium mb-2">No se encontraron proyectos</p>
                     <button
                       onClick={() => {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="text-sm font-medium underline"
-                      style={{ color: '#1F1F1F' }}
+                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
                     >
                       Limpiar filtros
                     </button>
@@ -689,11 +673,11 @@ export default function Dashboard() {
 
             {/* Archivados */}
             {showArchived && archivedProjects.length > 0 && (
-              <div className="mt-10 pt-10 border-t" style={{ borderColor: 'rgba(31, 31, 31, 0.08)' }}>
-                <div className="flex items-center gap-2 mb-5">
-                  <Archive size={14} style={{ color: 'rgba(31, 31, 31, 0.4)' }} />
-                  <span className="text-sm font-medium" style={{ color: 'rgba(31, 31, 31, 0.6)' }}>Archivados</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(31, 31, 31, 0.05)', color: 'rgba(31, 31, 31, 0.5)' }}>{archivedProjects.length}</span>
+              <div className="mt-8 pt-8 border-t border-slate-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <Archive size={16} className="text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600">Proyectos archivados</span>
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {archivedProjects.map((project) => renderArchivedCard(project))}
