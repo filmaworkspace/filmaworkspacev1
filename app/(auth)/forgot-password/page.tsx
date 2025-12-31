@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#1F1F1F' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
@@ -126,15 +126,10 @@ export default function ForgotPasswordPage() {
           ) : (
             /* Form State */
             <>
-              {/* Header */}
-              <div className="flex justify-center mb-8">
-                <div className="text-center">
-                  <h1 className="text-lg font-medium" style={{ color: '#363636' }}>Recuperar contraseña</h1>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
-                    Te enviaremos un enlace para restablecerla
-                  </p>
-                </div>
-              </div>
+              {/* Subtitle */}
+              <p className="text-xs mb-6" style={{ color: 'rgba(54, 54, 54, 0.5)' }}>
+                Te enviaremos un enlace para restablecer tu contraseña
+              </p>
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -166,7 +161,8 @@ export default function ForgotPasswordPage() {
                 )}
 
                 {/* Submit - Arrow button */}
-                <div className="flex items-center justify-end pt-2">
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-lg font-semibold" style={{ color: '#363636' }}>Recuperar</span>
                   <button
                     type="submit"
                     disabled={loading}
