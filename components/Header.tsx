@@ -200,7 +200,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/dashboard" className="select-none flex items-center gap-2">
           <Image
-            src="/logodark.svg"
+            src="/extendedlogo.svg"
             alt="Logo"
             width={100}
             height={24}
