@@ -3,12 +3,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Inter } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import { Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export default function LoginPage() {
   const router = useRouter();
@@ -59,7 +59,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className={`min-h-screen flex ${inter.className}`}>
+    <div className={`min-h-screen flex ${dmSans.className}`}>
       {/* Left Side - Brand */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
