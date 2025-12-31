@@ -3,12 +3,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Manrope } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 
-const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export default function LoginPage() {
   const router = useRouter();
@@ -59,10 +59,46 @@ export default function LoginPage() {
   };
 
   return (
-    <div className={`min-h-screen flex ${manrope.className}`}>
+    <div className={`min-h-screen flex ${inter.className}`}>
       {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#363636' }}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10" />
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Animated gradient background */}
+        <div 
+          className="absolute inset-0 animate-gradient"
+          style={{ 
+            background: 'linear-gradient(-45deg, #363636, #4a4a4a, #2d2d2d, #363636, #505050)',
+            backgroundSize: '400% 400%'
+          }} 
+        />
+        
+        {/* Subtle pattern overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '32px 32px'
+          }}
+        />
+        
+        {/* Floating orbs */}
+        <div 
+          className="absolute w-96 h-96 rounded-full blur-3xl animate-float-slow"
+          style={{ 
+            background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)',
+            top: '-10%',
+            right: '-10%'
+          }}
+        />
+        <div 
+          className="absolute w-80 h-80 rounded-full blur-3xl animate-float-slower"
+          style={{ 
+            background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)',
+            bottom: '-5%',
+            left: '-5%'
+          }}
+        />
+        
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/20" />
         
         <div className="relative z-10 flex items-center justify-center w-full">
           <Image
@@ -88,11 +124,6 @@ export default function LoginPage() {
               height={45}
               priority
             />
-          </div>
-
-          {/* Header */}
-          <div className="flex justify-center mb-8">
-            <h1 className="text-lg font-medium" style={{ color: '#363636' }}>Acceder</h1>
           </div>
 
           {/* Form */}
@@ -194,7 +225,8 @@ export default function LoginPage() {
             )}
 
             {/* Submit - Arrow button */}
-            <div className="flex items-center justify-end pt-2">
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-lg font-semibold" style={{ color: '#363636' }}>Acceder</span>
               <button
                 type="submit"
                 disabled={loading}
@@ -226,6 +258,31 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes float-slow {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-20px, 20px) scale(1.05); }
+        }
+        @keyframes float-slower {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(20px, -20px) scale(1.1); }
+        }
+        .animate-gradient {
+          animation: gradient 15s ease infinite;
+        }
+        .animate-float-slow {
+          animation: float-slow 20s ease-in-out infinite;
+        }
+        .animate-float-slower {
+          animation: float-slower 25s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
