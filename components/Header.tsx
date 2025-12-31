@@ -155,12 +155,8 @@ export default function Header() {
     <Link
       href={href}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
-        isActive ? "font-medium" : "hover:opacity-70"
+        isActive ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
       }`}
-      style={{ 
-        color: '#463E39',
-        backgroundColor: isActive ? 'rgba(70, 62, 57, 0.1)' : 'transparent'
-      }}
     >
       {children}
     </Link>
@@ -180,15 +176,14 @@ export default function Header() {
     if (availableSections.length === 0) return null;
 
     return (
-      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r" style={{ borderColor: 'rgba(70, 62, 57, 0.2)' }}>
+      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
         {availableSections.map((section) => {
           const Icon = section.icon;
           return (
             <Link
               key={section.key}
               href={section.href}
-              className="p-2 rounded-lg transition-colors hover:opacity-70"
-              style={{ color: 'rgba(70, 62, 57, 0.5)' }}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               title={section.label}
             >
               <Icon size={16} />
@@ -200,12 +195,12 @@ export default function Header() {
   };
 
   return (
-    <header className={`fixed top-0 left-0 w-full z-50 border-b ${inter.className}`} style={{ backgroundColor: '#F4F3EE', borderColor: 'rgba(70, 62, 57, 0.1)' }}>
+    <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-2.5 flex items-center justify-between">
         {/* Logo */}
         <Link href="/dashboard" className="select-none flex items-center gap-2">
           <Image
-            src="/header/headerlogo.svg"
+            src="/logo.svg"
             alt="Logo"
             width={100}
             height={24}
@@ -213,8 +208,8 @@ export default function Header() {
           />
           {currentSection && (
             <>
-              <span style={{ color: 'rgba(70, 62, 57, 0.3)' }}>/</span>
-              <span className="text-sm font-medium" style={{ color: '#463E39' }}>
+              <span className="text-slate-300">/</span>
+              <span className="text-sm font-medium text-slate-600">
                 {currentSection}
               </span>
             </>
@@ -320,8 +315,7 @@ export default function Header() {
           {/* Profile Avatar */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors hover:opacity-80"
-            style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
+            className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold hover:bg-slate-800 transition-colors"
           >
             {userInitial}
           </button>
@@ -329,27 +323,27 @@ export default function Header() {
           {profileOpen && <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>}
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-44 border rounded-xl shadow-lg py-1 text-xs z-50 animate-fadeIn" style={{ backgroundColor: '#F4F3EE', borderColor: 'rgba(70, 62, 57, 0.1)' }}>
-              <div className="px-3 py-2 border-b" style={{ borderColor: 'rgba(70, 62, 57, 0.1)' }}>
-                <p className="font-medium truncate" style={{ color: '#463E39' }}>{userName}</p>
+            <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1 text-xs z-50 animate-fadeIn">
+              <div className="px-3 py-2 border-b border-slate-100">
+                <p className="font-medium text-slate-900 truncate">{userName}</p>
                 {isAdmin && (
-                  <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(70, 62, 57, 0.1)', color: '#463E39' }}>
+                  <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
                     Admin
                   </span>
                 )}
               </div>
               {isAdmin && (
-                <Link href="/admin" className="flex items-center gap-2 px-3 py-2 transition hover:opacity-70" style={{ color: '#463E39' }} onClick={() => setProfileOpen(false)}>
+                <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
                   <Shield size={13} />
                   Administración
                 </Link>
               )}
-              <Link href="/profile" className="flex items-center gap-2 px-3 py-2 transition hover:opacity-70" style={{ color: '#463E39' }} onClick={() => setProfileOpen(false)}>
+              <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition" onClick={() => setProfileOpen(false)}>
                 <User size={13} />
                 Mi cuenta
               </Link>
-              <div className="my-0.5" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }} />
-              <button onClick={handleLogout} className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:opacity-70 text-red-600">
+              <div className="border-t border-slate-100 my-0.5" />
+              <button onClick={handleLogout} className="flex w-full items-center gap-2 px-3 py-2 text-slate-600 hover:text-red-600 hover:bg-red-50 text-left transition">
                 <LogOut size={13} />
                 Cerrar sesión
               </button>
@@ -358,8 +352,7 @@ export default function Header() {
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden p-2 rounded-lg transition hover:opacity-70" 
-            style={{ color: '#463E39' }}
+            className="md:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             {menuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -369,19 +362,18 @@ export default function Header() {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t" style={{ backgroundColor: '#F4F3EE', borderColor: 'rgba(70, 62, 57, 0.1)' }}>
+        <div className="md:hidden bg-white border-t border-slate-100">
           <nav className="flex flex-col p-2 gap-0.5">
             {/* Section Switcher - Mobile */}
             {isInProjectSection && projectId && (
               <>
-                <p className="px-3 py-1 text-[10px] uppercase tracking-wider" style={{ color: 'rgba(70, 62, 57, 0.4)' }}>Ir a sección</p>
+                <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">Ir a sección</p>
                 <div className="flex gap-1.5 px-2 py-1.5 mb-1">
                   {permissions.config && currentSection !== "config" && (
                     <Link
                       href={`/project/${projectId}/config`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border"
-                      style={{ color: '#463E39', borderColor: 'rgba(70, 62, 57, 0.2)' }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <Settings size={14} />
                       Config
@@ -391,8 +383,7 @@ export default function Header() {
                     <Link
                       href={`/project/${projectId}/accounting`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border"
-                      style={{ color: '#463E39', borderColor: 'rgba(70, 62, 57, 0.2)' }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <BarChart3 size={14} />
                       Accounting
@@ -402,77 +393,76 @@ export default function Header() {
                     <Link
                       href={`/project/${projectId}/team`}
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border"
-                      style={{ color: '#463E39', borderColor: 'rgba(70, 62, 57, 0.2)' }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
                     >
                       <Users size={14} />
                       Team
                     </Link>
                   )}
                 </div>
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <p className="px-3 py-1 text-[10px] uppercase tracking-wider" style={{ color: 'rgba(70, 62, 57, 0.4)' }}>En esta sección</p>
+                <div className="border-t border-slate-100 my-1"></div>
+                <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">En esta sección</p>
               </>
             )}
 
             {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection ? (
               <>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ color: '#463E39' }}>
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <Folder size={14} />
                   Proyectos
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ color: '#463E39' }}>
+                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                     <Shield size={14} />
                     Administración
                   </Link>
                 )}
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ color: '#463E39' }}>
+                <div className="border-t border-slate-100 my-1"></div>
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <User size={14} />
                   Mi cuenta
                 </Link>
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left text-red-600">
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : isAdminSection ? (
               <>
-                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ color: '#463E39', backgroundColor: 'rgba(70, 62, 57, 0.1)' }}>
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
                   <Shield size={14} />
                   Panel de administración
                 </Link>
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ color: '#463E39' }}>
+                <div className="border-t border-slate-100 my-1"></div>
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <Folder size={14} />
                   Proyectos
                 </Link>
-                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ color: '#463E39' }}>
+                <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                   <User size={14} />
                   Mi cuenta
                 </Link>
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left text-red-600">
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : isConfigSection ? (
               <>
-                <Link href={`/project/${projectId}/config`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "general" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: configTab === "general" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                <Link href={`/project/${projectId}/config`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "general" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <Info size={14} />
                   General
                 </Link>
-                <Link href={`/project/${projectId}/config/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "users" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: configTab === "users" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                <Link href={`/project/${projectId}/config/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <UserCog size={14} />
                   Usuarios
                 </Link>
-                <Link href={`/project/${projectId}/config/departments`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "departments" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: configTab === "departments" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                <Link href={`/project/${projectId}/config/departments`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "departments" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <Briefcase size={14} />
                   Departamentos
                 </Link>
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left text-red-600">
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
@@ -480,49 +470,49 @@ export default function Header() {
             ) : isAccountingSection ? (
               <>
                 {accountingAccess.panel && (
-                  <Link href={`/project/${projectId}/accounting`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "panel" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: accountingPage === "panel" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                  <Link href={`/project/${projectId}/accounting`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <LayoutDashboard size={14} />
                     Panel
                   </Link>
                 )}
                 {accountingAccess.suppliers && (
-                  <Link href={`/project/${projectId}/accounting/suppliers`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "suppliers" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: accountingPage === "suppliers" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                  <Link href={`/project/${projectId}/accounting/suppliers`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "suppliers" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Building2 size={14} />
                     Proveedores
                   </Link>
                 )}
                 {accountingAccess.budget && (
-                  <Link href={`/project/${projectId}/accounting/budget`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "budget" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: accountingPage === "budget" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                  <Link href={`/project/${projectId}/accounting/budget`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Wallet size={14} />
                     Presupuesto
                   </Link>
                 )}
                 {accountingAccess.users && (
-                  <Link href={`/project/${projectId}/accounting/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "users" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: accountingPage === "users" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                  <Link href={`/project/${projectId}/accounting/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Users size={14} />
                     Usuarios
                   </Link>
                 )}
                 {accountingAccess.reports && (
-                  <Link href={`/project/${projectId}/accounting/reports`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "reports" ? "font-medium" : ""}`} style={{ color: '#463E39', backgroundColor: accountingPage === "reports" ? 'rgba(70, 62, 57, 0.1)' : 'transparent' }}>
+                  <Link href={`/project/${projectId}/accounting/reports`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "reports" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <BarChart3 size={14} />
                     Informes
                   </Link>
                 )}
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left text-red-600">
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
               </>
             ) : (
               <>
-                <Link href={`/project/${projectId}/team`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ color: '#463E39', backgroundColor: 'rgba(70, 62, 57, 0.1)' }}>
+                <Link href={`/project/${projectId}/team`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
                   <Users size={14} />
                   Equipo
                 </Link>
-                <div className="my-1" style={{ borderTop: '1px solid rgba(70, 62, 57, 0.1)' }}></div>
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left text-red-600">
+                <div className="border-t border-slate-100 my-1"></div>
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-red-600 hover:bg-red-50 text-left">
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
