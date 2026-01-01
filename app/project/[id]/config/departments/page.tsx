@@ -10,17 +10,8 @@ import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion, arrayRemove } 
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const deptColors = [
-  { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700", dot: "bg-violet-500" },
-  { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-500" },
-  { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-  { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-  { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", dot: "bg-rose-500" },
-  { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700", dot: "bg-cyan-500" },
-];
-
 interface Member { userId: string; name: string; email: string; department?: string; position?: string; }
-interface DepartmentData { name: string; members: Member[]; colorIndex: number; }
+interface DepartmentData { name: string; members: Member[]; }
 
 export default function ConfigDepartments() {
   const { id } = useParams();
@@ -76,7 +67,7 @@ export default function ConfigDepartments() {
   }, [userId, id, router]);
 
   useEffect(() => {
-    const data: DepartmentData[] = departments.map((d, i) => ({ name: d, members: members.filter((m) => m.department === d), colorIndex: i % deptColors.length })).sort((a, b) => a.name.localeCompare(b.name));
+    const data: DepartmentData[] = departments.map((d) => ({ name: d, members: members.filter((m) => m.department === d) })).sort((a, b) => a.name.localeCompare(b.name));
     setDepartmentsData(data);
   }, [departments, members]);
 
@@ -163,24 +154,8 @@ export default function ConfigDepartments() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/config`} className="hover:text-slate-900 transition-colors">Config</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-      
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
-                <Briefcase size={24} className="text-slate-600" />
-              </div>
+            <div>
               <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
             </div>
       
@@ -223,19 +198,18 @@ export default function ConfigDepartments() {
         {departmentsData.length > 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-visible divide-y divide-slate-100">
             {departmentsData.map((dept) => {
-              const color = deptColors[dept.colorIndex];
               return (
                 <div key={dept.name}>
                   <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => setExpandedDept(expandedDept === dept.name ? null : dept.name)}>
                     <div className="flex items-center gap-4">
-                      <div className={`w-3 h-3 rounded-full ${color.dot}`} />
+                      <div className="w-3 h-3 rounded-full bg-slate-400" />
                       <div>
                         <p className="font-semibold text-slate-900">{dept.name}</p>
                         <p className="text-sm text-slate-500">{dept.members.length} miembro{dept.members.length !== 1 ? "s" : ""}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1.5 text-xs font-semibold rounded-xl ${color.bg} ${color.text} border ${color.border}`}>
+                      <span className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 text-slate-600">
                         {dept.members.length}
                       </span>
                       <div className="relative">
@@ -263,7 +237,7 @@ export default function ConfigDepartments() {
                         <div className="grid gap-3 md:grid-cols-2 pt-3">
                           {dept.members.map((m) => (
                             <div key={m.userId} className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100">
-                              <div className={`w-10 h-10 rounded-xl ${color.bg} ${color.text} flex items-center justify-center font-semibold text-sm`}>
+                              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
                                 {m.name?.[0]?.toUpperCase()}
                               </div>
                               <div className="min-w-0">
