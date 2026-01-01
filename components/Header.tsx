@@ -197,10 +197,11 @@ export default function Header() {
     };
 
     return (
-      <div className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-        <span className="text-slate-900 font-semibold uppercase">{projectName}</span>
-        <span className="text-slate-300">·</span>
-        <span className="text-slate-500">{currentSection ? sectionLabels[currentSection] : ""}</span>
+      <div className="hidden md:flex items-center gap-2 text-sm">
+        <span className="text-slate-300">/</span>
+        <span className="text-slate-600 font-medium">{projectName}</span>
+        <span className="text-slate-300">/</span>
+        <span className="text-slate-400">{currentSection ? sectionLabels[currentSection] : ""}</span>
       </div>
     );
   };
@@ -261,10 +262,12 @@ export default function Header() {
           {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection && (
             <>
               <NavLink href="/dashboard" isActive={pathname === "/dashboard"}>
+                <Folder size={14} />
                 <span>Proyectos</span>
               </NavLink>
               {isAdmin && (
                 <NavLink href="/admin" isActive={false}>
+                  <Shield size={14} />
                   <span>Admin</span>
                 </NavLink>
               )}
@@ -274,6 +277,7 @@ export default function Header() {
           {/* Admin Menu */}
           {isAdminSection && (
             <NavLink href="/admin" isActive={true}>
+              <Shield size={14} />
               <span>Panel de administración</span>
             </NavLink>
           )}
@@ -282,12 +286,15 @@ export default function Header() {
           {isConfigSection && projectId && (
             <>
               <NavLink href={`/project/${projectId}/config`} isActive={configTab === "general"}>
+                <Info size={14} />
                 <span>General</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/users`} isActive={configTab === "users"}>
+                <UserCog size={14} />
                 <span>Usuarios</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/departments`} isActive={configTab === "departments"}>
+                <Briefcase size={14} />
                 <span>Departamentos</span>
               </NavLink>
             </>
@@ -298,26 +305,31 @@ export default function Header() {
             <>
               {accountingAccess.panel && (
                 <NavLink href={`/project/${projectId}/accounting`} isActive={accountingPage === "panel"}>
+                  <LayoutDashboard size={14} />
                   <span>Panel</span>
                 </NavLink>
               )}
               {accountingAccess.suppliers && (
                 <NavLink href={`/project/${projectId}/accounting/suppliers`} isActive={accountingPage === "suppliers"}>
+                  <Building2 size={14} />
                   <span>Proveedores</span>
                 </NavLink>
               )}
               {accountingAccess.budget && (
                 <NavLink href={`/project/${projectId}/accounting/budget`} isActive={accountingPage === "budget"}>
+                  <Wallet size={14} />
                   <span>Presupuesto</span>
                 </NavLink>
               )}
               {accountingAccess.users && (
                 <NavLink href={`/project/${projectId}/accounting/users`} isActive={accountingPage === "users"}>
+                  <UserCog size={14} />
                   <span>Usuarios</span>
                 </NavLink>
               )}
               {accountingAccess.reports && (
                 <NavLink href={`/project/${projectId}/accounting/reports`} isActive={accountingPage === "reports"}>
+                  <BarChart3 size={14} />
                   <span>Informes</span>
                 </NavLink>
               )}
@@ -327,6 +339,7 @@ export default function Header() {
           {/* Team Menu */}
           {isTeamSection && projectId && (
             <NavLink href={`/project/${projectId}/team`} isActive={true}>
+              <Users size={14} />
               <span>Equipo</span>
             </NavLink>
           )}
