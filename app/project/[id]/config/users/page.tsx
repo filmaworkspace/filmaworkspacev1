@@ -253,7 +253,7 @@ export default function ConfigUsers() {
 
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Usuarios del proyecto</h1>
@@ -270,7 +270,7 @@ export default function ConfigUsers() {
         </div>
       </div>
       
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8 space-y-6">
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
           <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
@@ -282,7 +282,7 @@ export default function ConfigUsers() {
                 {pendingInvitations.length} invitación{pendingInvitations.length !== 1 ? "es" : ""} pendiente{pendingInvitations.length !== 1 ? "s" : ""}
               </h2>
             </div>
-            <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {pendingInvitations.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between bg-white rounded-2xl p-4">
                   <div className="flex items-center gap-3">
@@ -305,7 +305,7 @@ export default function ConfigUsers() {
 
         {/* Search */}
         {members.length > 0 && (
-          <div className="relative">
+          <div className="relative max-w-md">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -317,20 +317,74 @@ export default function ConfigUsers() {
           </div>
         )}
 
-        {/* Project Roles */}
-        {projectMembers.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <Shield size={18} className="text-slate-400" />
-              <h3 className="font-semibold text-slate-900">Roles de proyecto</h3>
-              <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{projectMembers.length}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Project Roles */}
+          {projectMembers.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                <Shield size={18} className="text-slate-400" />
+                <h3 className="font-semibold text-slate-900">Roles de proyecto</h3>
+                <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{projectMembers.length}</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {projectMembers.map((m) => {
+                  return (
+                    <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                          {m.name?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-900">{m.name}</p>
+                            {m.userId === userId && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">(tú)</span>}
+                          </div>
+                          <p className="text-sm text-slate-500">{m.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">
+                          {m.role}
+                        </span>
+                        {m.userId !== userId && (
+                          <div className="relative">
+                            <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
+                              <MoreHorizontal size={16} />
+                            </button>
+                            {activeMenu === m.userId && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
+                                <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
+                                  <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                    <Trash2 size={14} />
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="divide-y divide-slate-100">
-              {projectMembers.map((m) => {
-                return (
+          )}
+
+          {/* Department Members */}
+          {deptMembers.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                <Briefcase size={18} className="text-slate-400" />
+                <h3 className="font-semibold text-slate-900">Departamentos</h3>
+                <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{deptMembers.length}</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {deptMembers.map((m) => (
                   <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">
                         {m.name?.[0]?.toUpperCase()}
                       </div>
                       <div>
@@ -338,13 +392,28 @@ export default function ConfigUsers() {
                           <p className="font-medium text-slate-900">{m.name}</p>
                           {m.userId === userId && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">(tú)</span>}
                         </div>
-                        <p className="text-sm text-slate-500">{m.email}</p>
+                        <p className="text-sm text-slate-500">{m.position} · {m.department}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">
-                        {m.role}
-                      </span>
+                      <div className="flex gap-1.5">
+                        {m.permissions.accounting && (
+                          <span 
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
+                            style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0', borderColor: 'rgba(47, 82, 224, 0.2)' }}
+                          >
+                            ACC
+                          </span>
+                        )}
+                        {m.permissions.team && (
+                          <span 
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
+                            style={{ backgroundColor: 'rgba(137, 211, 34, 0.15)', color: '#6BA319', borderColor: 'rgba(137, 211, 34, 0.3)' }}
+                          >
+                            TEAM
+                          </span>
+                        )}
+                      </div>
                       {m.userId !== userId && (
                         <div className="relative">
                           <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
@@ -365,78 +434,11 @@ export default function ConfigUsers() {
                       )}
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Department Members */}
-        {deptMembers.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <Briefcase size={18} className="text-slate-400" />
-              <h3 className="font-semibold text-slate-900">Departamentos</h3>
-              <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{deptMembers.length}</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {deptMembers.map((m) => (
-                <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-sm">
-                      {m.name?.[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-slate-900">{m.name}</p>
-                        {m.userId === userId && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">(tú)</span>}
-                      </div>
-                      <p className="text-sm text-slate-500">{m.position} · {m.department}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                      {m.permissions.accounting && (
-                        <span 
-                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
-                          style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0', borderColor: 'rgba(47, 82, 224, 0.2)' }}
-                        >
-                          ACC
-                        </span>
-                      )}
-                      {m.permissions.team && (
-                        <span 
-                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
-                          style={{ backgroundColor: 'rgba(137, 211, 34, 0.15)', color: '#6BA319', borderColor: 'rgba(137, 211, 34, 0.3)' }}
-                        >
-                          TEAM
-                        </span>
-                      )}
-                    </div>
-                    {m.userId !== userId && (
-                      <div className="relative">
-                        <button onClick={() => setActiveMenu(activeMenu === m.userId ? null : m.userId)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal size={16} />
-                        </button>
-                        {activeMenu === m.userId && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
-                            <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
-                              <button onClick={() => handleRemoveMember(m.userId)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                <Trash2 size={14} />
-                                Eliminar
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Empty State */}
         {filteredMembers.length === 0 && (
