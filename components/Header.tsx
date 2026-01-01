@@ -197,7 +197,7 @@ export default function Header() {
     };
 
     return (
-      <div className="hidden md:flex items-center gap-2 text-xs uppercase">
+      <div className="hidden md:flex items-center gap-2 text-[11px] uppercase">
         <span className="text-slate-300">/</span>
         <span className="text-slate-600 font-medium">{projectName}</span>
         <span className="text-slate-300">·</span>
