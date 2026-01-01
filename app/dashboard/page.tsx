@@ -284,11 +284,11 @@ export default function Dashboard() {
     const hasTeam = project.permissions.team;
 
     return (
-      <div key={project.id} className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 hover:shadow-lg transition-all">
+      <div key={project.id} className="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:shadow-lg transition-all">
         {/* Nombre y fase */}
         <div className="flex items-start justify-between mb-2">
-          <h2 className="text-[13px] font-semibold text-slate-900 truncate flex-1 min-w-0">{project.name}</h2>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 ml-2 flex-shrink-0 uppercase">
+          <h2 className="text-base font-semibold text-slate-900 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 ml-2 flex-shrink-0">
             {project.phase}
           </span>
         </div>
@@ -296,7 +296,7 @@ export default function Dashboard() {
         {/* Productoras */}
         {project.producerNames && project.producerNames.length > 0 && (
           <div className="flex items-center gap-1.5 mb-2">
-            <Building2 size={10} className="text-slate-400" />
+            <Building2 size={11} className="text-slate-400" />
             <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
           </div>
         )}
@@ -304,10 +304,10 @@ export default function Dashboard() {
         {/* Rol */}
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
           {project.role && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 uppercase">{project.role}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
           )}
           {project.position && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 uppercase">{project.position}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
           )}
         </div>
 
@@ -315,8 +315,8 @@ export default function Dashboard() {
         <div className="flex gap-2 pt-3 border-t border-slate-100">
           {hasConfig && (
             <Link href={`/project/${project.id}/config`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all text-slate-600 text-[11px] font-medium uppercase">
-                <Lock size={11} />
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all text-slate-600 text-xs font-medium">
+                <Lock size={12} />
                 Config
               </div>
             </Link>
@@ -324,14 +324,14 @@ export default function Dashboard() {
           {hasAccounting && (
             <Link href={`/project/${project.id}/accounting`} className="flex-1">
               <div 
-                className="flex items-center justify-center gap-1.5 p-2 rounded-lg transition-all text-[11px] font-medium border uppercase"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
                 style={{ 
                   backgroundColor: 'rgba(47, 82, 224, 0.1)',
                   borderColor: 'rgba(47, 82, 224, 0.3)',
                   color: '#2F52E0'
                 }}
               >
-                <BarChart3 size={11} />
+                <BarChart3 size={12} />
                 Accounting
               </div>
             </Link>
@@ -339,14 +339,14 @@ export default function Dashboard() {
           {hasTeam && (
             <Link href={`/project/${project.id}/team`} className="flex-1">
               <div 
-                className="flex items-center justify-center gap-1.5 p-2 rounded-lg transition-all text-[11px] font-medium border uppercase"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl transition-all text-xs font-medium border"
                 style={{ 
                   backgroundColor: 'rgba(137, 211, 34, 0.15)',
                   borderColor: 'rgba(137, 211, 34, 0.4)',
                   color: '#6BA319'
                 }}
               >
-                <Users size={11} />
+                <Users size={12} />
                 Team
               </div>
             </Link>
@@ -362,32 +362,32 @@ export default function Dashboard() {
     const hasTeam = project.permissions.team;
 
     return (
-      <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
+      <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
         {/* Nombre y badge archivado */}
         <div className="flex items-start justify-between mb-2">
-          <h2 className="text-[13px] font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 ml-2 flex-shrink-0 uppercase">
+          <h2 className="text-base font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 ml-2 flex-shrink-0">
             Archivado
           </span>
         </div>
 
         {/* Fase y rol */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 uppercase">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">
             {project.phase}
           </span>
           {project.role && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 uppercase">{project.role}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
           )}
           {project.position && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 uppercase">{project.position}</span>
+            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
           )}
         </div>
 
         {/* Productoras */}
         {project.producerNames && project.producerNames.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3">
-            <Building2 size={10} className="text-slate-400" />
+            <Building2 size={11} className="text-slate-400" />
             <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
           </div>
         )}
@@ -396,24 +396,24 @@ export default function Dashboard() {
         <div className="flex gap-2 pt-3 border-t border-slate-200">
           {hasConfig && (
             <Link href={`/project/${project.id}/config`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-[11px] font-medium uppercase">
-                <Lock size={11} />
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <Lock size={12} />
                 Config
               </div>
             </Link>
           )}
           {hasAccounting && (
             <Link href={`/project/${project.id}/accounting`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-[11px] font-medium uppercase">
-                <BarChart3 size={11} />
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <BarChart3 size={12} />
                 Accounting
               </div>
             </Link>
           )}
           {hasTeam && (
             <Link href={`/project/${project.id}/team`} className="flex-1">
-              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-500 text-[11px] font-medium uppercase">
-                <Users size={11} />
+              <div className="flex items-center justify-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 text-xs font-medium">
+                <Users size={12} />
                 Team
               </div>
             </Link>
@@ -436,7 +436,7 @@ export default function Dashboard() {
       {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 pt-10 pb-6">
-          <h1 className="text-2xl font-semibold text-slate-900 text-center">Panel de proyectos</h1>
+          <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
@@ -444,37 +444,37 @@ export default function Dashboard() {
         {/* Invitaciones */}
         {invitations.length > 0 && (
           <div className="mb-6">
-            <div className="rounded-xl p-6 shadow-lg" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
+            <div className="rounded-2xl p-6 shadow-lg" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
                   <Mail size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-lg font-semibold text-white">
                     Tienes {invitations.length} {invitations.length === 1 ? "invitación pendiente" : "invitaciones pendientes"}
                   </h2>
-                  <p className="text-[11px] text-white/70">Te han invitado a unirte a nuevos proyectos</p>
+                  <p className="text-sm text-white/70">Te han invitado a unirte a nuevos proyectos</p>
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {invitations.map((invitation) => (
-                  <div key={invitation.id} className="bg-white rounded-xl p-4 shadow-sm">
+                  <div key={invitation.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
                         <Folder size={18} className="text-slate-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-[13px] font-semibold text-slate-900 truncate">{invitation.projectName}</h3>
-                        <p className="text-[11px] text-slate-500">Invitado por {invitation.invitedByName}</p>
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">{invitation.projectName}</h3>
+                        <p className="text-xs text-slate-500">Invitado por {invitation.invitedByName}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[10px] font-medium text-slate-700 bg-slate-100 rounded-lg px-2 py-1 uppercase">
+                      <span className="text-xs font-medium text-slate-700 bg-slate-100 rounded-lg px-2 py-1">
                         {invitation.roleType === "project" ? invitation.role : invitation.position}
                       </span>
                       {invitation.permissions.accounting && (
                         <span 
-                          className="text-[10px] px-2 py-1 rounded-lg uppercase font-medium"
+                          className="text-xs px-2 py-1 rounded-lg"
                           style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0' }}
                         >
                           Accounting
@@ -485,18 +485,18 @@ export default function Dashboard() {
                       <button
                         onClick={() => handleAcceptInvitation(invitation)}
                         disabled={processingInvite === invitation.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 font-medium rounded-lg py-2 text-[11px] uppercase transition-all disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-1.5 font-medium rounded-xl py-2 text-sm transition-all disabled:opacity-50"
                         style={{ backgroundColor: '#463E39', color: '#F4F3EE' }}
                       >
-                        <Check size={12} />
+                        <Check size={14} />
                         {processingInvite === invitation.id ? "..." : "Aceptar"}
                       </button>
                       <button
                         onClick={() => handleRejectInvitation(invitation.id)}
                         disabled={processingInvite === invitation.id}
-                        className="flex items-center justify-center px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg py-2 transition-all disabled:opacity-50"
+                        className="flex items-center justify-center px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl py-2 transition-all disabled:opacity-50"
                       >
-                        <XIcon size={12} />
+                        <XIcon size={14} />
                       </button>
                     </div>
                   </div>
@@ -508,18 +508,18 @@ export default function Dashboard() {
 
         {/* Empty state */}
         {projects.length === 0 && invitations.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-xl">
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl">
             <div className="flex items-center justify-center py-20">
               <div className="text-center max-w-md">
-                <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Sparkles size={32} className="text-slate-400" />
                 </div>
-                <h2 className="text-lg font-semibold text-slate-900 mb-2">Bienvenido a tu espacio de trabajo</h2>
-                <p className="text-[11px] text-slate-600 leading-relaxed mb-6">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">Bienvenido a tu espacio de trabajo</h2>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">
                   Aún no tienes proyectos asignados. Cuando un administrador te añada a un proyecto, aparecerá aquí automáticamente.
                 </p>
-                <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <Clock size={12} />
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <Clock size={14} />
                   <span>Las invitaciones a proyectos también aparecerán aquí</span>
                 </div>
               </div>
@@ -529,17 +529,17 @@ export default function Dashboard() {
           <>
             {/* Barra de filtros */}
             {activeProjectsCount > 0 && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                   {/* Buscador */}
                   <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Buscar proyectos"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-[11px] bg-white"
+                      className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
                     />
                   </div>
 
@@ -552,16 +552,16 @@ export default function Dashboard() {
                         setShowPhaseDropdown(!showPhaseDropdown);
                         setShowSortDropdown(false);
                       }}
-                      className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-[11px] font-medium transition-colors min-w-[140px] ${
+                      className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[160px] ${
                         selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
                       }`}
                     >
-                      <Filter size={12} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                      <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
                       <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
-                      <ChevronDown size={12} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
+                      <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
                     </button>
                     {showPhaseDropdown && (
-                      <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                      <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
                         {PHASE_OPTIONS.map((option) => (
                           <button
                             key={option.value}
@@ -569,7 +569,7 @@ export default function Dashboard() {
                               setSelectedPhase(option.value);
                               setShowPhaseDropdown(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-[11px] transition-colors whitespace-nowrap ${
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
                               selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
@@ -587,14 +587,14 @@ export default function Dashboard() {
                         setShowSortDropdown(!showSortDropdown);
                         setShowPhaseDropdown(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-[11px] font-medium bg-white hover:border-slate-300 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white hover:border-slate-300 transition-colors"
                     >
-                      <ArrowUpDown size={12} className="text-slate-400" />
+                      <ArrowUpDown size={14} className="text-slate-400" />
                       <span className="text-slate-700">{getSortLabel()}</span>
-                      <ChevronDown size={12} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
                     </button>
                     {showSortDropdown && (
-                      <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                      <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
                         {SORT_OPTIONS.map((option) => (
                           <button
                             key={option.value}
@@ -602,7 +602,7 @@ export default function Dashboard() {
                               setSortBy(option.value as "recent" | "name" | "phase");
                               setShowSortDropdown(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-[11px] transition-colors whitespace-nowrap ${
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
                               sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
@@ -620,9 +620,9 @@ export default function Dashboard() {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
                     >
-                      <XIcon size={12} />
+                      <XIcon size={14} />
                       Limpiar
                     </button>
                   )}
@@ -631,13 +631,13 @@ export default function Dashboard() {
                   {archivedProjects.length > 0 && (
                     <button
                       onClick={() => setShowArchived(!showArchived)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         showArchived 
                           ? "bg-slate-900 text-white" 
                           : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
                       }`}
                     >
-                      <Archive size={12} />
+                      <Archive size={14} />
                       <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
                     </button>
                   )}
@@ -650,15 +650,15 @@ export default function Dashboard() {
             {activeProjectsCount > 0 && (
               <>
                 {filteredProjects.length === 0 ? (
-                  <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl">
-                    <FolderOpen size={28} className="text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 text-[11px] font-medium mb-2">No se encontraron proyectos</p>
+                  <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-2xl">
+                    <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm font-medium mb-2">No se encontraron proyectos</p>
                     <button
                       onClick={() => {
                         setSearchTerm("");
                         setSelectedPhase("all");
                       }}
-                      className="text-[11px] text-slate-700 hover:text-slate-900 font-medium underline"
+                      className="text-sm text-slate-700 hover:text-slate-900 font-medium underline"
                     >
                       Limpiar filtros
                     </button>
@@ -675,9 +675,9 @@ export default function Dashboard() {
             {showArchived && archivedProjects.length > 0 && (
               <div className="mt-8 pt-8 border-t border-slate-200">
                 <div className="flex items-center gap-2 mb-4">
-                  <Archive size={14} className="text-slate-400" />
-                  <span className="text-[11px] font-medium text-slate-600 uppercase">Proyectos archivados</span>
-                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
+                  <Archive size={16} className="text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600">Proyectos archivados</span>
+                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {archivedProjects.map((project) => renderArchivedCard(project))}
