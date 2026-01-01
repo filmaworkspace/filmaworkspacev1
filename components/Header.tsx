@@ -203,7 +203,7 @@ export default function Header() {
     if (!isInProjectSection || !currentSection) return null;
 
     const sectionLabels: Record<string, string> = {
-      config: "CONFIG",
+      config: "CONFIGURACIÓN",
       accounting: "ACCOUNTING",
       team: "TEAM",
     };
