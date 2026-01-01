@@ -190,6 +190,18 @@ export default function Header() {
   const ProjectBadge = () => {
     if (!isInProjectSection || !projectId || !projectName) return null;
 
+    return (
+      <div className="hidden md:flex items-center gap-2 text-xs">
+        <span className="text-slate-300">·</span>
+        <span className="text-slate-600 font-medium uppercase">{projectName}</span>
+      </div>
+    );
+  };
+
+  // Badge de sección actual (CONFIG/ACCOUNTING/TEAM)
+  const SectionBadge = () => {
+    if (!isInProjectSection || !currentSection) return null;
+
     const sectionLabels: Record<string, string> = {
       config: "CONFIG",
       accounting: "ACCOUNTING",
@@ -197,12 +209,7 @@ export default function Header() {
     };
 
     return (
-      <div className="hidden md:flex items-center gap-2 text-xs">
-        <span className="text-slate-300">·</span>
-        <span className="text-slate-600 font-medium uppercase">{projectName}</span>
-        <span className="text-slate-300">·</span>
-        <span className="text-slate-400">{currentSection ? sectionLabels[currentSection] : ""}</span>
-      </div>
+      <span className="text-xs text-slate-400 mr-2">{sectionLabels[currentSection]}</span>
     );
   };
 
@@ -345,8 +352,12 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Right side: Section Switcher + Profile */}
+        {/* Right side: Section Badge + Section Switcher + Profile */}
         <div className="relative flex items-center gap-1">
+          {/* Section Badge - Desktop */}
+          <div className="hidden md:flex">
+            <SectionBadge />
+          </div>
           {/* Section Switcher - Desktop */}
           <div className="hidden md:flex">
             <SectionSwitcher />
