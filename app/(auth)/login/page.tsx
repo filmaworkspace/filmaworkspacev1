@@ -64,17 +64,17 @@ export default function LoginPage() {
       <div 
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
         style={{ 
-          background: 'linear-gradient(135deg, #2F52E0 0%, #1a3a9e 40%, #3d7a1a 80%, #6BA319 100%)'
+          background: 'linear-gradient(135deg, #1a3a9e 0%, #2F52E0 50%, #4F6FE8 100%)'
         }}
       >
         {/* Decorative elements */}
         <div 
           className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl"
-          style={{ backgroundColor: '#6BA319', transform: 'translate(30%, -30%)' }}
+          style={{ backgroundColor: '#4F6FE8', transform: 'translate(30%, -30%)' }}
         />
         <div 
-          className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-20 blur-3xl"
-          style={{ backgroundColor: '#2F52E0', transform: 'translate(-20%, 20%)' }}
+          className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-15 blur-3xl"
+          style={{ backgroundColor: '#1a3a9e', transform: 'translate(-20%, 20%)' }}
         />
         
         <div className="relative z-10 flex items-center justify-center w-full">
