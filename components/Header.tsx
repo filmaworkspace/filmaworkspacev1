@@ -233,22 +233,21 @@ export default function Header() {
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-2.5 flex items-center justify-between">
-        {/* Logo + Project Badge */}
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="select-none flex items-center gap-2">
-            <Image
-              src="/logodark.svg"
-              alt="Logo"
-              width={100}
-              height={24}
-              priority
-            />
-          </Link>
-          <ProjectBadge />
-        </div>
+        {/* Logo */}
+        <Link href="/dashboard" className="select-none flex-shrink-0">
+          <Image
+            src="/logodark.svg"
+            alt="Logo"
+            width={100}
+            height={24}
+            priority
+          />
+        </Link>
 
-        {/* Navigation - Desktop */}
-        <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
+        {/* Center: Project Badge + Navigation - Desktop */}
+        <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
+          <ProjectBadge />
+          <nav className="flex items-center gap-0.5">
           {/* Default Menu */}
           {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection && (
             <>
@@ -334,7 +333,8 @@ export default function Header() {
               <span>Equipo</span>
             </NavLink>
           )}
-        </nav>
+          </nav>
+        </div>
 
         {/* Right side: Profile */}
         <div className="relative flex items-center gap-1">
