@@ -362,35 +362,35 @@ export default function Dashboard() {
     const hasTeam = project.permissions.team;
 
     return (
-      <div key={project.id} className="group bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
+      <div key={project.id} className="group bg-slate-50/50 border border-slate-200 rounded-2xl p-5 hover:bg-white hover:border-slate-300 hover:shadow-md transition-all">
         {/* Nombre y badge archivado */}
         <div className="flex items-start justify-between mb-2">
-          <h2 className="text-base font-semibold text-slate-700 truncate flex-1 min-w-0">{project.name}</h2>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600 ml-2 flex-shrink-0">
+          <h2 className="text-base font-semibold text-slate-600 truncate flex-1 min-w-0">{project.name}</h2>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 ml-2 flex-shrink-0">
             Archivado
           </span>
         </div>
 
+        {/* Productoras */}
+        {project.producerNames && project.producerNames.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <Building2 size={11} className="text-slate-400" />
+            <span className="text-[11px] text-slate-400 truncate">{project.producerNames.join(", ")}</span>
+          </div>
+        )}
+
         {/* Fase y rol */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400">
             {project.phase}
           </span>
           {project.role && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
+            <span className="text-[10px] text-slate-500 bg-slate-100 rounded-lg px-2 py-0.5">{project.role}</span>
           )}
           {project.position && (
-            <span className="text-[10px] text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
+            <span className="text-[10px] text-slate-500 bg-slate-100 rounded-lg px-2 py-0.5">{project.position}</span>
           )}
         </div>
-
-        {/* Productoras */}
-        {project.producerNames && project.producerNames.length > 0 && (
-          <div className="flex items-center gap-1.5 mb-3">
-            <Building2 size={11} className="text-slate-400" />
-            <span className="text-[11px] text-slate-500 truncate">{project.producerNames.join(", ")}</span>
-          </div>
-        )}
 
         {/* Botones */}
         <div className="flex gap-2 pt-3 border-t border-slate-200">
@@ -435,12 +435,12 @@ export default function Dashboard() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header con título centrado */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 pt-10 pb-6">
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 pt-10 pb-6">
           <h1 className="text-3xl font-bold text-slate-900 text-center">Panel de proyectos</h1>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
         {/* Invitaciones */}
         {invitations.length > 0 && (
           <div className="mb-6">
@@ -456,7 +456,7 @@ export default function Dashboard() {
                   <p className="text-sm text-white/70">Te han invitado a unirte a nuevos proyectos</p>
                 </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {invitations.map((invitation) => (
                   <div key={invitation.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start gap-3 mb-3">
@@ -532,7 +532,7 @@ export default function Dashboard() {
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                   {/* Buscador */}
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 max-w-md">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
@@ -544,103 +544,103 @@ export default function Dashboard() {
                   </div>
 
                   {/* Filtros */}
-                  <div className="flex gap-2">
-                  {/* Phase Dropdown */}
-                  <div className="relative" ref={phaseDropdownRef}>
-                    <button
-                      onClick={() => {
-                        setShowPhaseDropdown(!showPhaseDropdown);
-                        setShowSortDropdown(false);
-                      }}
-                      className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[160px] ${
-                        selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
-                      }`}
-                    >
-                      <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
-                      <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
-                      <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
-                    </button>
-                    {showPhaseDropdown && (
-                      <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                        {PHASE_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            onClick={() => {
-                              setSelectedPhase(option.value);
-                              setShowPhaseDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                              selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Phase Dropdown */}
+                    <div className="relative" ref={phaseDropdownRef}>
+                      <button
+                        onClick={() => {
+                          setShowPhaseDropdown(!showPhaseDropdown);
+                          setShowSortDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors min-w-[160px] ${
+                          selectedPhase !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
+                        }`}
+                      >
+                        <Filter size={14} className={selectedPhase !== "all" ? "text-white" : "text-slate-400"} />
+                        <span className="flex-1 text-left truncate">{getPhaseLabel()}</span>
+                        <ChevronDown size={14} className={`transition-transform ${showPhaseDropdown ? "rotate-180" : ""} ${selectedPhase !== "all" ? "text-white" : "text-slate-400"}`} />
+                      </button>
+                      {showPhaseDropdown && (
+                        <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                          {PHASE_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSelectedPhase(option.value);
+                                setShowPhaseDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                                selectedPhase === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative" ref={sortDropdownRef}>
+                      <button
+                        onClick={() => {
+                          setShowSortDropdown(!showSortDropdown);
+                          setShowPhaseDropdown(false);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white hover:border-slate-300 transition-colors"
+                      >
+                        <ArrowUpDown size={14} className="text-slate-400" />
+                        <span className="text-slate-700">{getSortLabel()}</span>
+                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
+                      </button>
+                      {showSortDropdown && (
+                        <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
+                          {SORT_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setSortBy(option.value as "recent" | "name" | "phase");
+                                setShowSortDropdown(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
+                                sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Limpiar filtros */}
+                    {(searchTerm || selectedPhase !== "all") && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedPhase("all");
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
+                      >
+                        <XIcon size={14} />
+                        Limpiar
+                      </button>
                     )}
-                  </div>
 
-                  {/* Sort Dropdown */}
-                  <div className="relative" ref={sortDropdownRef}>
-                    <button
-                      onClick={() => {
-                        setShowSortDropdown(!showSortDropdown);
-                        setShowPhaseDropdown(false);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white hover:border-slate-300 transition-colors"
-                    >
-                      <ArrowUpDown size={14} className="text-slate-400" />
-                      <span className="text-slate-700">{getSortLabel()}</span>
-                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSortDropdown ? "rotate-180" : ""}`} />
-                    </button>
-                    {showSortDropdown && (
-                      <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden min-w-full">
-                        {SORT_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            onClick={() => {
-                              setSortBy(option.value as "recent" | "name" | "phase");
-                              setShowSortDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
-                              sortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
+                    {/* Archivados toggle */}
+                    {archivedProjects.length > 0 && (
+                      <button
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                          showArchived 
+                            ? "bg-amber-100 text-amber-700 border border-amber-200" 
+                            : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
+                        }`}
+                      >
+                        <Archive size={14} />
+                        <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
+                      </button>
                     )}
-                  </div>
-
-                  {/* Limpiar filtros */}
-                  {(searchTerm || selectedPhase !== "all") && (
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSelectedPhase("all");
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
-                    >
-                      <XIcon size={14} />
-                      Limpiar
-                    </button>
-                  )}
-
-                  {/* Archivados */}
-                  {archivedProjects.length > 0 && (
-                    <button
-                      onClick={() => setShowArchived(!showArchived)}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        showArchived 
-                          ? "bg-slate-900 text-white" 
-                          : "text-slate-600 hover:text-slate-700 hover:bg-slate-100 bg-white border border-slate-200"
-                      }`}
-                    >
-                      <Archive size={14} />
-                      <span>{archivedProjects.length} archivado{archivedProjects.length !== 1 ? "s" : ""}</span>
-                    </button>
-                  )}
                   </div>
                 </div>
               </div>
@@ -664,24 +664,38 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {filteredProjects.map((project) => renderProjectCard(project))}
                   </div>
                 )}
               </>
             )}
 
-            {/* Archivados */}
-            {showArchived && archivedProjects.length > 0 && (
-              <div className="mt-8 pt-8 border-t border-slate-200">
-                <div className="flex items-center gap-2 mb-4">
-                  <Archive size={16} className="text-slate-400" />
-                  <span className="text-sm font-medium text-slate-600">Proyectos archivados</span>
-                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">{archivedProjects.length}</span>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {archivedProjects.map((project) => renderArchivedCard(project))}
-                </div>
+            {/* Proyectos archivados - Siempre visibles si existen */}
+            {archivedProjects.length > 0 && (
+              <div className={`mt-10 ${!showArchived ? 'opacity-60' : ''}`}>
+                <button
+                  onClick={() => setShowArchived(!showArchived)}
+                  className="flex items-center gap-3 mb-5 group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Archive size={18} className="text-amber-600" />
+                    <span className="text-base font-semibold text-slate-700">Proyectos archivados</span>
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                      {archivedProjects.length}
+                    </span>
+                  </div>
+                  <ChevronDown 
+                    size={16} 
+                    className={`text-slate-400 transition-transform ${showArchived ? 'rotate-180' : ''}`} 
+                  />
+                </button>
+                
+                {showArchived && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                    {archivedProjects.map((project) => renderArchivedCard(project))}
+                  </div>
+                )}
               </div>
             )}
           </>
