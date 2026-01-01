@@ -16,7 +16,6 @@ import {
   Mail,
   Shield,
   Briefcase,
-  UserCog,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -27,13 +26,6 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 
 const PROJECT_ROLES = ["EP", "PM", "Controller", "PC"];
 const DEPARTMENT_POSITIONS = ["HOD", "Coordinator", "Crew"];
-
-const roleColors: Record<string, { bg: string; text: string; border: string }> = {
-  EP: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
-  PM: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-  Controller: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  PC: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-};
 
 interface Member {
   userId: string;
@@ -262,24 +254,8 @@ export default function ConfigUsers() {
       {/* Header */}
       <div className="mt-[4.5rem]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/config`} className="hover:text-slate-900 transition-colors">Config</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-      
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center">
-                <UserCog size={24} className="text-slate-600" />
-              </div>
+            <div>
               <h1 className="text-2xl font-semibold text-slate-900">Usuarios del proyecto</h1>
             </div>
       
@@ -297,7 +273,7 @@ export default function ConfigUsers() {
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6">
+          <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(to right, #2F52E0, #4F6FE8)' }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <Mail size={18} className="text-white" />
@@ -351,7 +327,6 @@ export default function ConfigUsers() {
             </div>
             <div className="divide-y divide-slate-100">
               {projectMembers.map((m) => {
-                const roleStyle = roleColors[m.role || ""] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
                 return (
                   <div key={m.userId} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4">
@@ -367,7 +342,7 @@ export default function ConfigUsers() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${roleStyle.bg} ${roleStyle.text} border ${roleStyle.border}`}>
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">
                         {m.role}
                       </span>
                       {m.userId !== userId && (
@@ -421,8 +396,22 @@ export default function ConfigUsers() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex gap-1.5">
-                      {m.permissions.accounting && <span className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg border border-indigo-100">ACC</span>}
-                      {m.permissions.team && <span className="px-2.5 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg border border-amber-100">TEAM</span>}
+                      {m.permissions.accounting && (
+                        <span 
+                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
+                          style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)', color: '#2F52E0', borderColor: 'rgba(47, 82, 224, 0.2)' }}
+                        >
+                          ACC
+                        </span>
+                      )}
+                      {m.permissions.team && (
+                        <span 
+                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg border"
+                          style={{ backgroundColor: 'rgba(137, 211, 34, 0.15)', color: '#6BA319', borderColor: 'rgba(137, 211, 34, 0.3)' }}
+                        >
+                          TEAM
+                        </span>
+                      )}
                     </div>
                     {m.userId !== userId && (
                       <div className="relative">
@@ -515,10 +504,9 @@ export default function ConfigUsers() {
                   <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Rol</label>
                   <div className="grid grid-cols-4 gap-2">
                     {PROJECT_ROLES.map((r) => {
-                      const style = roleColors[r];
                       const isSelected = inviteForm.role === r;
                       return (
-                        <button key={r} onClick={() => setInviteForm({ ...inviteForm, role: r })} className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${isSelected ? `${style.border} ${style.bg} ${style.text}` : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                        <button key={r} onClick={() => setInviteForm({ ...inviteForm, role: r })} className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${isSelected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
                           {r}
                         </button>
                       );
@@ -550,13 +538,19 @@ export default function ConfigUsers() {
               <div>
                 <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Permisos adicionales</label>
                 <div className="flex gap-3">
-                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all ${inviteForm.permissions.accounting ? "border-indigo-300 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
+                  <label 
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all"
+                    style={inviteForm.permissions.accounting ? { backgroundColor: 'rgba(47, 82, 224, 0.1)', borderColor: 'rgba(47, 82, 224, 0.3)' } : {}}
+                  >
                     <input type="checkbox" checked={inviteForm.permissions.accounting} onChange={(e) => setInviteForm({ ...inviteForm, permissions: { ...inviteForm.permissions, accounting: e.target.checked } })} className="sr-only" />
-                    <span className={`text-sm font-medium ${inviteForm.permissions.accounting ? "text-indigo-700" : "text-slate-500"}`}>Contabilidad</span>
+                    <span className="text-sm font-medium" style={inviteForm.permissions.accounting ? { color: '#2F52E0' } : { color: '#64748b' }}>Contabilidad</span>
                   </label>
-                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all ${inviteForm.permissions.team ? "border-amber-300 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}>
+                  <label 
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all"
+                    style={inviteForm.permissions.team ? { backgroundColor: 'rgba(137, 211, 34, 0.15)', borderColor: 'rgba(137, 211, 34, 0.4)' } : {}}
+                  >
                     <input type="checkbox" checked={inviteForm.permissions.team} onChange={(e) => setInviteForm({ ...inviteForm, permissions: { ...inviteForm.permissions, team: e.target.checked } })} className="sr-only" />
-                    <span className={`text-sm font-medium ${inviteForm.permissions.team ? "text-amber-700" : "text-slate-500"}`}>Equipo</span>
+                    <span className="text-sm font-medium" style={inviteForm.permissions.team ? { color: '#6BA319' } : { color: '#64748b' }}>Equipo</span>
                   </label>
                 </div>
               </div>
