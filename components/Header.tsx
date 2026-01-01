@@ -176,7 +176,7 @@ export default function Header() {
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all ${
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${
         isActive 
           ? "text-slate-900 bg-slate-100 font-medium" 
           : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
@@ -197,9 +197,9 @@ export default function Header() {
     };
 
     return (
-      <div className="hidden md:flex items-center gap-2 text-[11px]">
+      <div className="hidden md:flex items-center gap-2 text-xs">
         <span className="text-slate-300">·</span>
-        <span className="text-slate-600 font-medium">{projectName}</span>
+        <span className="text-slate-600 font-medium uppercase">{projectName}</span>
         <span className="text-slate-300">·</span>
         <span className="text-slate-400">{currentSection ? sectionLabels[currentSection] : ""}</span>
       </div>
