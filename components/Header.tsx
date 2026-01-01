@@ -35,6 +35,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>("");
   const [permissions, setPermissions] = useState({
     config: false,
     accounting: false,
@@ -62,8 +63,28 @@ export default function Header() {
       setProjectId(pathParts[projectIndex + 1]);
     } else {
       setProjectId(null);
+      setProjectName("");
     }
   }, [pathname]);
+
+  // Cargar nombre del proyecto
+  useEffect(() => {
+    const loadProjectName = async () => {
+      if (!projectId) {
+        setProjectName("");
+        return;
+      }
+      try {
+        const projectDoc = await getDoc(doc(db, "projects", projectId));
+        if (projectDoc.exists()) {
+          setProjectName(projectDoc.data().name || "Proyecto");
+        }
+      } catch (error) {
+        console.error("Error cargando nombre del proyecto:", error);
+      }
+    };
+    loadProjectName();
+  }, [projectId]);
 
   useEffect(() => {
     const loadPermissions = async () => {
@@ -151,45 +172,60 @@ export default function Header() {
 
   const configTab = isConfigSection ? (pathname.includes("/users") ? "users" : pathname.includes("/departments") ? "departments" : "general") : null;
 
+  // NavLink con subrayado en lugar de fondo
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
-        isActive ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+      className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs transition-all ${
+        isActive ? "text-slate-900 font-medium" : "text-slate-500 hover:text-slate-900"
       }`}
     >
       {children}
+      {isActive && (
+        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-0.5 bg-slate-900 rounded-full" />
+      )}
     </Link>
   );
 
-  const SectionSwitcher = () => {
-    if (!isInProjectSection || !projectId) return null;
+  // Badge del proyecto con sección
+  const ProjectBadge = () => {
+    if (!isInProjectSection || !projectId || !projectName) return null;
 
-    const sections = [
-      { key: "config", href: `/project/${projectId}/config`, icon: Settings, label: "Config", hasAccess: permissions.config },
-      { key: "accounting", href: `/project/${projectId}/accounting`, icon: BarChart3, label: "Accounting", hasAccess: permissions.accounting },
-      { key: "team", href: `/project/${projectId}/team`, icon: Users, label: "Team", hasAccess: permissions.team },
-    ];
+    const sectionLabels: Record<string, string> = {
+      config: "Config",
+      accounting: "Accounting",
+      team: "Team",
+    };
 
-    const availableSections = sections.filter(s => s.hasAccess && s.key !== currentSection);
-
-    if (availableSections.length === 0) return null;
+    const availableSections = [
+      { key: "config", href: `/project/${projectId}/config`, label: "Config", hasAccess: permissions.config },
+      { key: "accounting", href: `/project/${projectId}/accounting`, label: "Accounting", hasAccess: permissions.accounting },
+      { key: "team", href: `/project/${projectId}/team`, label: "Team", hasAccess: permissions.team },
+    ].filter(s => s.hasAccess);
 
     return (
-      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
-        {availableSections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <Link
-              key={section.key}
-              href={section.href}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              title={section.label}
-            >
-              <Icon size={16} />
-            </Link>
-          );
-        })}
+      <div className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+        <span className="text-slate-900 font-semibold uppercase">{projectName}</span>
+        <span className="text-slate-300">·</span>
+        <div className="flex items-center gap-1">
+          {availableSections.map((section, index) => (
+            <span key={section.key} className="flex items-center">
+              <Link
+                href={section.href}
+                className={`transition-colors ${
+                  currentSection === section.key
+                    ? "text-slate-900 font-semibold"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {section.label}
+              </Link>
+              {index < availableSections.length - 1 && (
+                <span className="text-slate-300 mx-1">/</span>
+              )}
+            </span>
+          ))}
+        </div>
       </div>
     );
   };
@@ -197,24 +233,19 @@ export default function Header() {
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-2.5 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/dashboard" className="select-none flex items-center gap-2">
-          <Image
-            src="/logodark.svg"
-            alt="Logo"
-            width={100}
-            height={24}
-            priority
-          />
-          {currentSection && (
-            <>
-              <span className="text-slate-300">/</span>
-              <span className="text-sm font-medium text-slate-600">
-                {currentSection}
-              </span>
-            </>
-          )}
-        </Link>
+        {/* Logo + Project Badge */}
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="select-none flex items-center gap-2">
+            <Image
+              src="/logodark.svg"
+              alt="Logo"
+              width={100}
+              height={24}
+              priority
+            />
+          </Link>
+          <ProjectBadge />
+        </div>
 
         {/* Navigation - Desktop */}
         <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
@@ -305,13 +336,8 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Right side: Section switcher + Profile */}
+        {/* Right side: Profile */}
         <div className="relative flex items-center gap-1">
-          {/* Section Switcher - Desktop */}
-          <div className="hidden md:flex">
-            <SectionSwitcher />
-          </div>
-
           {/* Profile Avatar */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
@@ -364,41 +390,49 @@ export default function Header() {
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-slate-100">
           <nav className="flex flex-col p-2 gap-0.5">
-            {/* Section Switcher - Mobile */}
-            {isInProjectSection && projectId && (
+            {/* Project Badge - Mobile */}
+            {isInProjectSection && projectId && projectName && (
               <>
-                <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">Ir a sección</p>
-                <div className="flex gap-1.5 px-2 py-1.5 mb-1">
-                  {permissions.config && currentSection !== "config" && (
-                    <Link
-                      href={`/project/${projectId}/config`}
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
-                    >
-                      <Settings size={14} />
-                      Config
-                    </Link>
-                  )}
-                  {permissions.accounting && currentSection !== "accounting" && (
-                    <Link
-                      href={`/project/${projectId}/accounting`}
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
-                    >
-                      <BarChart3 size={14} />
-                      Accounting
-                    </Link>
-                  )}
-                  {permissions.team && currentSection !== "team" && (
-                    <Link
-                      href={`/project/${projectId}/team`}
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
-                    >
-                      <Users size={14} />
-                      Team
-                    </Link>
-                  )}
+                <div className="px-3 py-2 mb-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                    <span className="text-slate-900 font-semibold uppercase">{projectName}</span>
+                    <span className="text-slate-300">·</span>
+                    <div className="flex items-center gap-1">
+                      {permissions.config && (
+                        <Link
+                          href={`/project/${projectId}/config`}
+                          onClick={() => setMenuOpen(false)}
+                          className={currentSection === "config" ? "text-slate-900 font-semibold" : "text-slate-500"}
+                        >
+                          Config
+                        </Link>
+                      )}
+                      {permissions.config && (permissions.accounting || permissions.team) && (
+                        <span className="text-slate-300">/</span>
+                      )}
+                      {permissions.accounting && (
+                        <Link
+                          href={`/project/${projectId}/accounting`}
+                          onClick={() => setMenuOpen(false)}
+                          className={currentSection === "accounting" ? "text-slate-900 font-semibold" : "text-slate-500"}
+                        >
+                          Accounting
+                        </Link>
+                      )}
+                      {permissions.accounting && permissions.team && (
+                        <span className="text-slate-300">/</span>
+                      )}
+                      {permissions.team && (
+                        <Link
+                          href={`/project/${projectId}/team`}
+                          onClick={() => setMenuOpen(false)}
+                          className={currentSection === "team" ? "text-slate-900 font-semibold" : "text-slate-500"}
+                        >
+                          Team
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="border-t border-slate-100 my-1"></div>
                 <p className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider">En esta sección</p>
@@ -407,7 +441,7 @@ export default function Header() {
 
             {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection ? (
               <>
-                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                <Link href="/dashboard" onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${pathname === "/dashboard" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <Folder size={14} />
                   Proyectos
                 </Link>
@@ -429,7 +463,7 @@ export default function Header() {
               </>
             ) : isAdminSection ? (
               <>
-                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50">
                   <Shield size={14} />
                   Panel de administración
                 </Link>
@@ -449,15 +483,15 @@ export default function Header() {
               </>
             ) : isConfigSection ? (
               <>
-                <Link href={`/project/${projectId}/config`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "general" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                <Link href={`/project/${projectId}/config`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "general" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <Info size={14} />
                   General
                 </Link>
-                <Link href={`/project/${projectId}/config/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                <Link href={`/project/${projectId}/config/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "users" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <UserCog size={14} />
                   Usuarios
                 </Link>
-                <Link href={`/project/${projectId}/config/departments`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "departments" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                <Link href={`/project/${projectId}/config/departments`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${configTab === "departments" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   <Briefcase size={14} />
                   Departamentos
                 </Link>
@@ -470,31 +504,31 @@ export default function Header() {
             ) : isAccountingSection ? (
               <>
                 {accountingAccess.panel && (
-                  <Link href={`/project/${projectId}/accounting`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "panel" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href={`/project/${projectId}/accounting`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "panel" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <LayoutDashboard size={14} />
                     Panel
                   </Link>
                 )}
                 {accountingAccess.suppliers && (
-                  <Link href={`/project/${projectId}/accounting/suppliers`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "suppliers" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href={`/project/${projectId}/accounting/suppliers`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "suppliers" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Building2 size={14} />
                     Proveedores
                   </Link>
                 )}
                 {accountingAccess.budget && (
-                  <Link href={`/project/${projectId}/accounting/budget`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "budget" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href={`/project/${projectId}/accounting/budget`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "budget" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Wallet size={14} />
                     Presupuesto
                   </Link>
                 )}
                 {accountingAccess.users && (
-                  <Link href={`/project/${projectId}/accounting/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "users" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href={`/project/${projectId}/accounting/users`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "users" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <Users size={14} />
                     Usuarios
                   </Link>
                 )}
                 {accountingAccess.reports && (
-                  <Link href={`/project/${projectId}/accounting/reports`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "reports" ? "text-slate-900 bg-slate-100 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href={`/project/${projectId}/accounting/reports`} onClick={() => setMenuOpen(false)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${accountingPage === "reports" ? "text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     <BarChart3 size={14} />
                     Informes
                   </Link>
@@ -507,7 +541,7 @@ export default function Header() {
               </>
             ) : (
               <>
-                <Link href={`/project/${projectId}/team`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 bg-slate-100 font-medium">
+                <Link href={`/project/${projectId}/team`} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-900 font-medium border-l-2 border-slate-900 bg-slate-50">
                   <Users size={14} />
                   Equipo
                 </Link>
