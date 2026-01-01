@@ -456,7 +456,7 @@ export default function Dashboard() {
                   <p className="text-sm text-white/70">Te han invitado a unirte a nuevos proyectos</p>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {invitations.map((invitation) => (
                   <div key={invitation.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start gap-3 mb-3">
@@ -530,9 +530,9 @@ export default function Dashboard() {
             {/* Barra de filtros */}
             {activeProjectsCount > 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
-                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
                   {/* Buscador */}
-                  <div className="relative flex-1 max-w-md">
+                  <div className="relative flex-1">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
@@ -544,7 +544,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Filtros */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 lg:flex-shrink-0">
                     {/* Phase Dropdown */}
                     <div className="relative" ref={phaseDropdownRef}>
                       <button
@@ -664,7 +664,7 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredProjects.map((project) => renderProjectCard(project))}
                   </div>
                 )}
@@ -692,7 +692,7 @@ export default function Dashboard() {
                 </button>
                 
                 {showArchived && (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {archivedProjects.map((project) => renderArchivedCard(project))}
                   </div>
                 )}
