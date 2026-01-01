@@ -208,7 +208,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: '#2F52E0' }}
+                style={{ backgroundColor: '#363636' }}
               >
                 {loading ? (
                   <div 
@@ -228,7 +228,7 @@ export default function LoginPage() {
             <Link
               href="/register"
               className="font-medium transition-colors hover:opacity-80"
-              style={{ color: '#2F52E0' }}
+              style={{ color: '#363636' }}
             >
               Crear cuenta
             </Link>
