@@ -172,18 +172,17 @@ export default function Header() {
 
   const configTab = isConfigSection ? (pathname.includes("/users") ? "users" : pathname.includes("/departments") ? "departments" : "general") : null;
 
-  // NavLink con subrayado en lugar de fondo
+  // NavLink con fondo sutil redondeado
   const NavLink = ({ href, isActive, children }: { href: string; isActive: boolean; children: React.ReactNode }) => (
     <Link
       href={href}
-      className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs transition-all ${
-        isActive ? "text-slate-900 font-medium" : "text-slate-500 hover:text-slate-900"
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
+        isActive 
+          ? "text-slate-900 bg-slate-100 font-medium" 
+          : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
       }`}
     >
       {children}
-      {isActive && (
-        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-0.5 bg-slate-900 rounded-full" />
-      )}
     </Link>
   );
 
