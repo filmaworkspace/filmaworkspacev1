@@ -28,14 +28,6 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
 
-const phaseColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  Desarrollo: { bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-700", dot: "bg-sky-500" },
-  Preproducción: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500" },
-  Rodaje: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
-  Postproducción: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-500" },
-  Finalizado: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500" },
-};
-
 interface ProjectData {
   name: string;
   phase: string;
@@ -236,8 +228,6 @@ export default function ConfigGeneral() {
     return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(ts.toDate());
   };
 
-  const currentPhaseStyle = phaseColors[project?.phase || "Desarrollo"];
-
   if (loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -385,8 +375,7 @@ export default function ConfigGeneral() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
-                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium ${currentPhaseStyle.bg} ${currentPhaseStyle.text} border ${currentPhaseStyle.border}`}>
-                        <span className={`w-2 h-2 rounded-full ${currentPhaseStyle.dot}`} />
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-500">
                         {project?.phase}
                       </span>
                     </div>
@@ -425,7 +414,6 @@ export default function ConfigGeneral() {
                     <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Fase</label>
                     <div className="flex flex-wrap gap-2">
                       {PHASES.map((phase) => {
-                        const style = phaseColors[phase];
                         const isSelected = projectForm.phase === phase;
                         return (
                           <button
@@ -433,7 +421,7 @@ export default function ConfigGeneral() {
                             onClick={() => setProjectForm({ ...projectForm, phase })}
                             className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                               isSelected
-                                ? `${style.bg} ${style.text} ${style.border}`
+                                ? "bg-slate-900 text-white border-slate-900"
                                 : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
                             }`}
                           >
