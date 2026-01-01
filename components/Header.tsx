@@ -187,7 +187,7 @@ export default function Header() {
     </Link>
   );
 
-  // Badge del proyecto con sección
+  // Badge del proyecto con sección actual
   const ProjectBadge = () => {
     if (!isInProjectSection || !projectId || !projectName) return null;
 
@@ -197,35 +197,44 @@ export default function Header() {
       team: "Team",
     };
 
-    const availableSections = [
-      { key: "config", href: `/project/${projectId}/config`, label: "Config", hasAccess: permissions.config },
-      { key: "accounting", href: `/project/${projectId}/accounting`, label: "Accounting", hasAccess: permissions.accounting },
-      { key: "team", href: `/project/${projectId}/team`, label: "Team", hasAccess: permissions.team },
-    ].filter(s => s.hasAccess);
-
     return (
       <div className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
         <span className="text-slate-900 font-semibold uppercase">{projectName}</span>
         <span className="text-slate-300">·</span>
-        <div className="flex items-center gap-1">
-          {availableSections.map((section, index) => (
-            <span key={section.key} className="flex items-center">
-              <Link
-                href={section.href}
-                className={`transition-colors ${
-                  currentSection === section.key
-                    ? "text-slate-900 font-semibold"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {section.label}
-              </Link>
-              {index < availableSections.length - 1 && (
-                <span className="text-slate-300 mx-1">/</span>
-              )}
-            </span>
-          ))}
-        </div>
+        <span className="text-slate-500">{currentSection ? sectionLabels[currentSection] : ""}</span>
+      </div>
+    );
+  };
+
+  // Section Switcher con iconos
+  const SectionSwitcher = () => {
+    if (!isInProjectSection || !projectId) return null;
+
+    const sections = [
+      { key: "config", href: `/project/${projectId}/config`, icon: Settings, label: "Config", hasAccess: permissions.config },
+      { key: "accounting", href: `/project/${projectId}/accounting`, icon: BarChart3, label: "Accounting", hasAccess: permissions.accounting },
+      { key: "team", href: `/project/${projectId}/team`, icon: Users, label: "Team", hasAccess: permissions.team },
+    ];
+
+    const availableSections = sections.filter(s => s.hasAccess && s.key !== currentSection);
+
+    if (availableSections.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
+        {availableSections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link
+              key={section.key}
+              href={section.href}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              title={section.label}
+            >
+              <Icon size={16} />
+            </Link>
+          );
+        })}
       </div>
     );
   };
@@ -233,31 +242,30 @@ export default function Header() {
   return (
     <header className={`fixed top-0 left-0 w-full z-50 bg-white border-b border-slate-200 ${inter.className}`}>
       <div className="px-6 py-2.5 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/dashboard" className="select-none flex-shrink-0">
-          <Image
-            src="/logodark.svg"
-            alt="Logo"
-            width={100}
-            height={24}
-            priority
-          />
-        </Link>
-
-        {/* Center: Project Badge + Navigation - Desktop */}
-        <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
+        {/* Left: Logo + Project Badge */}
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="select-none flex-shrink-0">
+            <Image
+              src="/logodark.svg"
+              alt="Logo"
+              width={100}
+              height={24}
+              priority
+            />
+          </Link>
           <ProjectBadge />
-          <nav className="flex items-center gap-0.5">
+        </div>
+
+        {/* Center: Navigation - Desktop */}
+        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
           {/* Default Menu */}
           {!isAdminSection && !isAccountingSection && !isTeamSection && !isConfigSection && (
             <>
               <NavLink href="/dashboard" isActive={pathname === "/dashboard"}>
-                <Folder size={14} />
                 <span>Proyectos</span>
               </NavLink>
               {isAdmin && (
                 <NavLink href="/admin" isActive={false}>
-                  <Shield size={14} />
                   <span>Admin</span>
                 </NavLink>
               )}
@@ -267,7 +275,6 @@ export default function Header() {
           {/* Admin Menu */}
           {isAdminSection && (
             <NavLink href="/admin" isActive={true}>
-              <Shield size={14} />
               <span>Panel de administración</span>
             </NavLink>
           )}
@@ -276,15 +283,12 @@ export default function Header() {
           {isConfigSection && projectId && (
             <>
               <NavLink href={`/project/${projectId}/config`} isActive={configTab === "general"}>
-                <Info size={14} />
                 <span>General</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/users`} isActive={configTab === "users"}>
-                <UserCog size={14} />
                 <span>Usuarios</span>
               </NavLink>
               <NavLink href={`/project/${projectId}/config/departments`} isActive={configTab === "departments"}>
-                <Briefcase size={14} />
                 <span>Departamentos</span>
               </NavLink>
             </>
@@ -295,31 +299,26 @@ export default function Header() {
             <>
               {accountingAccess.panel && (
                 <NavLink href={`/project/${projectId}/accounting`} isActive={accountingPage === "panel"}>
-                  <LayoutDashboard size={14} />
                   <span>Panel</span>
                 </NavLink>
               )}
               {accountingAccess.suppliers && (
                 <NavLink href={`/project/${projectId}/accounting/suppliers`} isActive={accountingPage === "suppliers"}>
-                  <Building2 size={14} />
                   <span>Proveedores</span>
                 </NavLink>
               )}
               {accountingAccess.budget && (
                 <NavLink href={`/project/${projectId}/accounting/budget`} isActive={accountingPage === "budget"}>
-                  <Wallet size={14} />
                   <span>Presupuesto</span>
                 </NavLink>
               )}
               {accountingAccess.users && (
                 <NavLink href={`/project/${projectId}/accounting/users`} isActive={accountingPage === "users"}>
-                  <UserCog size={14} />
                   <span>Usuarios</span>
                 </NavLink>
               )}
               {accountingAccess.reports && (
                 <NavLink href={`/project/${projectId}/accounting/reports`} isActive={accountingPage === "reports"}>
-                  <BarChart3 size={14} />
                   <span>Informes</span>
                 </NavLink>
               )}
@@ -329,15 +328,17 @@ export default function Header() {
           {/* Team Menu */}
           {isTeamSection && projectId && (
             <NavLink href={`/project/${projectId}/team`} isActive={true}>
-              <Users size={14} />
               <span>Equipo</span>
             </NavLink>
           )}
-          </nav>
-        </div>
+        </nav>
 
-        {/* Right side: Profile */}
+        {/* Right side: Section Switcher + Profile */}
         <div className="relative flex items-center gap-1">
+          {/* Section Switcher - Desktop */}
+          <div className="hidden md:flex">
+            <SectionSwitcher />
+          </div>
           {/* Profile Avatar */}
           <button
             onClick={() => setProfileOpen(!profileOpen)}
