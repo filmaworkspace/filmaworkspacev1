@@ -13,7 +13,6 @@ import {
   Copy,
   Trash2,
   MoreHorizontal,
-  ExternalLink,
   Calendar,
   RefreshCw,
   CreditCard,
@@ -51,8 +50,6 @@ interface CompanyData {
   city: string;
   province: string;
   country: string;
-  email?: string;
-  phone?: string;
 }
 
 const emptyCompanyData: CompanyData = {
@@ -63,8 +60,6 @@ const emptyCompanyData: CompanyData = {
   city: "",
   province: "",
   country: "España",
-  email: "",
-  phone: "",
 };
 
 export default function ConfigGeneral() {
@@ -302,7 +297,7 @@ export default function ConfigGeneral() {
 
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Configuración del proyecto</h1>
@@ -348,8 +343,8 @@ export default function ConfigGeneral() {
       </div>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
-        <div className="space-y-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Project Info Card */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -468,7 +463,7 @@ export default function ConfigGeneral() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Datos fiscales de la empresa</h2>
-              {!editingCompany && (
+              {!editingCompany && companyData.fiscalName && (
                 <button
                   onClick={() => setEditingCompany(true)}
                   className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors border border-slate-200"
@@ -499,22 +494,6 @@ export default function ConfigGeneral() {
                       <p className="text-sm text-slate-700">{companyData.postalCode} {companyData.city}, {companyData.province}</p>
                       <p className="text-sm text-slate-500">{companyData.country}</p>
                     </div>
-                    {(companyData.email || companyData.phone) && (
-                      <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                        {companyData.email && (
-                          <div>
-                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Email</label>
-                            <p className="text-sm text-slate-700">{companyData.email}</p>
-                          </div>
-                        )}
-                        {companyData.phone && (
-                          <div>
-                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Teléfono</label>
-                            <p className="text-sm text-slate-700">{companyData.phone}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -610,29 +589,6 @@ export default function ConfigGeneral() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Email de contacto</label>
-                      <input
-                        type="email"
-                        value={companyForm.email}
-                        onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                        placeholder="facturacion@empresa.com"
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Teléfono</label>
-                      <input
-                        type="tel"
-                        value={companyForm.phone}
-                        onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                        placeholder="+34 912 345 678"
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                      />
-                    </div>
-                  </div>
-
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={handleSaveCompany}
@@ -658,7 +614,7 @@ export default function ConfigGeneral() {
           </div>
 
           {/* Producers Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden lg:col-span-2">
             <div className="px-6 py-4 border-b border-slate-100">
               <h2 className="font-semibold text-slate-900">Productoras</h2>
             </div>
@@ -685,24 +641,6 @@ export default function ConfigGeneral() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Quick Links */}
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              href={`/project/${id}/config/users`}
-              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
-            >
-              <span className="text-sm font-medium text-slate-700">Usuarios del proyecto</span>
-              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
-            </Link>
-            <Link
-              href={`/project/${id}/config/departments`}
-              className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl transition-colors group"
-            >
-              <span className="text-sm font-medium text-slate-700">Departamentos</span>
-              <ExternalLink size={16} className="text-slate-400 group-hover:text-slate-600" />
-            </Link>
           </div>
         </div>
       </main>
