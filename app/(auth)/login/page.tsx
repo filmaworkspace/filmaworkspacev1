@@ -60,15 +60,30 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen flex ${inter.className}`}>
-      {/* Left Side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ backgroundColor: '#1F1F1F' }}>
+      {/* Left Side - Brand with gradient */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+        style={{ 
+          background: 'linear-gradient(135deg, #2F52E0 0%, #1a3a9e 40%, #3d7a1a 80%, #6BA319 100%)'
+        }}
+      >
+        {/* Decorative elements */}
+        <div 
+          className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-20 blur-3xl"
+          style={{ backgroundColor: '#6BA319', transform: 'translate(30%, -30%)' }}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-20 blur-3xl"
+          style={{ backgroundColor: '#2F52E0', transform: 'translate(-20%, 20%)' }}
+        />
+        
         <div className="relative z-10 flex items-center justify-center w-full">
           <Image
             src="/logo.svg"
             alt="Logo"
             width={220}
             height={70}
-            className="opacity-90"
+            className="opacity-95"
             priority
           />
         </div>
@@ -193,7 +208,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={loading}
                 className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: '#363636' }}
+                style={{ backgroundColor: '#2F52E0' }}
               >
                 {loading ? (
                   <div 
@@ -213,7 +228,7 @@ export default function LoginPage() {
             <Link
               href="/register"
               className="font-medium transition-colors hover:opacity-80"
-              style={{ color: '#363636' }}
+              style={{ color: '#2F52E0' }}
             >
               Crear cuenta
             </Link>
