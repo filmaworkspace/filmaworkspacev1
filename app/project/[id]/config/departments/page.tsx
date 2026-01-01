@@ -153,7 +153,7 @@ export default function ConfigDepartments() {
 
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
@@ -170,7 +170,7 @@ export default function ConfigDepartments() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8 space-y-6">
         {/* Add Form */}
         {showAddForm && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -194,33 +194,47 @@ export default function ConfigDepartments() {
           </div>
         )}
 
-        {/* Departments List */}
+        {/* Departments Grid */}
         {departmentsData.length > 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-visible divide-y divide-slate-100">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {departmentsData.map((dept) => {
+              const isExpanded = expandedDept === dept.name;
               return (
-                <div key={dept.name}>
-                  <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => setExpandedDept(expandedDept === dept.name ? null : dept.name)}>
+                <div key={dept.name} className="bg-white rounded-2xl border border-slate-200 overflow-visible">
+                  <div 
+                    className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors cursor-pointer group" 
+                    onClick={() => setExpandedDept(isExpanded ? null : dept.name)}
+                  >
                     <div className="flex items-center gap-4">
-                      <div className="w-3 h-3 rounded-full bg-slate-400" />
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                        <Briefcase size={18} className="text-slate-500" />
+                      </div>
                       <div>
                         <p className="font-semibold text-slate-900">{dept.name}</p>
                         <p className="text-sm text-slate-500">{dept.members.length} miembro{dept.members.length !== 1 ? "s" : ""}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 text-slate-600">
-                        {dept.members.length}
-                      </span>
+                    <div className="flex items-center gap-2">
                       <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === dept.name ? null : dept.name); }} 
+                          className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors opacity-0 group-hover:opacity-100"
+                        >
                           <MoreHorizontal size={16} />
                         </button>
                         {activeMenu === dept.name && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)} />
                             <div className="absolute right-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-20">
-                              <button onClick={(e) => { e.stopPropagation(); setActiveMenu(null); if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); else setConfirmDelete(dept.name); }} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setActiveMenu(null); 
+                                  if (dept.members.length > 0) showToast("error", "Tiene miembros asignados"); 
+                                  else setConfirmDelete(dept.name); 
+                                }} 
+                                className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
                                 <Trash2 size={14} />
                                 Eliminar
                               </button>
@@ -228,30 +242,31 @@ export default function ConfigDepartments() {
                           </>
                         )}
                       </div>
-                      <ChevronDown size={18} className={`text-slate-400 transition-transform ${expandedDept === dept.name ? "rotate-180" : ""}`} />
+                      <ChevronDown size={18} className={`text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </div>
                   </div>
-                  {expandedDept === dept.name && (
-                    <div className="px-6 pb-4 bg-slate-50/50">
+                  
+                  {isExpanded && (
+                    <div className="px-6 pb-5 pt-2 border-t border-slate-100 bg-slate-50/30">
                       {dept.members.length > 0 ? (
-                        <div className="grid gap-3 md:grid-cols-2 pt-3">
+                        <div className="space-y-2">
                           {dept.members.map((m) => (
-                            <div key={m.userId} className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100">
-                              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
+                            <div key={m.userId} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100">
+                              <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm">
                                 {m.name?.[0]?.toUpperCase()}
                               </div>
-                              <div className="min-w-0">
-                                <p className="font-medium text-slate-900 truncate">{m.name}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-slate-900 text-sm truncate">{m.name}</p>
                                 {m.position && <p className="text-xs text-slate-500">{m.position}</p>}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-slate-200 mt-3">
-                          <Users size={20} className="text-slate-300 mx-auto mb-2" />
-                          <p className="text-sm text-slate-400">Sin miembros asignados</p>
-                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-2 inline-block">
+                        <div className="text-center py-6 bg-white rounded-xl border border-dashed border-slate-200">
+                          <Users size={18} className="text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-400">Sin miembros</p>
+                          <Link href={`/project/${id}/config/users`} className="text-xs text-slate-600 hover:text-slate-900 underline mt-1 inline-block">
                             Asignar desde Usuarios
                           </Link>
                         </div>
