@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, deleteDoc, query, orderBy, updateDoc, Timestamp } from "firebase/firestore";
-import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, ArrowLeft, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, HelpCircle, Building2, ShieldAlert, User, ChevronDown, Filter, ArrowUpDown } from "lucide-react";
+import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, Building2, ShieldAlert, User, ChevronDown, Filter } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -80,18 +80,6 @@ interface Invoice {
   linkedDocumentId?: string;
 }
 
-interface CompanyData {
-  fiscalName: string;
-  taxId: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  province: string;
-  country: string;
-  email?: string;
-  phone?: string;
-}
-
 export default function InvoicesPage() {
   const params = useParams();
   const router = useRouter();
@@ -111,10 +99,7 @@ export default function InvoicesPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [pendingReplacementCount, setPendingReplacementCount] = useState(0);
-  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
-  const [showCompanyTooltip, setShowCompanyTooltip] = useState(false);
 
-  // Dropdowns personalizados
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -146,9 +131,6 @@ export default function InvoicesPage() {
       setLoading(true);
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
-
-      const companyDoc = await getDoc(doc(db, `projects/${id}/config`, "company"));
-      if (companyDoc.exists()) setCompanyData(companyDoc.data() as CompanyData);
 
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc")));
       const allInvoices = invoicesSnapshot.docs.map((docSnap) => {
@@ -245,13 +227,11 @@ export default function InvoicesPage() {
     closeMenu();
   };
 
-  // ============ CORREGIDO: handleMarkAsPaid con actualización completa de presupuesto ============
   const handleMarkAsPaid = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
     if (!invoice || !canMarkAsPaid(invoice) || !confirm(`¿Marcar ${invoice.displayNumber} como pagada?`)) return;
 
     try {
-      // Actualizar estado de la factura
       await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), {
         status: "paid",
         paidAt: Timestamp.now(),
@@ -260,7 +240,6 @@ export default function InvoicesPage() {
         paymentDate: Timestamp.now(),
       });
 
-      // Actualizar presupuesto de subcuentas
       if (invoice.items?.length > 0) {
         const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
         const hasPO = !!invoice.poId;
@@ -276,18 +255,16 @@ export default function InvoicesPage() {
                   const currentActual = subAccountSnap.data().actual || 0;
                   const currentCommitted = subAccountSnap.data().committed || 0;
 
-                  // Siempre sumar a actual
                   const updates: { actual: number; committed?: number } = {
                     actual: currentActual + item.baseAmount,
                   };
 
-                  // Si tiene PO, restar de committed
                   if (hasPO) {
                     updates.committed = Math.max(0, currentCommitted - item.baseAmount);
                   }
 
                   await updateDoc(subAccountRef, updates);
-                  break; // Encontramos la subcuenta
+                  break;
                 }
               } catch (e) {
                 console.error(`Error updating subaccount ${item.subAccountId}:`, e);
@@ -296,7 +273,6 @@ export default function InvoicesPage() {
           }
         }
 
-        // Si tiene PO, actualizar el invoicedAmount de la PO
         if (invoice.poId) {
           try {
             const poRef = doc(db, `projects/${id}/pos`, invoice.poId);
@@ -325,7 +301,6 @@ export default function InvoicesPage() {
     closeMenu();
   };
 
-  // ============ CORREGIDO: handleCancelInvoice con reversión de presupuesto ============
   const handleCancelInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((i) => i.id === invoiceId);
     if (!invoice || !canEditInvoice(invoice)) return;
@@ -334,12 +309,10 @@ export default function InvoicesPage() {
     if (!reason) return;
 
     try {
-      // Si la factura estaba pagada, revertir los cambios de presupuesto
       if (invoice.status === "paid" && invoice.items?.length > 0) {
         const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
         const hasPO = !!invoice.poId;
 
-        // Verificar si la PO sigue abierta (para saber si restaurar committed)
         let poIsOpen = false;
         if (hasPO && invoice.poId) {
           try {
@@ -363,12 +336,10 @@ export default function InvoicesPage() {
                   const currentActual = subAccountSnap.data().actual || 0;
                   const currentCommitted = subAccountSnap.data().committed || 0;
 
-                  // Restar de actual (revertir)
                   const updates: { actual: number; committed?: number } = {
                     actual: Math.max(0, currentActual - item.baseAmount),
                   };
 
-                  // Si tiene PO y la PO sigue abierta, restaurar committed
                   if (hasPO && poIsOpen) {
                     updates.committed = currentCommitted + item.baseAmount;
                   }
@@ -383,7 +354,6 @@ export default function InvoicesPage() {
           }
         }
 
-        // Si tiene PO, revertir el invoicedAmount
         if (invoice.poId) {
           try {
             const poRef = doc(db, `projects/${id}/pos`, invoice.poId);
@@ -405,7 +375,6 @@ export default function InvoicesPage() {
         }
       }
 
-      // Actualizar estado de la factura
       await updateDoc(doc(db, `projects/${id}/invoices`, invoiceId), {
         status: "cancelled",
         cancelledAt: Timestamp.now(),
@@ -511,8 +480,11 @@ export default function InvoicesPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para ver facturas"}</p>
-          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
-            <ArrowLeft size={16} />
+          <Link 
+            href={`/project/${id}/accounting`} 
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: '#2F52E0' }}
+          >
             Volver al panel
           </Link>
         </div>
@@ -523,86 +495,16 @@ export default function InvoicesPage() {
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Breadcrumb with company tooltip */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">
-                Panel
-              </Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-
-              {permissions.fixedDepartment && (
-                <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium flex items-center gap-1">
-                  <User size={10} />
-                  {permissions.fixedDepartment}
-                </span>
-              )}
-
-              {/* Company Info Tooltip */}
-              <div className="relative ml-1">
-                <button
-                  onMouseEnter={() => setShowCompanyTooltip(true)}
-                  onMouseLeave={() => setShowCompanyTooltip(false)}
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${companyData ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}
-                >
-                  <HelpCircle size={12} />
-                </button>
-                {showCompanyTooltip && (
-                  <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
-                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                        <Building2 size={16} className="text-indigo-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-slate-500">Datos fiscales</p>
-                      </div>
-                    </div>
-                    {companyData ? (
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{companyData.fiscalName}</p>
-                          <p className="text-xs font-mono text-slate-600">{companyData.taxId}</p>
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          <p>{companyData.address}</p>
-                          <p>
-                            {companyData.postalCode} {companyData.city}
-                          </p>
-                          {companyData.province && (
-                            <p>
-                              {companyData.province}, {companyData.country}
-                            </p>
-                          )}
-                        </div>
-                        {(companyData.email || companyData.phone) && (
-                          <div className="pt-2 border-t border-slate-100 text-xs text-slate-500">
-                            {companyData.email && <p>{companyData.email}</p>}
-                            {companyData.phone && <p>{companyData.phone}</p>}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-2">
-                        <p className="text-xs text-slate-500 mb-2">No hay datos fiscales configurados</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-3">
-              <Receipt size={24} className="text-emerald-600" />
+            <div className="flex items-center gap-4">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)' }}
+              >
+                <Receipt size={20} style={{ color: '#2F52E0' }} />
+              </div>
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
                 {!permissions.canViewAllPOs && (
@@ -618,7 +520,11 @@ export default function InvoicesPage() {
                 Exportar
               </button>
               {permissions.canCreatePO && (
-                <Link href={`/project/${id}/accounting/invoices/new`} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+                <Link 
+                  href={`/project/${id}/accounting/invoices/new`} 
+                  className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: '#2F52E0' }}
+                >
                   <Plus size={18} />
                   Nuevo documento
                 </Link>
@@ -649,7 +555,7 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {pendingReplacementCount > 0 && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
             <div className="flex items-start gap-3">
@@ -671,7 +577,7 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        {/* Filters with custom dropdowns */}
+        {/* Filters */}
         <div className="flex flex-col md:flex-row gap-3 mb-6">
           <div className="flex-1 relative">
             <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
@@ -737,7 +643,11 @@ export default function InvoicesPage() {
             <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "No se encontraron resultados" : "Sin documentos"}</h3>
             <p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Sube tu primer documento para empezar"}</p>
             {!searchTerm && statusFilter === "all" && typeFilter === "all" && permissions.canCreatePO && (
-              <Link href={`/project/${id}/accounting/invoices/new`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <Link 
+                href={`/project/${id}/accounting/invoices/new`} 
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: '#2F52E0' }}
+              >
                 <Plus size={18} />
                 Nuevo documento
               </Link>
@@ -770,11 +680,11 @@ export default function InvoicesPage() {
                               setSelectedInvoice(invoice);
                               setShowDetailModal(true);
                             }}
-                            className="text-left hover:text-emerald-600 transition-colors"
+                            className="text-left group/inv"
                           >
                             <div className="flex items-center gap-2">
                               {getDocumentTypeBadge(invoice.documentType)}
-                              <p className="font-semibold text-slate-900 font-mono">{invoice.displayNumber}</p>
+                              <p className="font-semibold text-slate-900 font-mono group-hover/inv:text-[#2F52E0] transition-colors">{invoice.displayNumber}</p>
                               {needsReplacement && (
                                 <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
                                   <Clock size={10} />
@@ -1049,7 +959,13 @@ export default function InvoicesPage() {
                 </button>
               )}
               {selectedInvoice.attachmentUrl && (
-                <a href={selectedInvoice.attachmentUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800 rounded-lg transition-colors">
+                <a 
+                  href={selectedInvoice.attachmentUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="px-4 py-2 text-sm text-white hover:opacity-90 rounded-lg transition-opacity"
+                  style={{ backgroundColor: '#2F52E0' }}
+                >
                   Ver adjunto
                 </a>
               )}
