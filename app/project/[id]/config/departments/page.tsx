@@ -156,7 +156,7 @@ export default function ConfigDepartments() {
         <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Departamentos</h1>
+              <h1 className="text-2xl font-semibold text-slate-900">Departamentos del proyecto</h1>
             </div>
       
             <button
