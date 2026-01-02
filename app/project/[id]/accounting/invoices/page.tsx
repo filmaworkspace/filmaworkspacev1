@@ -575,10 +575,6 @@ export default function InvoicesPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={exportInvoices} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                <Download size={16} />
-                Exportar
-              </button>
               {permissions.canCreatePO && (
                 <Link 
                   href={`/project/${id}/accounting/invoices/new`} 
