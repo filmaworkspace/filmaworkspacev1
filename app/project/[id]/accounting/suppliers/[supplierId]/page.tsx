@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy } from "firebase/firestore";
-import { ArrowLeft, Edit, Trash2, Mail, Phone, User, CreditCard, FileText, AlertCircle, CheckCircle, X, Download, FileSpreadsheet, Send, Copy, ExternalLink, Calendar, Building2, MapPin, ChevronRight, ChevronDown, ShieldCheck, Receipt, Package } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Mail, Phone, User, CreditCard, FileText, AlertCircle, CheckCircle, X, Download, FileSpreadsheet, Send, Copy, ExternalLink, Calendar, Building2, MapPin, ChevronRight, ChevronDown, ShieldCheck, Receipt, Package, Lock, Upload, FileCheck, RotateCcw, Search } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -77,6 +77,30 @@ export default function SupplierDetailPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const [editingFiscal, setEditingFiscal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    address: { street: "", number: "", city: "", province: "", postalCode: "" },
+    paymentMethod: "transferencia",
+    bankAccount: "",
+  });
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [closeProjectData, setCloseProjectData] = useState({
+    notes: "",
+    signedLetterFile: null as File | null,
+    signedLetterName: "",
+  });
+  const [supplierClosure, setSupplierClosure] = useState<{
+    closedAt: Date;
+    closedBy: string;
+    closedByName: string;
+    notes: string;
+    signedLetterUrl?: string;
+    signedLetterName?: string;
+  } | null>(null);
+  const [allSuppliers, setAllSuppliers] = useState<{ id: string; fiscalName: string; taxId: string }[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [showSupplierSearch, setShowSupplierSearch] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -189,6 +213,38 @@ export default function SupplierDetailPage() {
         };
       }));
 
+      // Inicializar form de edición
+      setEditForm({
+        address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
+        paymentMethod: data.paymentMethod || "transferencia",
+        bankAccount: formatIBAN(data.bankAccount || ""),
+      });
+
+      // Cargar datos de cierre si existen
+      if (data.closure) {
+        setSupplierClosure({
+          closedAt: data.closure.closedAt?.toDate() || new Date(),
+          closedBy: data.closure.closedBy || "",
+          closedByName: data.closure.closedByName || "",
+          notes: data.closure.notes || "",
+          signedLetterUrl: data.closure.signedLetterUrl,
+          signedLetterName: data.closure.signedLetterName,
+        });
+      } else {
+        setSupplierClosure(null);
+      }
+
+      // Cargar todos los proveedores para el buscador
+      const allSuppliersSnap = await getDocs(query(
+        collection(db, `projects/${projectId}/suppliers`),
+        orderBy("fiscalName", "asc")
+      ));
+      setAllSuppliers(allSuppliersSnap.docs.map(d => ({
+        id: d.id,
+        fiscalName: d.data().fiscalName || "",
+        taxId: d.data().taxId || "",
+      })));
+
     } catch (error: any) {
       setErrorMessage(error.message);
     } finally {
@@ -223,6 +279,81 @@ export default function SupplierDetailPage() {
       await deleteDoc(doc(db, `projects/${projectId}/suppliers`, supplierId));
       router.push(`/project/${projectId}/accounting/suppliers`);
     } catch (e: any) { setErrorMessage(e.message); }
+  };
+
+  const handleSaveFiscal = async () => {
+    if (!supplier) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, `projects/${projectId}/suppliers`, supplierId), {
+        address: editForm.address,
+        paymentMethod: editForm.paymentMethod,
+        bankAccount: editForm.bankAccount.replace(/\s/g, ""),
+      });
+      setSuccessMessage("Datos actualizados");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      setEditingFiscal(false);
+      await loadData();
+    } catch (e: any) { 
+      setErrorMessage(e.message); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const handleCloseProject = async () => {
+    if (!supplier || hasPendingInvoices) return;
+    setSaving(true);
+    try {
+      // En producción aquí se subiría el archivo a Storage
+      // Por ahora guardamos solo los metadatos
+      const closureData: any = {
+        closedAt: Timestamp.now(),
+        closedBy: userId,
+        closedByName: userName,
+        notes: closeProjectData.notes.trim(),
+      };
+
+      if (closeProjectData.signedLetterFile) {
+        // Simular URL del archivo subido
+        closureData.signedLetterName = closeProjectData.signedLetterFile.name;
+        closureData.signedLetterUrl = `uploads/${projectId}/suppliers/${supplierId}/closure/${closeProjectData.signedLetterFile.name}`;
+      }
+
+      await updateDoc(doc(db, `projects/${projectId}/suppliers`, supplierId), {
+        closure: closureData,
+        status: "closed",
+      });
+
+      setSuccessMessage("Relación con proveedor cerrada correctamente");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      setShowCloseModal(false);
+      setCloseProjectData({ notes: "", signedLetterFile: null, signedLetterName: "" });
+      await loadData();
+    } catch (e: any) {
+      setErrorMessage(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReopenProject = async () => {
+    if (!supplier || !supplierClosure) return;
+    if (!confirm("¿Reabrir la relación con este proveedor? Se eliminará el registro de cierre.")) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, `projects/${projectId}/suppliers`, supplierId), {
+        closure: null,
+        status: "active",
+      });
+      setSuccessMessage("Relación reabierta");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      await loadData();
+    } catch (e: any) {
+      setErrorMessage(e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -564,9 +695,6 @@ export default function SupplierDetailPage() {
   const pendingInvoices = invoices.filter(inv => inv.status !== "paid" && inv.status !== "cancelled");
   const paidInvoices = invoices.filter(inv => inv.status === "paid");
   const hasPendingInvoices = pendingInvoices.length > 0;
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
 
   // Determinar estado general del proveedor
   const getSupplierStatus = () => {
@@ -587,13 +715,13 @@ export default function SupplierDetailPage() {
   const supplierStatus = getSupplierStatus();
 
   return (
-    <div className={`min-h-screen bg-slate-50/50 ${inter.className}`}>
-      {/* Header con fondo */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="mt-[4.5rem]">
-          <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
-            {/* Breadcrumb y acciones */}
-            <div className="flex items-center justify-between mb-6">
+    <div className={`min-h-screen bg-white ${inter.className}`}>
+      {/* Header */}
+      <div className="mt-[4.5rem]">
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
+          {/* Breadcrumb y acciones */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
               <Link 
                 href={`/project/${projectId}/accounting/suppliers`} 
                 className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
@@ -602,116 +730,172 @@ export default function SupplierDetailPage() {
                 Proveedores
               </Link>
               
-              <div className="flex items-center gap-2">
-                {/* Dropdown de exportación */}
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowActionsMenu(!showActionsMenu)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
-                  >
-                    <Download size={16} />
-                    Exportar
-                    <ChevronDown size={14} className={`transition-transform ${showActionsMenu ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {showActionsMenu && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-20">
-                        <button
-                          onClick={generateInvoiceListPdf}
-                          disabled={invoices.length === 0 || generatingPdf === "invoices"}
-                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <FileText size={16} className="text-slate-400" />
-                          <div>
-                            <p className="font-medium text-slate-900">Listado de facturas</p>
-                            <p className="text-xs text-slate-500">PDF con todas las facturas</p>
-                          </div>
-                        </button>
-                        
-                        <button
-                          onClick={generateEndOfProjectLetter}
-                          disabled={hasPendingInvoices || generatingPdf === "letter"}
-                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <FileSpreadsheet size={16} className="text-slate-400" />
-                          <div>
-                            <p className="font-medium text-slate-900">Carta fin de proyecto</p>
-                            <p className="text-xs text-slate-500">
-                              {hasPendingInvoices ? "Requiere facturas pagadas" : "Certificado de cierre"}
-                            </p>
-                          </div>
-                        </button>
-                        
-                        <div className="border-t border-slate-100 my-1" />
-                        
-                        <button
-                          onClick={exportToCSV}
-                          disabled={invoices.length === 0}
-                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Download size={16} className="text-slate-400" />
-                          <div>
-                            <p className="font-medium text-slate-900">Exportar CSV</p>
-                            <p className="text-xs text-slate-500">Para Excel o Sheets</p>
-                          </div>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <button 
-                  onClick={handleDelete} 
-                  disabled={invoices.length > 0 || pos.length > 0} 
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
-                  title="Eliminar"
+              {/* Buscador rápido de proveedores */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSupplierSearch(!showSupplierSearch)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
-                  <Trash2 size={18} />
+                  <Search size={14} />
+                  <span>Ir a otro</span>
                 </button>
                 
-                <Link 
-                  href={`/project/${projectId}/accounting/suppliers/${supplierId}/edit`} 
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
-                >
-                  <Edit size={16} />
-                  Editar
-                </Link>
+                {showSupplierSearch && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => { setShowSupplierSearch(false); setSupplierSearch(""); }} />
+                    <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden">
+                      <div className="p-2 border-b border-slate-100">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={supplierSearch}
+                            onChange={(e) => setSupplierSearch(e.target.value)}
+                            placeholder="Buscar proveedor..."
+                            autoFocus
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {allSuppliers
+                          .filter(s => 
+                            s.id !== supplierId && 
+                            (s.fiscalName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+                             s.taxId.toLowerCase().includes(supplierSearch.toLowerCase()))
+                          )
+                          .slice(0, 8)
+                          .map(s => (
+                            <Link
+                              key={s.id}
+                              href={`/project/${projectId}/accounting/suppliers/${s.id}`}
+                              onClick={() => { setShowSupplierSearch(false); setSupplierSearch(""); }}
+                              className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">{s.fiscalName}</p>
+                                <p className="text-xs text-slate-500 font-mono">{s.taxId}</p>
+                              </div>
+                              <ChevronRight size={14} className="text-slate-300 flex-shrink-0" />
+                            </Link>
+                          ))
+                        }
+                        {allSuppliers.filter(s => 
+                          s.id !== supplierId && 
+                          (s.fiscalName.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+                           s.taxId.toLowerCase().includes(supplierSearch.toLowerCase()))
+                        ).length === 0 && (
+                          <div className="px-4 py-6 text-center">
+                            <p className="text-sm text-slate-400">No hay otros proveedores</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-
-            {/* Info principal del proveedor */}
-            <div className="flex items-start gap-5">
-              {/* Avatar grande */}
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">
-                {supplier.fiscalName.charAt(0).toUpperCase()}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-semibold text-slate-900 mb-1">{supplier.fiscalName}</h1>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {supplier.commercialName && (
-                        <>
-                          <span className="text-slate-500">{supplier.commercialName}</span>
-                          <span className="text-slate-300">·</span>
-                        </>
-                      )}
-                      <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{supplier.taxId}</span>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-sm text-slate-500">{COUNTRIES[supplier.country] || supplier.country}</span>
+            
+            <div className="flex items-center gap-2">
+              {/* Dropdown de exportación */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowActionsMenu(!showActionsMenu)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  <Download size={16} />
+                  Exportar
+                  <ChevronDown size={14} className={`transition-transform ${showActionsMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showActionsMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-20">
+                      <button
+                        onClick={generateInvoiceListPdf}
+                        disabled={invoices.length === 0 || generatingPdf === "invoices"}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <FileText size={16} className="text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900">Listado de facturas</p>
+                          <p className="text-xs text-slate-500">PDF con todas las facturas</p>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={generateEndOfProjectLetter}
+                        disabled={hasPendingInvoices || generatingPdf === "letter"}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <FileSpreadsheet size={16} className="text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900">Carta fin de proyecto</p>
+                          <p className="text-xs text-slate-500">
+                            {hasPendingInvoices ? "Requiere facturas pagadas" : "Certificado de cierre"}
+                          </p>
+                        </div>
+                      </button>
+                      
+                      <div className="border-t border-slate-100 my-1" />
+                      
+                      <button
+                        onClick={exportToCSV}
+                        disabled={invoices.length === 0}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Download size={16} className="text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900">Exportar CSV</p>
+                          <p className="text-xs text-slate-500">Para Excel o Sheets</p>
+                        </div>
+                      </button>
                     </div>
-                  </div>
-                  
-                  {/* Badge de estado */}
-                  <div className={`px-3 py-1.5 rounded-xl text-xs font-medium ${supplierStatus.bg} ${supplierStatus.color} border ${supplierStatus.border} flex items-center gap-1.5 flex-shrink-0`}>
-                    {supplierStatus.label === "Verificado" && <ShieldCheck size={14} />}
-                    {supplierStatus.label}
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
+
+              <button 
+                onClick={handleDelete} 
+                disabled={invoices.length > 0 || pos.length > 0} 
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
+                title="Eliminar"
+              >
+                <Trash2 size={18} />
+              </button>
+
+              {!supplierClosure && !hasPendingInvoices && (
+                <button
+                  onClick={() => setShowCloseModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+                >
+                  <Lock size={16} />
+                  Cerrar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Info principal del proveedor */}
+          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">{supplier.fiscalName}</h1>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="font-mono text-sm text-slate-500">{supplier.taxId}</span>
+                {supplier.commercialName && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-slate-500">{supplier.commercialName}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Badge de estado */}
+            <div className={`px-3 py-1.5 rounded-xl text-xs font-medium ${supplierStatus.bg} ${supplierStatus.color} border ${supplierStatus.border} flex items-center gap-1.5`}>
+              {supplierStatus.label === "Verificado" && <ShieldCheck size={14} />}
+              {supplierStatus.label}
             </div>
           </div>
         </div>
@@ -733,79 +917,191 @@ export default function SupplierDetailPage() {
       </div>
 
       <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
-        {/* Stats cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                <Receipt size={18} className="text-slate-500" />
-              </div>
-              <span className="text-sm text-slate-500">Total facturado</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalInvoiced)}</p>
-          </div>
-          
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                <CheckCircle size={18} className="text-emerald-600" />
-              </div>
-              <span className="text-sm text-slate-500">Pagado</span>
-            </div>
-            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
-          </div>
-          
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-                <AlertCircle size={18} className="text-amber-600" />
-              </div>
-              <span className="text-sm text-slate-500">Pendiente</span>
-            </div>
-            <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalPending)}</p>
-          </div>
-          
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                <Package size={18} className="text-slate-500" />
-              </div>
-              <span className="text-sm text-slate-500">POs</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{pos.length}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda - Documentos */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* IBAN destacado */}
-            {supplier.bankAccount && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center">
-                      <CreditCard size={22} className="text-white" />
+        {/* Banner de proveedor cerrado */}
+        {supplierClosure && (
+          <div className="mb-6 bg-slate-900 rounded-2xl p-5 text-white">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                  <FileCheck size={24} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Relación cerrada</h3>
+                  <p className="text-white/70 text-sm">
+                    Cerrado el {formatDate(supplierClosure.closedAt)} por {supplierClosure.closedByName}
+                  </p>
+                  {supplierClosure.notes && (
+                    <p className="text-white/80 text-sm mt-2 bg-white/10 rounded-lg px-3 py-2">
+                      "{supplierClosure.notes}"
+                    </p>
+                  )}
+                  {supplierClosure.signedLetterName && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <FileText size={14} className="text-white/60" />
+                      <span className="text-sm text-white/80">{supplierClosure.signedLetterName}</span>
+                      <button className="text-xs text-white/60 hover:text-white underline">
+                        Descargar
+                      </button>
                     </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleReopenProject}
+                disabled={saving}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-xl transition-colors"
+              >
+                <RotateCcw size={14} />
+                Reabrir
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Columna izquierda - Datos y documentos */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Datos fiscales y dirección - editable inline */}
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="font-semibold text-slate-900">Datos fiscales</h2>
+                {!editingFiscal ? (
+                  <button
+                    onClick={() => setEditingFiscal(true)}
+                    className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1"
+                  >
+                    <Edit size={14} />
+                    Editar
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditingFiscal(false); setEditForm({ ...editForm, address: supplier.address, paymentMethod: supplier.paymentMethod, bankAccount: supplier.bankAccount }); }}
+                      className="text-xs text-slate-500 hover:text-slate-900"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveFiscal}
+                      disabled={saving}
+                      className="text-xs text-white bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
+                    >
+                      {saving ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-5">
+                {!editingFiscal ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Dirección */}
                     <div>
-                      <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Cuenta bancaria</p>
-                      <p className="font-mono font-bold text-lg text-slate-900">{formatIBAN(supplier.bankAccount)}</p>
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Dirección fiscal</p>
+                      {supplier.address?.street ? (
+                        <div className="text-sm text-slate-700">
+                          <p>{supplier.address.street} {supplier.address.number}</p>
+                          <p>{supplier.address.postalCode} {supplier.address.city}</p>
+                          {supplier.address.province && <p className="text-slate-500">{supplier.address.province}</p>}
+                          <p className="text-slate-500 mt-1">{COUNTRIES[supplier.country] || supplier.country}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Sin dirección</p>
+                      )}
+                    </div>
+                    
+                    {/* Datos bancarios */}
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Datos bancarios</p>
+                      {supplier.bankAccount ? (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-mono text-sm font-medium text-slate-900">{formatIBAN(supplier.bankAccount)}</p>
+                            <button 
+                              onClick={() => copyToClipboard(supplier.bankAccount, "IBAN")}
+                              className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                              title="Copiar"
+                            >
+                              <Copy size={14} />
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-500 mt-1">{PAYMENT_METHODS[supplier.paymentMethod]}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Sin cuenta bancaria</p>
+                      )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => copyToClipboard(supplier.bankAccount, "IBAN")}
-                    className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-                    title="Copiar IBAN"
-                  >
-                    <Copy size={18} />
-                  </button>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-4 text-sm">
-                  <span className="text-slate-500">Método de pago:</span>
-                  <span className="font-medium text-slate-900">{PAYMENT_METHODS[supplier.paymentMethod]}</span>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Form de edición */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <p className="text-xs text-slate-400 uppercase tracking-wide">Dirección fiscal</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={editForm.address.street}
+                            onChange={(e) => setEditForm({ ...editForm, address: { ...editForm.address, street: e.target.value } })}
+                            placeholder="Calle"
+                            className="col-span-2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                          <input
+                            type="text"
+                            value={editForm.address.number}
+                            onChange={(e) => setEditForm({ ...editForm, address: { ...editForm.address, number: e.target.value } })}
+                            placeholder="Nº"
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={editForm.address.postalCode}
+                            onChange={(e) => setEditForm({ ...editForm, address: { ...editForm.address, postalCode: e.target.value } })}
+                            placeholder="CP"
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                          <input
+                            type="text"
+                            value={editForm.address.city}
+                            onChange={(e) => setEditForm({ ...editForm, address: { ...editForm.address, city: e.target.value } })}
+                            placeholder="Ciudad"
+                            className="col-span-2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={editForm.address.province}
+                          onChange={(e) => setEditForm({ ...editForm, address: { ...editForm.address, province: e.target.value } })}
+                          placeholder="Provincia"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <p className="text-xs text-slate-400 uppercase tracking-wide">Datos bancarios</p>
+                        <input
+                          type="text"
+                          value={editForm.bankAccount}
+                          onChange={(e) => setEditForm({ ...editForm, bankAccount: formatIBAN(e.target.value) })}
+                          placeholder="IBAN"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                        <select
+                          value={editForm.paymentMethod}
+                          onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                        >
+                          {Object.entries(PAYMENT_METHODS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Facturas */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -890,7 +1186,7 @@ export default function SupplierDetailPage() {
             )}
           </div>
 
-          {/* Columna derecha - Info y certificados */}
+          {/* Columna derecha - Contacto y certificados */}
           <div className="space-y-6">
             {/* Contacto */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -900,14 +1196,9 @@ export default function SupplierDetailPage() {
               <div className="p-5">
                 {supplier.contact?.name ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">
-                        {supplier.contact.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{supplier.contact.name}</p>
-                        <p className="text-xs text-slate-500">Contacto principal</p>
-                      </div>
+                    <div>
+                      <p className="font-medium text-slate-900">{supplier.contact.name}</p>
+                      <p className="text-xs text-slate-500">Contacto principal</p>
                     </div>
                     
                     {supplier.contact.email && (
@@ -948,27 +1239,6 @@ export default function SupplierDetailPage() {
                 )}
               </div>
             </div>
-
-            {/* Dirección */}
-            {supplier.address?.street && (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Dirección fiscal</h2>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-                      <MapPin size={18} className="text-slate-500" />
-                    </div>
-                    <div className="text-sm text-slate-700">
-                      <p className="font-medium">{supplier.address.street} {supplier.address.number}</p>
-                      <p>{supplier.address.postalCode} {supplier.address.city}</p>
-                      {supplier.address.province && <p className="text-slate-500">{supplier.address.province}</p>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Certificados */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -1055,6 +1325,136 @@ export default function SupplierDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Modal de cierre de proyecto */}
+      {showCloseModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">Cerrar relación con proveedor</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{supplier.fiscalName}</p>
+              </div>
+              <button 
+                onClick={() => setShowCloseModal(false)} 
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Info */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-900">Todas las facturas están pagadas</p>
+                    <p className="text-xs text-emerald-700 mt-1">
+                      {invoices.length} factura{invoices.length !== 1 ? "s" : ""} · {formatCurrency(invoices.reduce((sum, inv) => sum + inv.totalAmount, 0))} total
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Paso 1: Descargar carta */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">1</span>
+                  <p className="text-sm font-medium text-slate-900">Descargar carta de fin de proyecto</p>
+                </div>
+                <button
+                  onClick={() => { generateEndOfProjectLetter(); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <Download size={16} />
+                  Descargar carta para firmar
+                </button>
+              </div>
+
+              {/* Paso 2: Notas */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">2</span>
+                  <p className="text-sm font-medium text-slate-900">Añadir nota (opcional)</p>
+                </div>
+                <textarea
+                  value={closeProjectData.notes}
+                  onChange={(e) => setCloseProjectData({ ...closeProjectData, notes: e.target.value })}
+                  placeholder="Ej: Cierre satisfactorio, proveedor recomendado para futuros proyectos..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              {/* Paso 3: Subir carta firmada */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">3</span>
+                  <p className="text-sm font-medium text-slate-900">Subir carta firmada (opcional)</p>
+                </div>
+                
+                {!closeProjectData.signedLetterFile ? (
+                  <label className="w-full flex flex-col items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-slate-300 hover:bg-slate-50 transition-colors">
+                    <Upload size={24} className="text-slate-400" />
+                    <span className="text-sm text-slate-500">Arrastra o haz clic para subir</span>
+                    <span className="text-xs text-slate-400">PDF, JPG o PNG</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setCloseProjectData({ 
+                            ...closeProjectData, 
+                            signedLetterFile: file,
+                            signedLetterName: file.name 
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <FileText size={18} className="text-slate-400" />
+                      <span className="text-sm text-slate-700">{closeProjectData.signedLetterFile.name}</span>
+                    </div>
+                    <button
+                      onClick={() => setCloseProjectData({ ...closeProjectData, signedLetterFile: null, signedLetterName: "" })}
+                      className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50">
+              <button
+                onClick={() => setShowCloseModal(false)}
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCloseProject}
+                disabled={saving}
+                className="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Lock size={16} />
+                )}
+                Cerrar relación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
