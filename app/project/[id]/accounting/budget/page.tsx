@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
-import { Plus, ChevronDown, ChevronRight, Edit, Trash2, X, Search, Download, Upload, AlertCircle, CheckCircle, FileSpreadsheet, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Edit, Trash2, X, Search, Download, Upload, AlertCircle, CheckCircle, FileSpreadsheet, Eye, EyeOff } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -277,18 +277,7 @@ export default function BudgetPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Breadcrumb */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
@@ -306,7 +295,7 @@ export default function BudgetPage() {
           </div>
 
           {/* Summary Stats - Compacto */}
-          <div className="grid grid-cols-5 gap-3 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Presupuestado</p>
               <p className="text-base font-bold text-slate-900 tabular-nums">{formatCurrency(summary.totalBudgeted)} €</p>
@@ -323,7 +312,7 @@ export default function BudgetPage() {
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Disponible</p>
               <p className={`text-base font-bold tabular-nums ${summary.totalAvailable < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(summary.totalAvailable)} €</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 col-span-2 md:col-span-1">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">% Ejecución</p>
               <div className="flex items-center gap-2">
                 <p className={`text-base font-bold tabular-nums ${totalExecutionPercent > 100 ? 'text-red-600' : totalExecutionPercent > 90 ? 'text-amber-600' : 'text-slate-900'}`}>{totalExecutionPercent.toFixed(1)}%</p>
@@ -336,7 +325,7 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
         {/* Messages */}
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-sm">
@@ -351,15 +340,15 @@ export default function BudgetPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
-          <div className="flex-1 relative w-full">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center mb-4">
+          <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar cuentas" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <input type="text" placeholder="Buscar cuentas" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
-          <div className="flex gap-2">
-            <button onClick={expandAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Eye size={14} />Expandir</button>
-            <button onClick={collapseAll} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><EyeOff size={14} />Colapsar</button>
-            <button onClick={exportBudget} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Download size={14} />Exportar</button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={expandAll} className="px-3 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Eye size={14} />Expandir</button>
+            <button onClick={collapseAll} className="px-3 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><EyeOff size={14} />Colapsar</button>
+            <button onClick={exportBudget} className="px-3 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium"><Download size={14} />Exportar</button>
           </div>
         </div>
 
@@ -377,19 +366,19 @@ export default function BudgetPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left pl-4 pr-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-8"></th>
-                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-20">Código</th>
-                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Descripción</th>
-                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Presupuesto</th>
-                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Comprometido</th>
-                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Realizado</th>
-                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">Disponible</th>
-                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-20">% Ejec.</th>
-                  <th className="text-right px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-24"></th>
+                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[80px]">Código</th>
+                  <th className="text-left px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">Descripción</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">Presupuesto</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">Comprometido</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">Realizado</th>
+                  <th className="text-right px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">Disponible</th>
+                  <th className="text-center px-2 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[80px]">% Ejec.</th>
+                  <th className="text-right px-4 py-2.5 min-w-[90px]"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -402,7 +391,7 @@ export default function BudgetPage() {
                   return (
                     <React.Fragment key={account.id}>
                       {/* Account Row */}
-                      <tr className="bg-slate-50/80 hover:bg-slate-100/80 transition-colors border-l-4 border-l-indigo-400">
+                      <tr className="bg-slate-50/80 hover:bg-slate-100/80 transition-colors border-l-4 border-l-slate-400">
                         <td className="pl-4 pr-2 py-2">
                           <button onClick={() => toggleAccount(account.id)} className="text-slate-500 hover:text-slate-900 p-0.5">
                             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -429,8 +418,8 @@ export default function BudgetPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex items-center justify-end gap-0.5">
-                            <button onClick={() => openCreateSubAccountModal(account)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Añadir subcuenta"><Plus size={14} /></button>
-                            <button onClick={() => openEditAccountModal(account)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
+                            <button onClick={() => openCreateSubAccountModal(account)} className="p-1 text-slate-400 hover:text-[#2F52E0] hover:bg-blue-50 rounded" title="Añadir subcuenta"><Plus size={14} /></button>
+                            <button onClick={() => openEditAccountModal(account)} className="p-1 text-slate-400 hover:text-[#2F52E0] hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
                             <button onClick={() => handleDeleteAccount(account.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar"><Trash2 size={14} /></button>
                           </div>
                         </td>
@@ -472,7 +461,7 @@ export default function BudgetPage() {
                             </td>
                             <td className="px-4 py-1.5">
                               <div className="flex items-center justify-end gap-0.5">
-                                <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={12} /></button>
+                                <button onClick={() => openEditSubAccountModal(account, subAccount)} className="p-1 text-slate-400 hover:text-[#2F52E0] hover:bg-blue-50 rounded" title="Editar"><Edit size={12} /></button>
                                 <button onClick={() => handleDeleteSubAccount(account.id, subAccount.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar"><Trash2 size={12} /></button>
                               </div>
                             </td>
@@ -599,4 +588,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
