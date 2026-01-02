@@ -884,20 +884,6 @@ export default function AccountingConfigPage() {
   // Render de la sección de aprobaciones
   const renderApprovalsSection = () => (
     <div className="space-y-6">
-      {/* Info box */}
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-        <div className="flex gap-3">
-          <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-slate-600">
-            <p className="font-medium text-slate-700 mb-1">Cómo funcionan las aprobaciones</p>
-            <p className="text-slate-500">
-              Las aprobaciones se procesan en orden secuencial. Puedes configurar niveles que solo se activen a partir de cierto importe 
-              (ej: POs mayores de 5.000€ requieren aprobación del EP). Si no hay niveles configurados, los documentos se aprueban automáticamente.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Tabs PO/Invoice */}
       <div className="flex gap-1 border-b border-slate-200">
         <button
@@ -1176,19 +1162,6 @@ export default function AccountingConfigPage() {
 
     return (
       <div className="space-y-8">
-        {/* Info */}
-        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-          <div className="flex gap-3">
-            <Info size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-slate-600">
-              <p className="font-medium text-slate-700 mb-1">Permisos por acción</p>
-              <p className="text-slate-500">
-                Configura qué roles o usuarios pueden realizar cada acción. Los usuarios con rol EP o PM siempre tienen acceso completo.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* PO Permissions */}
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -1258,7 +1231,10 @@ export default function AccountingConfigPage() {
         <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                <Settings size={20} className="text-slate-600" />
+              </div>
               <h1 className="text-2xl font-semibold text-slate-900">Configuración</h1>
             </div>
 
