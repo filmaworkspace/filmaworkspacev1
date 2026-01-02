@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
-import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, ArrowLeft, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
+import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<POStatus, { bg: string; text: string; label: string;
   draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit, gradient: "from-slate-500 to-slate-600" },
   pending: { bg: "bg-amber-50", text: "text-amber-700", label: "Pendiente", icon: Clock, gradient: "from-amber-500 to-orange-500" },
   approved: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Aprobada", icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500" },
-  closed: { bg: "bg-blue-50", text: "text-blue-700", label: "Cerrada", icon: Archive, gradient: "from-blue-500 to-indigo-500" },
+  closed: { bg: "bg-slate-100", text: "text-slate-600", label: "Cerrada", icon: Archive, gradient: "from-slate-500 to-slate-600" },
   cancelled: { bg: "bg-red-50", text: "text-red-700", label: "Anulada", icon: Ban, gradient: "from-red-500 to-rose-500" },
 };
 
@@ -307,7 +307,7 @@ export default function POsPage() {
   const getRoleBadge = () => {
     if (permissions.isProjectRole) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
           <Eye size={12} />
           Todo el proyecto
         </span>
@@ -315,7 +315,7 @@ export default function POsPage() {
     }
     if (permissions.canViewDepartmentPOs) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">
           <Building2 size={12} />
           {permissions.department}
         </span>
@@ -365,7 +365,6 @@ export default function POsPage() {
     setShowCloseModal(true);
   };
 
-  // ============ NUEVA FUNCIÓN: Liberar committed restante de subcuentas ============
   const releaseRemainingCommitted = async (po: PO) => {
     const baseAmount = po.baseAmount || po.totalAmount || 0;
     const invoicedAmount = po.invoicedAmount || 0;
@@ -408,7 +407,6 @@ export default function POsPage() {
     if (!verified) return;
     setProcessing(true);
     try {
-      // ============ NUEVO: Liberar el committed restante antes de cerrar ============
       await releaseRemainingCommitted(selectedPO);
 
       await updateDoc(doc(db, `projects/${id}/pos`, selectedPO.id), {
@@ -442,7 +440,6 @@ export default function POsPage() {
     setShowReopenModal(true);
   };
 
-  // ============ NUEVA FUNCIÓN: Restaurar committed al reabrir PO ============
   const restoreCommittedOnReopen = async (po: PO) => {
     const baseAmount = po.baseAmount || po.totalAmount || 0;
     const invoicedAmount = po.invoicedAmount || 0;
@@ -485,7 +482,6 @@ export default function POsPage() {
     if (!verified) return;
     setProcessing(true);
     try {
-      // ============ NUEVO: Restaurar el committed al reabrir ============
       await restoreCommittedOnReopen(selectedPO);
 
       const baseAmount = selectedPO.baseAmount || selectedPO.totalAmount || 0;
@@ -711,7 +707,7 @@ export default function POsPage() {
     pdf.save("PO-" + po.number + (po.version > 1 ? "-V" + String(po.version).padStart(2, "0") : "") + ".pdf");
     closeMenu();
   };
-  // Loading state
+
   if (permissionsLoading || loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -720,7 +716,6 @@ export default function POsPage() {
     );
   }
 
-  // Access denied
   if (permissionsError || !permissions.hasAccountingAccess) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -731,7 +726,6 @@ export default function POsPage() {
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para acceder a órdenes de compra"}</p>
           <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
-            <ArrowLeft size={16} />
             Volver al panel
           </Link>
         </div>
@@ -743,24 +737,12 @@ export default function POsPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">
-                Panel
-              </Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-3">
-              <FileText size={24} className="text-indigo-600" />
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                <FileText size={20} className="text-slate-600" />
+              </div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
                 {getRoleBadge()}
@@ -776,7 +758,7 @@ export default function POsPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
           {(["draft", "pending", "approved", "closed", "cancelled"] as POStatus[]).map((status) => {
@@ -897,11 +879,11 @@ export default function POsPage() {
                   return (
                     <tr key={po.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <button onClick={() => setPreviewPO(po)} className="text-left hover:text-indigo-600 transition-colors">
+                        <button onClick={() => setPreviewPO(po)} className="text-left hover:text-slate-600 transition-colors">
                           <div className="flex items-center gap-2">
-                            <p className="font-semibold text-slate-900 group-hover:text-indigo-600 font-mono">PO-{po.number}</p>
+                            <p className="font-semibold text-slate-900 group-hover:text-slate-600 font-mono">PO-{po.number}</p>
                             {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
-                            {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
+                            {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                           </div>
                         </button>
                       </td>
@@ -944,7 +926,7 @@ export default function POsPage() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredPOs.map((po) => {
               const baseAmount = po.baseAmount || po.totalAmount || 0;
               const invoiceProgress = po.status === "approved" && baseAmount > 0 ? Math.min(100, (po.invoicedAmount / baseAmount) * 100) : 0;
@@ -956,9 +938,9 @@ export default function POsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <button onClick={() => setPreviewPO(po)} className="text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors font-mono">PO-{po.number}</p>
+                        <p className="font-bold text-slate-900 group-hover:text-slate-600 transition-colors font-mono">PO-{po.number}</p>
                         {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
-                        {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
+                        {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                       </div>
                       <p className="text-sm text-slate-600 font-medium">{po.supplier}</p>
                     </button>
@@ -1092,6 +1074,7 @@ export default function POsPage() {
           </div>
         )}
       </main>
+
       {/* Quick Preview Modal */}
       {previewPO && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewPO(null)}>
@@ -1149,8 +1132,8 @@ export default function POsPage() {
 
               <div className="mb-4 flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <FileText size={14} className="text-indigo-600" />
+                  <div className="w-7 h-7 bg-slate-200 rounded-lg flex items-center justify-center">
+                    <FileText size={14} className="text-slate-600" />
                   </div>
                   <span className="text-xs text-slate-600">Items</span>
                 </div>
@@ -1194,8 +1177,8 @@ export default function POsPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCloseModal(false); resetModalState(); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Lock size={20} className="text-blue-600" />
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                <Lock size={20} className="text-slate-600" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Cerrar PO-{selectedPO.number}</h3>
@@ -1235,7 +1218,7 @@ export default function POsPage() {
                 <button onClick={() => { setShowCloseModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
-                <button onClick={confirmClosePO} disabled={processing || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                <button onClick={confirmClosePO} disabled={processing || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
                   {processing ? "Cerrando..." : "Cerrar PO"}
                 </button>
               </div>
