@@ -573,10 +573,6 @@ export default function BudgetPage() {
                   </label>
                 </div>
               </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800"><strong>Formato libre:</strong> Puedes usar códigos como 01, 01.01, A1, etc.</p>
-              </div>
             </div>
 
             <div className="px-6 pb-6">
@@ -588,3 +584,4 @@ export default function BudgetPage() {
     </div>
   );
 }
+
