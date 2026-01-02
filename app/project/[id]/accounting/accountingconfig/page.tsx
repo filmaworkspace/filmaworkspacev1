@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Zap,
   FileCheck,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
@@ -148,6 +149,12 @@ export default function AccountingConfigPage() {
   // Permisos
   const [permissionSettings, setPermissionSettings] = useState<PermissionSettings>({});
   const [expandedPermissions, setExpandedPermissions] = useState<Set<string>>(new Set());
+  
+  // Auditoría
+  const [auditLog, setAuditLog] = useState<{
+    approvals?: { updatedAt: any; updatedBy: string; updatedByName?: string };
+    permissions?: { updatedAt: any; updatedBy: string; updatedByName?: string };
+  }>({});
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -233,6 +240,20 @@ export default function AccountingConfigPage() {
           }));
         setPoApprovals(migrateSteps(c.poApprovals || []));
         setInvoiceApprovals(migrateSteps(c.invoiceApprovals || []));
+        
+        // Guardar info de auditoría
+        if (c.updatedAt && c.updatedBy) {
+          // Buscar nombre del usuario
+          let updatedByName = c.updatedByName;
+          if (!updatedByName) {
+            const updaterMember = membersSnap.docs.find(d => d.id === c.updatedBy);
+            updatedByName = updaterMember?.data()?.name || updaterMember?.data()?.email || "Usuario desconocido";
+          }
+          setAuditLog(prev => ({
+            ...prev,
+            approvals: { updatedAt: c.updatedAt, updatedBy: c.updatedBy, updatedByName }
+          }));
+        }
       } else {
         setPoApprovals([
           { id: "default-po-1", order: 1, approverType: "role", roles: ["PM", "EP"], requireAll: false, hasAmountThreshold: false },
@@ -246,7 +267,21 @@ export default function AccountingConfigPage() {
       const permissionsConfigRef = doc(db, `projects/${id}/config/permissions`);
       const permissionsConfigSnap = await getDoc(permissionsConfigRef);
       if (permissionsConfigSnap.exists()) {
-        setPermissionSettings(permissionsConfigSnap.data().settings || {});
+        const permData = permissionsConfigSnap.data();
+        setPermissionSettings(permData.settings || {});
+        
+        // Guardar info de auditoría
+        if (permData.updatedAt && permData.updatedBy) {
+          let updatedByName = permData.updatedByName;
+          if (!updatedByName) {
+            const updaterMember = membersSnap.docs.find(d => d.id === permData.updatedBy);
+            updatedByName = updaterMember?.data()?.name || updaterMember?.data()?.email || "Usuario desconocido";
+          }
+          setAuditLog(prev => ({
+            ...prev,
+            permissions: { updatedAt: permData.updatedAt, updatedBy: permData.updatedBy, updatedByName }
+          }));
+        }
       } else {
         // Inicializar con valores por defecto
         const defaultSettings: PermissionSettings = {};
@@ -377,19 +412,30 @@ export default function AccountingConfigPage() {
     setErrorMessage("");
     setSuccessMessage("");
     try {
+      const currentUserName = members.find(m => m.userId === userId)?.name || "Usuario";
+      const now = Timestamp.now();
+      
       // Guardar aprobaciones
       await setDoc(doc(db, `projects/${id}/config/approvals`), {
         poApprovals: cleanApprovalSteps(poApprovals),
         invoiceApprovals: cleanApprovalSteps(invoiceApprovals),
-        updatedAt: Timestamp.now(),
+        updatedAt: now,
         updatedBy: userId,
+        updatedByName: currentUserName,
       });
       
       // Guardar permisos
       await setDoc(doc(db, `projects/${id}/config/permissions`), {
         settings: permissionSettings,
-        updatedAt: Timestamp.now(),
+        updatedAt: now,
         updatedBy: userId,
+        updatedByName: currentUserName,
+      });
+      
+      // Actualizar auditoría local
+      setAuditLog({
+        approvals: { updatedAt: now, updatedBy: userId!, updatedByName: currentUserName },
+        permissions: { updatedAt: now, updatedBy: userId!, updatedByName: currentUserName },
       });
       
       setSuccessMessage("Configuración guardada");
@@ -406,6 +452,23 @@ export default function AccountingConfigPage() {
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
+  const formatRelativeDate = (timestamp: any): string => {
+    if (!timestamp) return "";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return "hace un momento";
+    if (diffMins < 60) return `hace ${diffMins} min`;
+    if (diffHours < 24) return `hace ${diffHours}h`;
+    if (diffDays === 1) return "ayer";
+    if (diffDays < 7) return `hace ${diffDays} días`;
+    return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  };
 
   const getStepSummary = (step: ApprovalStep): string => {
     let base = "";
@@ -1129,7 +1192,7 @@ export default function AccountingConfigPage() {
         {/* PO Permissions */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <FileText size={18} className="text-indigo-600" />
+            <FileText size={18} className="text-slate-600" />
             <h3 className="font-semibold text-slate-900">Órdenes de compra</h3>
           </div>
           <div className="space-y-2">
@@ -1140,7 +1203,7 @@ export default function AccountingConfigPage() {
         {/* Invoice Permissions */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Receipt size={18} className="text-emerald-600" />
+            <Receipt size={18} className="text-slate-600" />
             <h3 className="font-semibold text-slate-900">Facturas</h3>
           </div>
           <div className="space-y-2">
@@ -1192,26 +1255,11 @@ export default function AccountingConfigPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
-          {/* Page header - Icono sin fondo */}
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
+          {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-3">
-              <Settings size={24} className="text-slate-600" />
-              <h1 className="text-2xl font-semibold text-slate-900">Configuración de contabilidad</h1>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Configuración</h1>
             </div>
 
             <button
@@ -1235,7 +1283,7 @@ export default function AccountingConfigPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {/* Mensajes */}
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
@@ -1255,10 +1303,10 @@ export default function AccountingConfigPage() {
         )}
 
         {/* Layout con sidebar de secciones */}
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar de secciones */}
-          <div className="w-64 flex-shrink-0">
-            <nav className="space-y-1 sticky top-24">
+          <div className="lg:w-64 flex-shrink-0">
+            <nav className="flex lg:flex-col gap-2 lg:space-y-1 lg:sticky lg:top-24 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0">
               {CONFIG_SECTIONS.map((section) => {
                 const Icon = section.icon;
                 const isActive = activeSection === section.id;
@@ -1266,30 +1314,52 @@ export default function AccountingConfigPage() {
                 return (
                   <button
                     key={section.id}
-                    onClick={() => !section.disabled && setActiveSection(section.id)}
-                    disabled={section.disabled}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                    onClick={() => setActiveSection(section.id)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all whitespace-nowrap ${
                       isActive
                         ? "bg-slate-900 text-white"
-                        : section.disabled
-                        ? "text-slate-400 cursor-not-allowed"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
-                    <Icon size={18} className={isActive ? "text-white" : section.disabled ? "text-slate-300" : "text-slate-400"} />
+                    <Icon size={18} className={isActive ? "text-white" : "text-slate-400"} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${isActive ? "text-white" : ""}`}>{section.label}</p>
-                      {section.disabled && (
-                        <p className="text-xs text-slate-400">Próximamente</p>
-                      )}
                     </div>
-                    {!section.disabled && !isActive && (
-                      <ChevronRight size={16} className="text-slate-300" />
+                    {!isActive && (
+                      <ChevronRight size={16} className="text-slate-300 hidden lg:block" />
                     )}
                   </button>
                 );
               })}
             </nav>
+            
+            {/* Auditoría - Solo visible en desktop */}
+            {(auditLog.approvals || auditLog.permissions) && (
+              <div className="hidden lg:block mt-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock size={14} className="text-slate-400" />
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Últimos cambios</p>
+                </div>
+                <div className="space-y-3">
+                  {auditLog.approvals && (
+                    <div className="text-xs">
+                      <p className="text-slate-600 font-medium">Aprobaciones</p>
+                      <p className="text-slate-500">
+                        {auditLog.approvals.updatedByName} · {formatRelativeDate(auditLog.approvals.updatedAt)}
+                      </p>
+                    </div>
+                  )}
+                  {auditLog.permissions && (
+                    <div className="text-xs">
+                      <p className="text-slate-600 font-medium">Permisos</p>
+                      <p className="text-slate-500">
+                        {auditLog.permissions.updatedByName} · {formatRelativeDate(auditLog.permissions.updatedAt)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Contenido principal */}
