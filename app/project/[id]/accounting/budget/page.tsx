@@ -302,11 +302,11 @@ export default function BudgetPage() {
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Comprometido</p>
-              <p className="text-base font-bold text-amber-600 tabular-nums">{formatCurrency(summary.totalCommitted)} €</p>
+              <p className="text-base font-bold text-slate-900 tabular-nums">{formatCurrency(summary.totalCommitted)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Realizado</p>
-              <p className="text-base font-bold text-blue-600 tabular-nums">{formatCurrency(summary.totalActual)} €</p>
+              <p className="text-base font-bold text-slate-900 tabular-nums">{formatCurrency(summary.totalActual)} €</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Disponible</p>
@@ -391,7 +391,7 @@ export default function BudgetPage() {
                   return (
                     <React.Fragment key={account.id}>
                       {/* Account Row */}
-                      <tr className="bg-slate-50/80 hover:bg-slate-100/80 transition-colors border-l-4 border-l-slate-400">
+                      <tr className="bg-slate-50/80 hover:bg-slate-100/80 transition-colors">
                         <td className="pl-4 pr-2 py-2">
                           <button onClick={() => toggleAccount(account.id)} className="text-slate-500 hover:text-slate-900 p-0.5">
                             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -400,8 +400,8 @@ export default function BudgetPage() {
                         <td className="px-2 py-2 font-bold text-slate-900 text-xs">{account.code}</td>
                         <td className="px-2 py-2 font-semibold text-slate-900 text-xs">{account.description}</td>
                         <td className="px-2 py-2 text-right font-bold text-slate-900 tabular-nums text-xs">{formatCurrency(totals.budgeted)}</td>
-                        <td className="px-2 py-2 text-right font-bold text-amber-600 tabular-nums text-xs">{formatCurrency(totals.committed)}</td>
-                        <td className="px-2 py-2 text-right font-bold text-blue-600 tabular-nums text-xs">{formatCurrency(totals.actual)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-slate-700 tabular-nums text-xs">{formatCurrency(totals.committed)}</td>
+                        <td className="px-2 py-2 text-right font-bold text-slate-700 tabular-nums text-xs">{formatCurrency(totals.actual)}</td>
                         <td className="px-2 py-2 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${status.color}`}></span>
@@ -443,8 +443,8 @@ export default function BudgetPage() {
                             <td className="px-2 py-1.5 text-slate-500 text-xs font-medium">{subAccount.code}</td>
                             <td className="px-2 py-1.5 text-slate-700 text-xs">{subAccount.description}</td>
                             <td className="px-2 py-1.5 text-right text-slate-900 tabular-nums text-xs">{formatCurrency(subAccount.budgeted)}</td>
-                            <td className="px-2 py-1.5 text-right text-amber-600 tabular-nums text-xs">{formatCurrency(subAccount.committed)}</td>
-                            <td className="px-2 py-1.5 text-right text-blue-600 tabular-nums text-xs">{formatCurrency(subAccount.actual)}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600 tabular-nums text-xs">{formatCurrency(subAccount.committed)}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600 tabular-nums text-xs">{formatCurrency(subAccount.actual)}</td>
                             <td className="px-2 py-1.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span className={`w-1.5 h-1.5 rounded-full ${subStatus.color}`}></span>
@@ -477,9 +477,9 @@ export default function BudgetPage() {
                   <td className="pl-4 pr-2 py-3"></td>
                   <td className="px-2 py-3 font-bold text-xs" colSpan={2}>TOTAL PRESUPUESTO</td>
                   <td className="px-2 py-3 text-right font-bold tabular-nums text-xs">{formatCurrency(summary.totalBudgeted)}</td>
-                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-amber-300">{formatCurrency(summary.totalCommitted)}</td>
-                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-blue-300">{formatCurrency(summary.totalActual)}</td>
-                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs text-emerald-300">{formatCurrency(summary.totalAvailable)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs">{formatCurrency(summary.totalCommitted)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs">{formatCurrency(summary.totalActual)}</td>
+                  <td className="px-2 py-3 text-right font-bold tabular-nums text-xs">{formatCurrency(summary.totalAvailable)}</td>
                   <td className="px-2 py-3 text-center font-bold text-xs">{totalExecutionPercent.toFixed(1)}%</td>
                   <td className="px-4 py-3"></td>
                 </tr>
@@ -573,6 +573,10 @@ export default function BudgetPage() {
                   </label>
                 </div>
               </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-800"><strong>Formato libre:</strong> Puedes usar códigos como 01, 01.01, A1, etc.</p>
+              </div>
             </div>
 
             <div className="px-6 pb-6">
@@ -584,4 +588,3 @@ export default function BudgetPage() {
     </div>
   );
 }
-
