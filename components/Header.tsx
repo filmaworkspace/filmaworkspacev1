@@ -204,8 +204,8 @@ export default function Header() {
 
     const sectionLabels: Record<string, string> = {
       config: "CONFIGURACIÓN",
-      accounting: "ACCOUNTING",
-      team: "TEAM",
+      accounting: "CONTABILIDAD",
+      team: "EQUIPO",
     };
 
     return (
