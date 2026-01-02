@@ -396,115 +396,160 @@ export default function SupplierDetailPage() {
     setGeneratingPdf("invoices");
     
     try {
-      // Crear contenido HTML para el PDF
+      const { jsPDF } = await import('jspdf');
+      
       const totalBase = invoices.reduce((sum, inv) => sum + inv.baseAmount, 0);
       const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
       const paidInvoices = invoices.filter(inv => inv.status === "paid");
       const pendingInvoices = invoices.filter(inv => inv.status !== "paid" && inv.status !== "cancelled");
       
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 40px; color: #1e293b; font-size: 11px; }
-    .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
-    .title { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0; }
-    .subtitle { font-size: 14px; color: #64748b; margin-top: 8px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-    .info-box { background: #f8fafc; padding: 16px; border-radius: 8px; }
-    .info-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .info-value { font-size: 13px; font-weight: 600; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th { background: #f1f5f9; padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; }
-    td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
-    .amount { text-align: right; font-family: monospace; }
-    .status { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-    .status-paid { background: #dcfce7; color: #166534; }
-    .status-pending { background: #fef3c7; color: #92400e; }
-    .totals { margin-top: 30px; background: #f8fafc; padding: 20px; border-radius: 8px; }
-    .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
-    .total-label { color: #64748b; }
-    .total-value { font-weight: 600; font-family: monospace; }
-    .total-main { font-size: 16px; border-top: 2px solid #e2e8f0; padding-top: 12px; margin-top: 8px; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1 class="title">Listado de Facturas</h1>
-    <p class="subtitle">${supplier.fiscalName} · ${supplier.taxId}</p>
-  </div>
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
+      let y = margin;
 
-  <div class="info-grid">
-    <div class="info-box">
-      <div class="info-label">Proyecto</div>
-      <div class="info-value">${projectName}</div>
-      ${producerNames.length > 0 ? `<div style="font-size: 11px; color: #64748b; margin-top: 4px;">${producerNames.join(", ")}</div>` : ""}
-    </div>
-    <div class="info-box">
-      <div class="info-label">Resumen</div>
-      <div class="info-value">${invoices.length} facturas</div>
-      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${paidInvoices.length} pagadas · ${pendingInvoices.length} pendientes</div>
-    </div>
-  </div>
+      // --- TÍTULO ---
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Listado de Facturas', margin, y);
+      y += 8;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`${supplier.fiscalName} · ${supplier.taxId}`, margin, y);
+      y += 15;
 
-  <table>
-    <thead>
-      <tr>
-        <th>Nº Factura</th>
-        <th>Fecha</th>
-        <th>Descripción</th>
-        <th class="amount">Base</th>
-        <th class="amount">Total</th>
-        <th>Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${invoices.map(inv => `
-        <tr>
-          <td style="font-weight: 600; font-family: monospace;">${inv.number}</td>
-          <td>${formatDate(inv.issueDate)}</td>
-          <td>${inv.description || "-"}</td>
-          <td class="amount">${formatCurrency(inv.baseAmount)}</td>
-          <td class="amount">${formatCurrency(inv.totalAmount)}</td>
-          <td><span class="status ${inv.status === 'paid' ? 'status-paid' : 'status-pending'}">${inv.status === 'paid' ? 'Pagada' : 'Pendiente'}</span></td>
-        </tr>
-      `).join("")}
-    </tbody>
-  </table>
+      // --- INFO BOXES ---
+      // Box 1: Proyecto
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(margin, y, contentWidth / 2 - 5, 25, 2, 2, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text('PROYECTO', margin + 5, y + 8);
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(projectName, margin + 5, y + 17);
+      
+      // Box 2: Resumen
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(margin + contentWidth / 2 + 5, y, contentWidth / 2 - 5, 25, 2, 2, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RESUMEN', margin + contentWidth / 2 + 10, y + 8);
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${invoices.length} facturas`, margin + contentWidth / 2 + 10, y + 17);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`${paidInvoices.length} pagadas · ${pendingInvoices.length} pendientes`, margin + contentWidth / 2 + 10, y + 23);
+      
+      y += 35;
 
-  <div class="totals">
-    <div class="total-row">
-      <span class="total-label">Total Base Imponible</span>
-      <span class="total-value">${formatCurrency(totalBase)}</span>
-    </div>
-    <div class="total-row total-main">
-      <span class="total-label" style="font-weight: 600; color: #0f172a;">TOTAL</span>
-      <span class="total-value" style="font-size: 18px;">${formatCurrency(totalAmount)}</span>
-    </div>
-  </div>
+      // --- TABLA ---
+      // Header
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(margin, y, contentWidth, 10, 'FD');
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100);
+      doc.text('Nº FACTURA', margin + 3, y + 7);
+      doc.text('FECHA', margin + 35, y + 7);
+      doc.text('DESCRIPCIÓN', margin + 60, y + 7);
+      doc.text('BASE', margin + 115, y + 7);
+      doc.text('TOTAL', margin + 140, y + 7);
+      doc.text('ESTADO', margin + 165, y + 7);
+      y += 10;
 
-  <div class="footer">
-    Generado el ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} · Filma Workspace
-  </div>
-</body>
-</html>`;
+      // Filas
+      doc.setFont('helvetica', 'normal');
+      invoices.forEach((inv) => {
+        if (y > 270) {
+          doc.addPage();
+          y = margin;
+        }
+        
+        doc.setDrawColor(241, 245, 249);
+        doc.line(margin, y + 8, pageWidth - margin, y + 8);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'bold');
+        doc.text(inv.number, margin + 3, y + 6);
+        doc.setFont('helvetica', 'normal');
+        doc.text(formatDate(inv.issueDate), margin + 35, y + 6);
+        doc.text((inv.description || '-').substring(0, 22), margin + 60, y + 6);
+        doc.text(formatCurrency(inv.baseAmount), margin + 115, y + 6);
+        doc.text(formatCurrency(inv.totalAmount), margin + 140, y + 6);
+        
+        // Estado con color
+        const statusText = inv.status === 'paid' ? 'Pagada' : 'Pendiente';
+        if (inv.status === 'paid') {
+          doc.setTextColor(22, 101, 52);
+        } else {
+          doc.setTextColor(146, 64, 14);
+        }
+        doc.text(statusText, margin + 165, y + 6);
+        doc.setTextColor(15, 23, 42);
+        
+        y += 9;
+      });
 
-      // Crear blob y descargar
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `facturas_${supplier.fiscalName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // --- TOTALES ---
+      y += 5;
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(margin, y, contentWidth, 30, 2, 2, 'F');
+      
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text('Total Base Imponible', margin + 5, y + 10);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatCurrency(totalBase), margin + 60, y + 10);
+      
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin + 5, y + 15, margin + contentWidth - 10, y + 15);
+      
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.setFont('helvetica', 'normal');
+      doc.text('TOTAL', margin + 5, y + 24);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(formatCurrency(totalAmount), margin + 60, y + 24);
+
+      // --- FOOTER ---
+      const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.setFont('helvetica', 'normal');
+        doc.text(
+          `Generado el ${today} · Filma Workspace`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Guardar
+      const fileName = `facturas_${supplier.fiscalName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
       
       setSuccessMessage("Listado de facturas generado");
     } catch (error) {
+      console.error(error);
       setErrorMessage("Error generando el documento");
     } finally {
       setGeneratingPdf(null);
@@ -512,130 +557,209 @@ export default function SupplierDetailPage() {
     }
   };
 
-  // Generar Carta de Fin de Proyecto
+  // Generar Carta de Fin de Proyecto en PDF
   const generateEndOfProjectLetter = async () => {
     if (!supplier) return;
     setGeneratingPdf("letter");
     
     try {
+      // Importar jsPDF dinámicamente
+      const { jsPDF } = await import('jspdf');
+      
       const paidInvoices = invoices.filter(inv => inv.status === "paid");
       const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
       const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
       
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Georgia', serif; margin: 60px; color: #1e293b; font-size: 12px; line-height: 1.8; }
-    .letterhead { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
-    .letterhead-title { font-size: 18px; font-weight: bold; color: #0f172a; letter-spacing: 1px; }
-    .letterhead-subtitle { font-size: 11px; color: #64748b; margin-top: 4px; }
-    .date { text-align: right; margin-bottom: 40px; color: #64748b; }
-    .recipient { margin-bottom: 30px; }
-    .recipient-name { font-weight: bold; font-size: 14px; }
-    .content { margin-bottom: 30px; }
-    .content p { margin-bottom: 16px; text-align: justify; }
-    .highlight { background: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 30px 0; }
-    .highlight-title { font-weight: bold; color: #166534; margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-family: 'Helvetica', sans-serif; font-size: 11px; }
-    th { background: #f8fafc; padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; border: 1px solid #e2e8f0; }
-    td { padding: 10px 12px; border: 1px solid #e2e8f0; }
-    .amount { text-align: right; font-family: monospace; }
-    .total-row { background: #f8fafc; font-weight: bold; }
-    .signature { margin-top: 60px; }
-    .signature-line { width: 250px; border-top: 1px solid #1e293b; margin-top: 60px; padding-top: 8px; }
-    .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="letterhead">
-    <div class="letterhead-title">${projectConfig?.fiscalName || projectName}</div>
-    ${projectConfig?.taxId ? `<div class="letterhead-subtitle">CIF: ${projectConfig.taxId}</div>` : ""}
-    ${projectConfig?.address ? `<div class="letterhead-subtitle">${projectConfig.address}, ${projectConfig.postalCode} ${projectConfig.city}</div>` : ""}
-  </div>
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 25;
+      const contentWidth = pageWidth - (margin * 2);
+      let y = margin;
 
-  <div class="date">${today}</div>
+      // Configuración de fuentes
+      doc.setFont('helvetica');
 
-  <div class="recipient">
-    <div class="recipient-name">${supplier.fiscalName}</div>
-    <div>${supplier.taxId}</div>
-    ${supplier.address?.street ? `<div>${supplier.address.street} ${supplier.address.number}</div>` : ""}
-    ${supplier.address?.city ? `<div>${supplier.address.postalCode} ${supplier.address.city}</div>` : ""}
-  </div>
+      // --- MEMBRETE ---
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(projectConfig?.fiscalName || projectName, pageWidth / 2, y, { align: 'center' });
+      y += 6;
+      
+      if (projectConfig?.taxId) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100);
+        doc.text(`CIF: ${projectConfig.taxId}`, pageWidth / 2, y, { align: 'center' });
+        y += 5;
+      }
+      
+      if (projectConfig?.address) {
+        doc.setFontSize(9);
+        doc.text(`${projectConfig.address}, ${projectConfig.postalCode} ${projectConfig.city}`, pageWidth / 2, y, { align: 'center' });
+        y += 5;
+      }
+      
+      // Línea separadora
+      y += 5;
+      doc.setDrawColor(200);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 15;
 
-  <div class="content">
-    <p><strong>Asunto: Certificado de cierre de relación comercial - Proyecto "${projectName}"</strong></p>
-    
-    <p>Por medio de la presente, ${projectConfig?.fiscalName || "la productora"} certifica que, con fecha de hoy, <strong>no existen facturas pendientes de pago</strong> correspondientes a los servicios prestados por ${supplier.fiscalName} en el marco del proyecto audiovisual "${projectName}"${producerNames.length > 0 ? `, producido por ${producerNames.join(" y ")}` : ""}.</p>
+      // --- FECHA ---
+      doc.setTextColor(100);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(today, pageWidth - margin, y, { align: 'right' });
+      y += 20;
 
-    <div class="highlight">
-      <div class="highlight-title">✓ Todas las facturas han sido abonadas</div>
-      La relación comercial con ${supplier.commercialName || supplier.fiscalName} ha quedado debidamente liquidada.
-    </div>
+      // --- DESTINATARIO ---
+      doc.setTextColor(0);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(supplier.fiscalName, margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(supplier.taxId, margin, y);
+      y += 5;
+      if (supplier.address?.street) {
+        doc.text(`${supplier.address.street} ${supplier.address.number}`, margin, y);
+        y += 5;
+      }
+      if (supplier.address?.city) {
+        doc.text(`${supplier.address.postalCode} ${supplier.address.city}`, margin, y);
+        y += 5;
+      }
+      y += 15;
 
-    ${paidInvoices.length > 0 ? `
-    <p>A continuación se detalla el histórico de facturas correspondientes a este proyecto:</p>
+      // --- ASUNTO ---
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      const asunto = `Asunto: Certificado de cierre de relación comercial - Proyecto "${projectName}"`;
+      doc.text(asunto, margin, y, { maxWidth: contentWidth });
+      y += 15;
 
-    <table>
-      <thead>
-        <tr>
-          <th>Nº Factura</th>
-          <th>Fecha</th>
-          <th>Concepto</th>
-          <th class="amount">Importe</th>
-          <th>Fecha Pago</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${paidInvoices.map(inv => `
-          <tr>
-            <td style="font-family: monospace;">${inv.number}</td>
-            <td>${formatDate(inv.issueDate)}</td>
-            <td>${inv.description || "-"}</td>
-            <td class="amount">${formatCurrency(inv.totalAmount)}</td>
-            <td>${inv.paidAt ? formatDate(inv.paidAt) : "-"}</td>
-          </tr>
-        `).join("")}
-        <tr class="total-row">
-          <td colspan="3">TOTAL ABONADO</td>
-          <td class="amount">${formatCurrency(totalPaid)}</td>
-          <td></td>
-        </tr>
-      </tbody>
-    </table>
-    ` : "<p>No constan facturas registradas para este proveedor en el proyecto.</p>"}
+      // --- CUERPO ---
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      
+      const parrafo1 = `Por medio de la presente, ${projectConfig?.fiscalName || "la productora"} certifica que, con fecha de hoy, no existen facturas pendientes de pago correspondientes a los servicios prestados por ${supplier.fiscalName} en el marco del proyecto audiovisual "${projectName}"${producerNames.length > 0 ? `, producido por ${producerNames.join(" y ")}` : ""}.`;
+      
+      const lines1 = doc.splitTextToSize(parrafo1, contentWidth);
+      doc.text(lines1, margin, y);
+      y += lines1.length * 5 + 10;
 
-    <p>Se expide el presente certificado a petición del interesado y para los efectos que estime oportunos.</p>
-  </div>
+      // --- CAJA DESTACADA ---
+      const boxHeight = 20;
+      doc.setFillColor(240, 253, 244); // emerald-50
+      doc.setDrawColor(34, 197, 94); // emerald-500
+      doc.roundedRect(margin, y, contentWidth, boxHeight, 3, 3, 'FD');
+      
+      doc.setTextColor(22, 101, 52); // emerald-800
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('✓ Todas las facturas han sido abonadas', margin + 5, y + 8);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`La relación comercial con ${supplier.commercialName || supplier.fiscalName} ha quedado debidamente liquidada.`, margin + 5, y + 14);
+      y += boxHeight + 15;
 
-  <div class="signature">
-    <p>Atentamente,</p>
-    <div class="signature-line">
-      <div style="font-weight: bold;">${projectConfig?.fiscalName || projectName}</div>
-      <div style="color: #64748b; font-size: 11px;">Departamento de Producción</div>
-    </div>
-  </div>
+      // --- TABLA DE FACTURAS ---
+      doc.setTextColor(0);
+      if (paidInvoices.length > 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('A continuación se detalla el histórico de facturas correspondientes a este proyecto:', margin, y);
+        y += 10;
 
-  <div class="footer">
-    Documento generado automáticamente · Filma Workspace · ${today}
-  </div>
-</body>
-</html>`;
+        // Header de tabla
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.rect(margin, y, contentWidth, 8, 'FD');
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(100);
+        doc.text('Nº FACTURA', margin + 3, y + 5.5);
+        doc.text('FECHA', margin + 35, y + 5.5);
+        doc.text('CONCEPTO', margin + 60, y + 5.5);
+        doc.text('IMPORTE', margin + 120, y + 5.5);
+        doc.text('FECHA PAGO', margin + 145, y + 5.5);
+        y += 8;
 
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `carta_fin_proyecto_${supplier.fiscalName.replace(/\s+/g, '_')}_${projectName.replace(/\s+/g, '_')}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+        // Filas de tabla
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0);
+        paidInvoices.forEach((inv, index) => {
+          if (y > 260) {
+            doc.addPage();
+            y = margin;
+          }
+          
+          doc.setDrawColor(241, 245, 249);
+          doc.line(margin, y + 7, pageWidth - margin, y + 7);
+          
+          doc.setFontSize(8);
+          doc.text(inv.number, margin + 3, y + 5);
+          doc.text(formatDate(inv.issueDate), margin + 35, y + 5);
+          doc.text((inv.description || '-').substring(0, 25), margin + 60, y + 5);
+          doc.text(formatCurrency(inv.totalAmount), margin + 120, y + 5);
+          doc.text(inv.paidAt ? formatDate(inv.paidAt) : '-', margin + 145, y + 5);
+          y += 8;
+        });
+
+        // Fila de total
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, y, contentWidth, 8, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.text('TOTAL ABONADO', margin + 3, y + 5.5);
+        doc.text(formatCurrency(totalPaid), margin + 120, y + 5.5);
+        y += 20;
+      }
+
+      // --- PÁRRAFO FINAL ---
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const parrafoFinal = 'Se expide el presente certificado a petición del interesado y para los efectos que estime oportunos.';
+      doc.text(parrafoFinal, margin, y);
+      y += 25;
+
+      // --- FIRMA ---
+      doc.text('Atentamente,', margin, y);
+      y += 35;
+      
+      doc.setDrawColor(0);
+      doc.line(margin, y, margin + 70, y);
+      y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text(projectConfig?.fiscalName || projectName, margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.setFontSize(9);
+      doc.text('Departamento de Producción', margin, y);
+
+      // --- FOOTER ---
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          `Documento generado automáticamente · Filma Workspace · ${today}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Guardar PDF
+      const fileName = `carta_fin_proyecto_${supplier.fiscalName.replace(/\s+/g, '_')}_${projectName.replace(/\s+/g, '_')}.pdf`;
+      doc.save(fileName);
       
       setSuccessMessage("Carta de fin de proyecto generada");
     } catch (error) {
+      console.error(error);
       setErrorMessage("Error generando el documento");
     } finally {
       setGeneratingPdf(null);
@@ -681,7 +805,7 @@ export default function SupplierDetailPage() {
     setShowActionsMenu(false);
   };
 
-  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-10 h-10 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
+  if (loading) return <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" /></div>;
 
   if (!supplier) return (
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -734,10 +858,10 @@ export default function SupplierDetailPage() {
               <div className="relative">
                 <button
                   onClick={() => setShowSupplierSearch(!showSupplierSearch)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Search size={14} />
-                  <span>Ir a otro</span>
+                  <span>Buscar proveedores</span>
                 </button>
                 
                 {showSupplierSearch && (
@@ -1329,8 +1453,8 @@ export default function SupplierDetailPage() {
       {/* Modal de cierre de proyecto */}
       {showCloseModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="font-semibold text-slate-900">Cerrar relación con proveedor</h3>
                 <p className="text-sm text-slate-500 mt-0.5">{supplier.fiscalName}</p>
@@ -1343,7 +1467,7 @@ export default function SupplierDetailPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
               {/* Info */}
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                 <div className="flex items-start gap-3">
@@ -1432,7 +1556,7 @@ export default function SupplierDetailPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50">
+            <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50 flex-shrink-0">
               <button
                 onClick={() => setShowCloseModal(false)}
                 className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-white transition-colors"
