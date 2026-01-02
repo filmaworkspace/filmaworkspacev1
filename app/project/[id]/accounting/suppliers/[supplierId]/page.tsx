@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, where, Timestamp, orderBy } from "firebase/firestore";
-import { ArrowLeft, Edit, Trash2, Mail, Phone, User, CreditCard, FileText, AlertCircle, CheckCircle, X, Download, FileSpreadsheet, Send, Copy, ExternalLink, Calendar, Building2, MapPin, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Mail, Phone, User, CreditCard, FileText, AlertCircle, CheckCircle, X, Download, FileSpreadsheet, Send, Copy, ExternalLink, Calendar, Building2, MapPin, ChevronRight, ChevronDown, ShieldCheck, Receipt, Package } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -556,230 +556,313 @@ export default function SupplierDetailPage() {
     <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
       <div className="text-center">
         <p className="text-slate-500 mb-4">Proveedor no encontrado</p>
-        <Link href={`/project/${projectId}/accounting/suppliers`} className="text-indigo-600 hover:underline">Volver a proveedores</Link>
+        <Link href={`/project/${projectId}/accounting/suppliers`} className="text-slate-900 hover:underline">Volver a proveedores</Link>
       </div>
     </div>
   );
 
   const pendingInvoices = invoices.filter(inv => inv.status !== "paid" && inv.status !== "cancelled");
+  const paidInvoices = invoices.filter(inv => inv.status === "paid");
   const hasPendingInvoices = pendingInvoices.length > 0;
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  // Determinar estado general del proveedor
+  const getSupplierStatus = () => {
+    const bankCert = supplier.certificates.bankOwnership;
+    const contrCert = supplier.certificates.contractorsCertificate;
+    
+    if (!bankCert.uploaded || !contrCert.uploaded) return { label: "Documentación incompleta", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" };
+    if (bankCert.verified && contrCert.verified) return { label: "Verificado", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" };
+    
+    const now = new Date();
+    if ((bankCert.expiryDate && bankCert.expiryDate < now) || (contrCert.expiryDate && contrCert.expiryDate < now)) {
+      return { label: "Certificados caducados", color: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
+    }
+    
+    return { label: "Documentación completa", color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-200" };
+  };
+
+  const supplierStatus = getSupplierStatus();
 
   return (
-    <div className={`min-h-screen bg-white ${inter.className}`}>
-      {/* Header */}
-      <div className="mt-[4.5rem]">
-        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
-          <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-4">
+    <div className={`min-h-screen bg-slate-50/50 ${inter.className}`}>
+      {/* Header con fondo */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="mt-[4.5rem]">
+          <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
+            {/* Breadcrumb y acciones */}
+            <div className="flex items-center justify-between mb-6">
               <Link 
                 href={`/project/${projectId}/accounting/suppliers`} 
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
               >
-                <ArrowLeft size={20} />
+                <ArrowLeft size={16} />
+                Proveedores
               </Link>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">{supplier.fiscalName}</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  {supplier.commercialName && <span className="text-slate-500">{supplier.commercialName}</span>}
-                  <span className="text-slate-300">·</span>
-                  <span className="font-mono text-sm text-slate-500">{supplier.taxId}</span>
+              
+              <div className="flex items-center gap-2">
+                {/* Dropdown de exportación */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                  >
+                    <Download size={16} />
+                    Exportar
+                    <ChevronDown size={14} className={`transition-transform ${showActionsMenu ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showActionsMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-20">
+                        <button
+                          onClick={generateInvoiceListPdf}
+                          disabled={invoices.length === 0 || generatingPdf === "invoices"}
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <FileText size={16} className="text-slate-400" />
+                          <div>
+                            <p className="font-medium text-slate-900">Listado de facturas</p>
+                            <p className="text-xs text-slate-500">PDF con todas las facturas</p>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={generateEndOfProjectLetter}
+                          disabled={hasPendingInvoices || generatingPdf === "letter"}
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <FileSpreadsheet size={16} className="text-slate-400" />
+                          <div>
+                            <p className="font-medium text-slate-900">Carta fin de proyecto</p>
+                            <p className="text-xs text-slate-500">
+                              {hasPendingInvoices ? "Requiere facturas pagadas" : "Certificado de cierre"}
+                            </p>
+                          </div>
+                        </button>
+                        
+                        <div className="border-t border-slate-100 my-1" />
+                        
+                        <button
+                          onClick={exportToCSV}
+                          disabled={invoices.length === 0}
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Download size={16} className="text-slate-400" />
+                          <div>
+                            <p className="font-medium text-slate-900">Exportar CSV</p>
+                            <p className="text-xs text-slate-500">Para Excel o Sheets</p>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {/* Actions Dropdown */}
-              <div className="relative">
+
                 <button 
-                  onClick={() => setShowActionsMenu(!showActionsMenu)}
-                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"
+                  onClick={handleDelete} 
+                  disabled={invoices.length > 0 || pos.length > 0} 
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
+                  title="Eliminar"
                 >
-                  <Download size={16} />
-                  Exportar
-                  <ChevronRight size={14} className={`transition-transform ${showActionsMenu ? 'rotate-90' : ''}`} />
+                  <Trash2 size={18} />
                 </button>
                 
-                {showActionsMenu && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowActionsMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-20">
-                      <button
-                        onClick={generateInvoiceListPdf}
-                        disabled={invoices.length === 0 || generatingPdf === "invoices"}
-                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <FileText size={16} className="text-slate-400" />
-                        <div>
-                          <p className="font-medium text-slate-900">Listado de facturas</p>
-                          <p className="text-xs text-slate-500">PDF con todas las facturas</p>
-                        </div>
-                      </button>
-                      
-                      <button
-                        onClick={generateEndOfProjectLetter}
-                        disabled={hasPendingInvoices || generatingPdf === "letter"}
-                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <FileSpreadsheet size={16} className="text-slate-400" />
-                        <div>
-                          <p className="font-medium text-slate-900">Carta fin de proyecto</p>
-                          <p className="text-xs text-slate-500">
-                            {hasPendingInvoices ? "Requiere todas las facturas pagadas" : "Certificado de cierre"}
-                          </p>
-                        </div>
-                      </button>
-                      
-                      <div className="border-t border-slate-100 my-1" />
-                      
-                      <button
-                        onClick={exportToCSV}
-                        disabled={invoices.length === 0}
-                        className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Download size={16} className="text-slate-400" />
-                        <div>
-                          <p className="font-medium text-slate-900">Exportar CSV</p>
-                          <p className="text-xs text-slate-500">Para Excel o Google Sheets</p>
-                        </div>
-                      </button>
-                      
-                      {supplier.contact?.email && (
+                <Link 
+                  href={`/project/${projectId}/accounting/suppliers/${supplierId}/edit`} 
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
+                >
+                  <Edit size={16} />
+                  Editar
+                </Link>
+              </div>
+            </div>
+
+            {/* Info principal del proveedor */}
+            <div className="flex items-start gap-5">
+              {/* Avatar grande */}
+              <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">
+                {supplier.fiscalName.charAt(0).toUpperCase()}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-semibold text-slate-900 mb-1">{supplier.fiscalName}</h1>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {supplier.commercialName && (
                         <>
-                          <div className="border-t border-slate-100 my-1" />
-                          <button
-                            onClick={sendEmail}
-                            className="w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3"
-                          >
-                            <Send size={16} className="text-slate-400" />
-                            <div>
-                              <p className="font-medium text-slate-900">Enviar email</p>
-                              <p className="text-xs text-slate-500">{supplier.contact.email}</p>
-                            </div>
-                          </button>
+                          <span className="text-slate-500">{supplier.commercialName}</span>
+                          <span className="text-slate-300">·</span>
                         </>
                       )}
+                      <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{supplier.taxId}</span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-sm text-slate-500">{COUNTRIES[supplier.country] || supplier.country}</span>
                     </div>
-                  </>
-                )}
+                  </div>
+                  
+                  {/* Badge de estado */}
+                  <div className={`px-3 py-1.5 rounded-xl text-xs font-medium ${supplierStatus.bg} ${supplierStatus.color} border ${supplierStatus.border} flex items-center gap-1.5 flex-shrink-0`}>
+                    {supplierStatus.label === "Verificado" && <ShieldCheck size={14} />}
+                    {supplierStatus.label}
+                  </div>
+                </div>
               </div>
-
-              <button 
-                onClick={handleDelete} 
-                disabled={invoices.length > 0 || pos.length > 0} 
-                className="p-2.5 border border-slate-200 text-slate-500 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
-                title="Eliminar"
-              >
-                <Trash2 size={18} />
-              </button>
-              
-              <Link 
-                href={`/project/${projectId}/accounting/suppliers/${supplierId}/edit`} 
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"
-              >
-                <Edit size={16} />
-                Editar
-              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
+      {/* Mensajes */}
+      <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24">
         {errorMessage && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-sm">
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-sm">
             <AlertCircle size={18} /><span className="flex-1">{errorMessage}</span>
             <button onClick={() => setErrorMessage("")}><X size={16} /></button>
           </div>
         )}
         {successMessage && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700 text-sm">
+          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700 text-sm">
             <CheckCircle size={18} /><span>{successMessage}</span>
           </div>
         )}
+      </div>
+
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <Receipt size={18} className="text-slate-500" />
+              </div>
+              <span className="text-sm text-slate-500">Total facturado</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalInvoiced)}</p>
+          </div>
+          
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle size={18} className="text-emerald-600" />
+              </div>
+              <span className="text-sm text-slate-500">Pagado</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
+          </div>
+          
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <AlertCircle size={18} className="text-amber-600" />
+              </div>
+              <span className="text-sm text-slate-500">Pendiente</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalPending)}</p>
+          </div>
+          
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <Package size={18} className="text-slate-500" />
+              </div>
+              <span className="text-sm text-slate-500">POs</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{pos.length}</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda - Info principal */}
+          {/* Columna izquierda - Documentos */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Datos principales */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 mb-1">País</p>
-                <p className="font-semibold text-slate-900">{COUNTRIES[supplier.country] || supplier.country}</p>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 mb-1">Método de pago</p>
-                <p className="font-semibold text-slate-900">{PAYMENT_METHODS[supplier.paymentMethod]}</p>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 mb-1">POs</p>
-                <p className="font-semibold text-slate-900">{pos.length}</p>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs text-slate-500 mb-1">Facturas</p>
-                <p className="font-semibold text-slate-900">{invoices.length}</p>
-              </div>
-            </div>
-
-            {/* IBAN */}
+            {/* IBAN destacado */}
             {supplier.bankAccount && (
-              <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-indigo-600 mb-1 flex items-center gap-1"><CreditCard size={12} />Cuenta bancaria</p>
-                    <p className="font-mono font-bold text-indigo-900 text-lg">{formatIBAN(supplier.bankAccount)}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center">
+                      <CreditCard size={22} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Cuenta bancaria</p>
+                      <p className="font-mono font-bold text-lg text-slate-900">{formatIBAN(supplier.bankAccount)}</p>
+                    </div>
                   </div>
                   <button 
                     onClick={() => copyToClipboard(supplier.bankAccount, "IBAN")}
-                    className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                    className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
                     title="Copiar IBAN"
                   >
-                    <Copy size={16} />
+                    <Copy size={18} />
                   </button>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-4 text-sm">
+                  <span className="text-slate-500">Método de pago:</span>
+                  <span className="font-medium text-slate-900">{PAYMENT_METHODS[supplier.paymentMethod]}</span>
                 </div>
               </div>
             )}
 
-            {/* Últimas facturas */}
-            {invoices.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h2 className="font-semibold text-slate-900">Facturas recientes</h2>
+            {/* Facturas */}
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-semibold text-slate-900">Facturas</h2>
+                  <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{invoices.length}</span>
+                </div>
+                {invoices.length > 0 && (
                   <Link 
                     href={`/project/${projectId}/accounting/invoices?supplier=${supplierId}`}
-                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1"
                   >
                     Ver todas <ExternalLink size={12} />
                   </Link>
+                )}
+              </div>
+              
+              {invoices.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Receipt size={24} className="text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">Sin facturas registradas</p>
                 </div>
+              ) : (
                 <div className="divide-y divide-slate-100">
                   {invoices.slice(0, 5).map(inv => (
                     <Link 
                       key={inv.id} 
                       href={`/project/${projectId}/accounting/invoices/${inv.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono text-sm font-semibold text-slate-900">{inv.number}</span>
-                        <span className="text-sm text-slate-500">{inv.description || "-"}</span>
+                        <span className="text-sm text-slate-500 truncate">{inv.description || formatDate(inv.issueDate)}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         <span className="font-mono text-sm font-semibold text-slate-900">{formatCurrency(inv.totalAmount)}</span>
                         {getStatusBadge(inv.status)}
+                        <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
                       </div>
                     </Link>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Últimas POs */}
+            {/* POs */}
             {pos.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h2 className="font-semibold text-slate-900">Órdenes de compra</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="font-semibold text-slate-900">Órdenes de compra</h2>
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{pos.length}</span>
+                  </div>
                   <Link 
                     href={`/project/${projectId}/accounting/pos?supplier=${supplierId}`}
-                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1"
                   >
                     Ver todas <ExternalLink size={12} />
                   </Link>
@@ -789,15 +872,16 @@ export default function SupplierDetailPage() {
                     <Link 
                       key={po.id} 
                       href={`/project/${projectId}/accounting/pos/${po.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono text-sm font-semibold text-slate-900">PO-{po.number}</span>
                         <span className="text-sm text-slate-500 truncate max-w-[200px]">{po.description || "-"}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         <span className="font-mono text-sm font-semibold text-slate-900">{formatCurrency(po.baseAmount)}</span>
                         {getStatusBadge(po.status)}
+                        <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500" />
                       </div>
                     </Link>
                   ))}
@@ -806,48 +890,61 @@ export default function SupplierDetailPage() {
             )}
           </div>
 
-          {/* Columna derecha - Contacto y certificados */}
+          {/* Columna derecha - Info y certificados */}
           <div className="space-y-6">
             {/* Contacto */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100">
                 <h2 className="font-semibold text-slate-900">Contacto</h2>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-5">
                 {supplier.contact?.name ? (
-                  <>
+                  <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                        <User size={18} className="text-slate-500" />
+                      <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">
+                        {supplier.contact.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">{supplier.contact.name}</p>
-                        <p className="text-xs text-slate-500">Persona de contacto</p>
+                        <p className="text-xs text-slate-500">Contacto principal</p>
                       </div>
                     </div>
                     
                     {supplier.contact.email && (
                       <a 
                         href={`mailto:${supplier.contact.email}`}
-                        className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+                        className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group"
                       >
-                        <Mail size={16} className="text-slate-400" />
-                        <span className="text-sm text-slate-700">{supplier.contact.email}</span>
+                        <Mail size={16} className="text-slate-400 group-hover:text-slate-600" />
+                        <span className="text-sm text-slate-700 truncate">{supplier.contact.email}</span>
                       </a>
                     )}
                     
                     {supplier.contact.phone && (
                       <a 
                         href={`tel:${supplier.contact.phone}`}
-                        className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+                        className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group"
                       >
-                        <Phone size={16} className="text-slate-400" />
+                        <Phone size={16} className="text-slate-400 group-hover:text-slate-600" />
                         <span className="text-sm text-slate-700">{supplier.contact.phone}</span>
                       </a>
                     )}
-                  </>
+
+                    {supplier.contact.email && (
+                      <button
+                        onClick={sendEmail}
+                        className="w-full flex items-center justify-center gap-2 p-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <Send size={16} />
+                        Enviar email
+                      </button>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-400 text-center py-4">Sin contacto registrado</p>
+                  <div className="text-center py-6">
+                    <User size={24} className="text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">Sin contacto</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -856,15 +953,17 @@ export default function SupplierDetailPage() {
             {supplier.address?.street && (
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100">
-                  <h2 className="font-semibold text-slate-900">Dirección</h2>
+                  <h2 className="font-semibold text-slate-900">Dirección fiscal</h2>
                 </div>
                 <div className="p-5">
                   <div className="flex items-start gap-3">
-                    <MapPin size={16} className="text-slate-400 mt-0.5" />
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                      <MapPin size={18} className="text-slate-500" />
+                    </div>
                     <div className="text-sm text-slate-700">
-                      <p>{supplier.address.street} {supplier.address.number}</p>
+                      <p className="font-medium">{supplier.address.street} {supplier.address.number}</p>
                       <p>{supplier.address.postalCode} {supplier.address.city}</p>
-                      {supplier.address.province && <p>{supplier.address.province}</p>}
+                      {supplier.address.province && <p className="text-slate-500">{supplier.address.province}</p>}
                     </div>
                   </div>
                 </div>
@@ -876,66 +975,82 @@ export default function SupplierDetailPage() {
               <div className="px-5 py-4 border-b border-slate-100">
                 <h2 className="font-semibold text-slate-900">Certificados</h2>
               </div>
-              <div className="p-5 space-y-3">
-                {/* Titularidad */}
-                <div className="p-4 border border-slate-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-slate-900">Titularidad bancaria</p>
+              <div className="p-5 space-y-4">
+                {/* Titularidad bancaria */}
+                <div className={`p-4 rounded-xl border ${supplier.certificates.bankOwnership.verified ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className={supplier.certificates.bankOwnership.verified ? 'text-emerald-600' : 'text-slate-400'} />
+                      <p className="text-sm font-medium text-slate-900">Titularidad bancaria</p>
+                    </div>
                     <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getCertStatus(supplier.certificates.bankOwnership).bg} ${getCertStatus(supplier.certificates.bankOwnership).color}`}>
                       {getCertStatus(supplier.certificates.bankOwnership).label}
                     </span>
                   </div>
+                  
                   {supplier.certificates.bankOwnership.expiryDate && (
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Calendar size={12} />
+                    <p className="text-xs text-slate-500 mb-2">
                       Caduca: {formatDate(supplier.certificates.bankOwnership.expiryDate)}
                     </p>
                   )}
+                  
                   {supplier.certificates.bankOwnership.verified && supplier.certificates.bankOwnership.verifiedByName && (
-                    <p className="text-xs text-emerald-600 mt-1">✓ Verificado por {supplier.certificates.bankOwnership.verifiedByName}</p>
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <ShieldCheck size={12} />
+                      Verificado por {supplier.certificates.bankOwnership.verifiedByName}
+                    </p>
                   )}
+                  
                   {canVerify && supplier.certificates.bankOwnership.uploaded && (
                     <button 
                       onClick={() => handleVerify("bankOwnership", !supplier.certificates.bankOwnership.verified)} 
-                      className="mt-2 text-xs text-indigo-600 hover:underline"
+                      className="mt-3 text-xs font-medium text-slate-600 hover:text-slate-900 underline"
                     >
-                      {supplier.certificates.bankOwnership.verified ? "Quitar verificación" : "Marcar como verificado"}
+                      {supplier.certificates.bankOwnership.verified ? "Quitar verificación" : "Marcar verificado"}
                     </button>
                   )}
                 </div>
 
-                {/* Contratistas */}
-                <div className="p-4 border border-slate-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-slate-900">Cert. contratistas</p>
+                {/* Certificado contratistas */}
+                <div className={`p-4 rounded-xl border ${supplier.certificates.contractorsCertificate.verified ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className={supplier.certificates.contractorsCertificate.verified ? 'text-emerald-600' : 'text-slate-400'} />
+                      <p className="text-sm font-medium text-slate-900">Cert. contratistas</p>
+                    </div>
                     <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getCertStatus(supplier.certificates.contractorsCertificate).bg} ${getCertStatus(supplier.certificates.contractorsCertificate).color}`}>
                       {getCertStatus(supplier.certificates.contractorsCertificate).label}
                     </span>
                   </div>
+                  
                   {supplier.certificates.contractorsCertificate.expiryDate && (
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Calendar size={12} />
+                    <p className="text-xs text-slate-500 mb-2">
                       Caduca: {formatDate(supplier.certificates.contractorsCertificate.expiryDate)}
                     </p>
                   )}
+                  
                   {supplier.certificates.contractorsCertificate.verified && supplier.certificates.contractorsCertificate.verifiedByName && (
-                    <p className="text-xs text-emerald-600 mt-1">✓ Verificado por {supplier.certificates.contractorsCertificate.verifiedByName}</p>
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <ShieldCheck size={12} />
+                      Verificado por {supplier.certificates.contractorsCertificate.verifiedByName}
+                    </p>
                   )}
+                  
                   {canVerify && supplier.certificates.contractorsCertificate.uploaded && (
                     <button 
                       onClick={() => handleVerify("contractorsCertificate", !supplier.certificates.contractorsCertificate.verified)} 
-                      className="mt-2 text-xs text-indigo-600 hover:underline"
+                      className="mt-3 text-xs font-medium text-slate-600 hover:text-slate-900 underline"
                     >
-                      {supplier.certificates.contractorsCertificate.verified ? "Quitar verificación" : "Marcar como verificado"}
+                      {supplier.certificates.contractorsCertificate.verified ? "Quitar verificación" : "Marcar verificado"}
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Info adicional */}
-            <div className="text-xs text-slate-400 text-center">
-              <p>Proveedor desde {formatDate(supplier.createdAt)}</p>
+            {/* Footer info */}
+            <div className="text-center text-xs text-slate-400 py-2">
+              <p>Añadido {formatDate(supplier.createdAt)}</p>
             </div>
           </div>
         </div>
