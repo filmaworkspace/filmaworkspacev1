@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Download, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
+import { Download, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus, FileSpreadsheet } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -142,11 +142,22 @@ export default function ReportsPage() {
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
   const [expandedReport, setExpandedReport] = useState<ReportType | null>(null);
+  const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
 
   useEffect(() => {
     const savedPresets = localStorage.getItem(`report_presets_${id}`);
     if (savedPresets) setPresets(JSON.parse(savedPresets));
+    
+    // Cargar formato de exportación guardado
+    const savedFormat = localStorage.getItem(`report_export_format`) as "csv" | "xlsx" | null;
+    if (savedFormat) setExportFormat(savedFormat);
   }, [id]);
+
+  const toggleExportFormat = () => {
+    const newFormat = exportFormat === "csv" ? "xlsx" : "csv";
+    setExportFormat(newFormat);
+    localStorage.setItem(`report_export_format`, newFormat);
+  };
 
   const savePresetsToStorage = (newPresets: ReportPreset[]) => {
     localStorage.setItem(`report_presets_${id}`, JSON.stringify(newPresets));
@@ -296,9 +307,71 @@ export default function ReportsPage() {
   const formatDate = (date: any) => date?.toDate ? new Date(date.toDate()).toLocaleDateString("es-ES") : "";
   const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
+  const downloadFile = (rows: string[][], filename: string) => {
+    if (exportFormat === "xlsx") {
+      downloadXLSX(rows, filename.replace(".csv", ".xlsx"));
+    } else {
+      downloadCSV(rows, filename);
+    }
+  };
+
   const downloadCSV = (rows: string[][], filename: string) => {
     const csvContent = rows.map(row => row.map(cell => `"${(cell || "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadXLSX = (rows: string[][], filename: string) => {
+    // Crear contenido XML para Excel
+    const escapeXml = (str: string) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    
+    let sheetData = "";
+    rows.forEach((row, rowIndex) => {
+      sheetData += "<Row>";
+      row.forEach((cell) => {
+        const isNumber = !isNaN(parseFloat(cell.replace(/\./g, "").replace(",", "."))) && cell.trim() !== "";
+        const numericValue = parseFloat(cell.replace(/\./g, "").replace(",", "."));
+        
+        if (isNumber && !isNaN(numericValue)) {
+          sheetData += `<Cell><Data ss:Type="Number">${numericValue}</Data></Cell>`;
+        } else {
+          sheetData += `<Cell><Data ss:Type="String">${escapeXml(cell || "")}</Data></Cell>`;
+        }
+      });
+      sheetData += "</Row>";
+    });
+
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header">
+      <Font ss:Bold="1"/>
+      <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="Datos">
+    <Table>
+      ${rows[0] ? `<Row ss:StyleID="Header">${rows[0].map(cell => `<Cell><Data ss:Type="String">${escapeXml(cell || "")}</Data></Cell>`).join("")}</Row>` : ""}
+      ${rows.slice(1).map(row => `<Row>${row.map(cell => {
+        const isNumber = !isNaN(parseFloat(cell.replace(/\./g, "").replace(",", "."))) && cell.trim() !== "";
+        const numericValue = parseFloat(cell.replace(/\./g, "").replace(",", "."));
+        if (isNumber && !isNaN(numericValue)) {
+          return `<Cell><Data ss:Type="Number">${numericValue}</Data></Cell>`;
+        }
+        return `<Cell><Data ss:Type="String">${escapeXml(cell || "")}</Data></Cell>`;
+      }).join("")}</Row>`).join("\n")}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([xmlContent], { type: "application/vnd.ms-excel" });
     const link = document.createElement("a");
     link.setAttribute("href", URL.createObjectURL(blob));
     link.setAttribute("download", filename);
@@ -357,7 +430,7 @@ export default function ReportsPage() {
         });
       }
       
-      downloadCSV(rows, `Presupuesto_${projectName}_${getCurrentDate()}.csv`);
+      downloadFile(rows, `Presupuesto_${projectName}_${getCurrentDate()}.csv`);
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
@@ -394,7 +467,7 @@ export default function ReportsPage() {
         }));
       }
       
-      downloadCSV(rows, `POs_Listado_${projectName}_${getCurrentDate()}.csv`);
+      downloadFile(rows, `POs_Listado_${projectName}_${getCurrentDate()}.csv`);
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
@@ -453,7 +526,7 @@ export default function ReportsPage() {
         });
       }
       
-      downloadCSV(rows, `POs_Items_${projectName}_${getCurrentDate()}.csv`);
+      downloadFile(rows, `POs_Items_${projectName}_${getCurrentDate()}.csv`);
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
@@ -490,7 +563,7 @@ export default function ReportsPage() {
         }));
       });
       
-      downloadCSV(rows, `Facturas_${projectName}_${getCurrentDate()}.csv`);
+      downloadFile(rows, `Facturas_${projectName}_${getCurrentDate()}.csv`);
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
@@ -527,7 +600,7 @@ export default function ReportsPage() {
         }));
       });
       
-      downloadCSV(rows, `Proveedores_${projectName}_${getCurrentDate()}.csv`);
+      downloadFile(rows, `Proveedores_${projectName}_${getCurrentDate()}.csv`);
     } catch (error) { console.error("Error:", error); } finally { setGenerating(null); }
   };
 
@@ -582,6 +655,32 @@ export default function ReportsPage() {
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
             </div>
+            
+            {/* Format Switch */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-500">Formato:</span>
+              <button
+                onClick={toggleExportFormat}
+                className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+              >
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  exportFormat === "csv" 
+                    ? "bg-white text-slate-900 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-700"
+                }`}>
+                  <FileText size={14} />
+                  CSV
+                </span>
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  exportFormat === "xlsx" 
+                    ? "bg-white text-slate-900 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-700"
+                }`}>
+                  <FileSpreadsheet size={14} />
+                  Excel
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -628,7 +727,7 @@ export default function ReportsPage() {
                         ) : (
                           <>
                             <Download size={14} />
-                            Exportar CSV
+                            Exportar {exportFormat.toUpperCase()}
                           </>
                         )}
                       </button>
