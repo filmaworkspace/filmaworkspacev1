@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 interface Address { street: string; number: string; city: string; province: string; postalCode: string; }
 interface Contact { name: string; email: string; phone: string; }
 interface Certificate { url?: string; expiryDate?: Date; uploaded: boolean; fileName?: string; verified?: boolean; verifiedBy?: string; verifiedByName?: string; verifiedAt?: Date; }
-interface Supplier { id: string; fiscalName: string; commercialName: string; country: string; taxId: string; address: Address; contact: Contact; paymentMethod: string; bankAccount: string; certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate & { aeatVerified?: boolean }; }; createdAt: Date; createdBy: string; hasAssignedPOs: boolean; hasAssignedInvoices: boolean; }
+interface Supplier { id: string; fiscalName: string; commercialName: string; country: string; taxId: string; address: Address; contact: Contact; paymentMethod: string; bankAccount: string; certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate & { aeatVerified?: boolean }; }; createdAt: Date; createdBy: string; hasAssignedPOs: boolean; hasAssignedInvoices: boolean; closure?: { closedAt: Date; closedByName: string; notes?: string; }; }
 
 type PaymentMethod = "transferencia" | "tb30" | "tb60" | "tarjeta" | "efectivo";
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
@@ -38,6 +38,7 @@ const STATUS_OPTIONS = [
   { value: "valid", label: "Certificados válidos" },
   { value: "expiring", label: "Próximos a caducar" },
   { value: "expired", label: "Acción requerida" },
+  { value: "closed", label: "Cerrados" },
 ];
 
 const capitalizeSupplierName = (name: string): string => {
@@ -101,7 +102,7 @@ export default function SuppliersPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "valid" | "expiring" | "expired" | "closed">("all");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -178,6 +179,7 @@ export default function SuppliersPage() {
           },
           createdAt: data.createdAt?.toDate() || new Date(), createdBy: data.createdBy || "",
           hasAssignedPOs: data.hasAssignedPOs || false, hasAssignedInvoices: data.hasAssignedInvoices || false,
+          closure: data.closure ? { closedAt: data.closure.closedAt?.toDate(), closedByName: data.closure.closedByName || "", notes: data.closure.notes || "" } : undefined,
         };
       }) as Supplier[];
       setSuppliers(suppliersData);
@@ -197,7 +199,11 @@ export default function SuppliersPage() {
         s.taxId.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    if (filterStatus !== "all") filtered = filtered.filter((s) => getCertificateStatus(s) === filterStatus);
+    if (filterStatus === "closed") {
+      filtered = filtered.filter((s) => s.closure);
+    } else if (filterStatus !== "all") {
+      filtered = filtered.filter((s) => !s.closure && getCertificateStatus(s) === filterStatus);
+    }
     setFilteredSuppliers(filtered);
   };
 
@@ -555,8 +561,16 @@ export default function SuppliersPage() {
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-4 py-3">
-                        <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="text-left hover:text-indigo-600 transition-colors block">
-                          <p className="font-semibold text-slate-900 group-hover:text-indigo-600 text-xs">{supplier.fiscalName}</p>
+                        <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="text-left hover:text-[#2F52E0] transition-colors block">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900 group-hover:text-[#2F52E0] text-xs">{supplier.fiscalName}</p>
+                            {supplier.closure && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-medium">
+                                <Lock size={10} />
+                                Cerrado
+                              </span>
+                            )}
+                          </div>
                           {supplier.commercialName && <p className="text-[11px] text-slate-500">{supplier.commercialName}</p>}
                         </Link>
                       </td>
@@ -575,11 +589,17 @@ export default function SuppliersPage() {
                       </td>
                       <td className="px-3 py-3 text-center">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
                       <td className="px-3 py-3 text-center">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
-                      <td className="px-3 py-3 text-center">{getStatusBadge(status)}</td>
+                      <td className="px-3 py-3 text-center">
+                        {supplier.closure ? (
+                          <span className="px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap bg-slate-100 text-slate-600">Cerrado</span>
+                        ) : (
+                          getStatusBadge(status)
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-0.5">
-                          <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Ver"><Eye size={14} /></Link>
-                          <button onClick={() => openEditModal(supplier)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={14} /></button>
+                          <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="p-1.5 text-slate-400 hover:text-[#2F52E0] hover:bg-blue-50 rounded-lg" title="Ver"><Eye size={14} /></Link>
+                          <button onClick={() => openEditModal(supplier)} className="p-1.5 text-slate-400 hover:text-[#2F52E0] hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={14} /></button>
                           <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" title="Eliminar"><Trash2 size={14} /></button>
                         </div>
                       </td>
