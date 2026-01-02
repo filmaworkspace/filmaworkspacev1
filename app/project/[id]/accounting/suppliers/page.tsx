@@ -448,17 +448,7 @@ export default function SuppliersPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Proveedores</h1>
@@ -472,7 +462,7 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {/* Messages */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
@@ -487,18 +477,18 @@ export default function SuppliersPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
-          <div className="flex-1 relative w-full">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center mb-4">
+          <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar proveedores" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <input type="text" placeholder="Buscar proveedores" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             {/* Status Dropdown personalizado */}
             <div className="relative" ref={statusDropdownRef}>
               <button
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors min-w-[180px] ${
+                className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl text-sm transition-colors min-w-[180px] ${
                   filterStatus !== "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-700 bg-white"
                 }`}
               >
@@ -524,12 +514,12 @@ export default function SuppliersPage() {
             </div>
 
             {(searchTerm || filterStatus !== "all") && (
-              <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+              <button onClick={() => { setSearchTerm(""); setFilterStatus("all"); }} className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
                 <X size={14} />Limpiar
               </button>
             )}
 
-            <button onClick={exportSuppliers} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
+            <button onClick={exportSuppliers} className="px-3 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
               <Download size={14} />Exportar
             </button>
           </div>
@@ -546,17 +536,17 @@ export default function SuppliersPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <table className="w-full text-sm table-fixed">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-56">Proveedor</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-28">NIF/CIF</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-48">Contacto</th>
-                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Titularidad</th>
-                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Contratistas</th>
-                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider w-32">Estado</th>
-                  <th className="text-right px-4 py-2.5 w-24"></th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">Proveedor</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">NIF/CIF</th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[180px]">Contacto</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[120px]">Titularidad</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[120px]">Contratistas</th>
+                  <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider min-w-[100px]">Estado</th>
+                  <th className="text-right px-4 py-2.5 min-w-[100px]"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -564,16 +554,16 @@ export default function SuppliersPage() {
                   const status = getCertificateStatus(supplier);
                   return (
                     <tr key={supplier.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="text-left hover:text-indigo-600 transition-colors block">
                           <p className="font-semibold text-slate-900 group-hover:text-indigo-600 text-xs">{supplier.fiscalName}</p>
                           {supplier.commercialName && <p className="text-[11px] text-slate-500">{supplier.commercialName}</p>}
                         </Link>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         <span className="text-xs font-mono text-slate-700">{supplier.taxId}</span>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         {supplier.contact?.name ? (
                           <div>
                             <p className="text-xs text-slate-900">{supplier.contact.name}</p>
@@ -583,14 +573,14 @@ export default function SuppliersPage() {
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-center">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
-                      <td className="px-3 py-2 text-center">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
-                      <td className="px-3 py-2 text-center">{getStatusBadge(status)}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-3 py-3 text-center">{getCertificateBadge(supplier.certificates.bankOwnership)}</td>
+                      <td className="px-3 py-3 text-center">{getCertificateBadge(supplier.certificates.contractorsCertificate)}</td>
+                      <td className="px-3 py-3 text-center">{getStatusBadge(status)}</td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-0.5">
-                          <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Ver"><Eye size={14} /></Link>
-                          <button onClick={() => openEditModal(supplier)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit size={14} /></button>
-                          <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed" title="Eliminar"><Trash2 size={14} /></button>
+                          <Link href={`/project/${id}/accounting/suppliers/${supplier.id}`} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Ver"><Eye size={14} /></Link>
+                          <button onClick={() => openEditModal(supplier)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Edit size={14} /></button>
+                          <button onClick={() => handleDeleteSupplier(supplier)} disabled={supplier.hasAssignedPOs || supplier.hasAssignedInvoices} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" title="Eliminar"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
