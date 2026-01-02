@@ -725,7 +725,11 @@ export default function POsPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para acceder a órdenes de compra"}</p>
-          <Link href={`/project/${id}/accounting`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800">
+          <Link 
+            href={`/project/${id}/accounting`} 
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: '#2F52E0' }}
+          >
             Volver al panel
           </Link>
         </div>
@@ -740,8 +744,11 @@ export default function POsPage() {
         <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <FileText size={20} className="text-slate-600" />
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(47, 82, 224, 0.1)' }}
+              >
+                <FileText size={20} style={{ color: '#2F52E0' }} />
               </div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold text-slate-900">Órdenes de compra</h1>
@@ -749,7 +756,11 @@ export default function POsPage() {
               </div>
             </div>
             {permissions.canCreatePO && (
-              <Link href={`/project/${id}/accounting/pos/new`} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <Link 
+                href={`/project/${id}/accounting/pos/new`} 
+                className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: '#2F52E0' }}
+              >
                 <Plus size={18} />
                 Nueva PO
               </Link>
@@ -846,7 +857,11 @@ export default function POsPage() {
               {searchTerm || statusFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Crea tu primera orden de compra para empezar"}
             </p>
             {!searchTerm && statusFilter === "all" && permissions.canCreatePO && (
-              <Link href={`/project/${id}/accounting/pos/new`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <Link 
+                href={`/project/${id}/accounting/pos/new`} 
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: '#2F52E0' }}
+              >
                 <Plus size={18} />
                 Nueva PO
               </Link>
@@ -879,9 +894,11 @@ export default function POsPage() {
                   return (
                     <tr key={po.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <button onClick={() => setPreviewPO(po)} className="text-left hover:text-slate-600 transition-colors">
+                        <button onClick={() => setPreviewPO(po)} className="text-left transition-colors group/po">
                           <div className="flex items-center gap-2">
-                            <p className="font-semibold text-slate-900 group-hover:text-slate-600 font-mono">PO-{po.number}</p>
+                            <p className="font-semibold text-slate-900 font-mono" style={{ color: undefined }}>
+                              <span className="group-hover/po:text-[#2F52E0] transition-colors">PO-{po.number}</span>
+                            </p>
                             {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
                             {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                           </div>
@@ -936,9 +953,9 @@ export default function POsPage() {
                 <div key={po.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-slate-300 transition-all group relative overflow-hidden">
                   <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${config.gradient}`} />
                   <div className="flex items-start justify-between mb-3">
-                    <button onClick={() => setPreviewPO(po)} className="text-left">
+                    <button onClick={() => setPreviewPO(po)} className="text-left group/card">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-bold text-slate-900 group-hover:text-slate-600 transition-colors font-mono">PO-{po.number}</p>
+                        <p className="font-bold text-slate-900 group-hover/card:text-[#2F52E0] transition-colors font-mono">PO-{po.number}</p>
                         {po.version > 1 && <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-md font-medium">V{String(po.version).padStart(2, "0")}</span>}
                         {!permissions.isProjectRole && poPerms.isOwn && <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">Mía</span>}
                       </div>
@@ -1161,7 +1178,8 @@ export default function POsPage() {
             <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex-shrink-0">
               <Link
                 href={`/project/${id}/accounting/pos/${previewPO.id}`}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-medium hover:bg-slate-800 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-white rounded-xl text-xs font-medium hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: '#2F52E0' }}
                 onClick={() => setPreviewPO(null)}
               >
                 <ExternalLink size={14} />
@@ -1218,7 +1236,12 @@ export default function POsPage() {
                 <button onClick={() => { setShowCloseModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
-                <button onClick={confirmClosePO} disabled={processing || !passwordInput.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                <button 
+                  onClick={confirmClosePO} 
+                  disabled={processing || !passwordInput.trim()} 
+                  className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
+                  style={{ backgroundColor: '#2F52E0' }}
+                >
                   {processing ? "Cerrando..." : "Cerrar PO"}
                 </button>
               </div>
@@ -1379,7 +1402,12 @@ export default function POsPage() {
                 <button onClick={() => { setShowModifyModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
-                <button onClick={confirmModifyPO} disabled={processing || !modificationReason.trim()} className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+                <button 
+                  onClick={confirmModifyPO} 
+                  disabled={processing || !modificationReason.trim()} 
+                  className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
+                  style={{ backgroundColor: '#2F52E0' }}
+                >
                   {processing ? "Modificando..." : "Modificar"}
                 </button>
               </div>
