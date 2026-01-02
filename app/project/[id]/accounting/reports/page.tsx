@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Download, ArrowLeft, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
+import { Download, FileText, Receipt, Building2, Wallet, Settings2, ChevronDown, Check, X, Save, Trash2, BookMarked, Layers, GripVertical, Plus, Minus } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -116,11 +116,11 @@ const REPORT_COLUMNS: Record<ReportType, ReportColumn[]> = {
 };
 
 const REPORT_INFO: Record<ReportType, { title: string; description: string; icon: any; color: string }> = {
-  budget: { title: "Presupuesto", description: "Cuentas, subcuentas y ejecución presupuestaria", icon: Wallet, color: "bg-indigo-100 text-indigo-600" },
-  pos_list: { title: "Listado de POs", description: "Órdenes de compra con totales", icon: FileText, color: "bg-blue-100 text-blue-600" },
-  pos_items: { title: "POs por ítems", description: "Desglose detallado de cada ítem de PO", icon: Layers, color: "bg-sky-100 text-sky-600" },
-  invoices: { title: "Facturas", description: "Listado de facturas recibidas", icon: Receipt, color: "bg-emerald-100 text-emerald-600" },
-  suppliers: { title: "Proveedores", description: "Directorio completo de proveedores", icon: Building2, color: "bg-purple-100 text-purple-600" },
+  budget: { title: "Presupuesto", description: "Cuentas, subcuentas y ejecución presupuestaria", icon: Wallet, color: "bg-slate-100 text-slate-600" },
+  pos_list: { title: "Listado de POs", description: "Órdenes de compra con totales", icon: FileText, color: "bg-slate-100 text-slate-600" },
+  pos_items: { title: "POs por ítems", description: "Desglose detallado de cada ítem de PO", icon: Layers, color: "bg-slate-100 text-slate-600" },
+  invoices: { title: "Facturas", description: "Listado de facturas recibidas", icon: Receipt, color: "bg-slate-100 text-slate-600" },
+  suppliers: { title: "Proveedores", description: "Directorio completo de proveedores", icon: Building2, color: "bg-slate-100 text-slate-600" },
 };
 
 export default function ReportsPage() {
@@ -248,16 +248,6 @@ export default function ReportsPage() {
   const handleDragEnd = () => {
     setDraggedItem(null);
     setDragOverItem(null);
-  };
-
-  const moveColumn = (index: number, direction: "up" | "down") => {
-    if (direction === "up" && index === 0) return;
-    if (direction === "down" && index === selectedColumns.length - 1) return;
-    
-    const newColumns = [...selectedColumns];
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    [newColumns[index], newColumns[newIndex]] = [newColumns[newIndex], newColumns[index]];
-    setSelectedColumns(newColumns);
   };
 
   const getDefaultColumns = (reportType: ReportType): SelectedColumn[] => {
@@ -587,19 +577,7 @@ export default function ReportsPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Informes</h1>
@@ -608,7 +586,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
         <div className="space-y-4">
           {reportTypes.map((reportType) => {
             const info = REPORT_INFO[reportType];
@@ -709,8 +687,8 @@ export default function ReportsPage() {
       {/* Modal de configuración */}
       {showConfig && configReportType && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowConfig(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Configurar columnas</h3>
                 <p className="text-sm text-slate-500">{REPORT_INFO[configReportType].title}</p>
@@ -720,7 +698,7 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-6 overflow-y-auto flex-1">
               {/* Presets */}
               {presets.filter(p => p.reportType === configReportType).length > 0 && (
                 <div className="mb-6">
@@ -758,7 +736,7 @@ export default function ReportsPage() {
                           onDrop={(e) => handleDrop(e, index)}
                           onDragEnd={handleDragEnd}
                           className={`flex items-center gap-2 p-2 rounded-lg transition-all ${
-                            dragOverItem === index ? "bg-indigo-100 border-indigo-300" : "bg-white border-slate-200"
+                            dragOverItem === index ? "bg-slate-200 border-slate-300" : "bg-white border-slate-200"
                           } border ${draggedItem === index ? "opacity-50" : ""} ${
                             column.isBlank ? "border-dashed" : ""
                           }`}
@@ -824,7 +802,7 @@ export default function ReportsPage() {
               </p>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
               {!showSavePreset ? (
                 <div className="flex items-center gap-3">
                   <button
