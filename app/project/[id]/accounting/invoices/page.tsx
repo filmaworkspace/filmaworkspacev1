@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, deleteDoc, query, orderBy, updateDoc, Timestamp } from "firebase/firestore";
-import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, Building2, ShieldAlert, User, ChevronDown, Filter } from "lucide-react";
+import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, Building2, ShieldAlert, User, ChevronDown, Filter, HelpCircle } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -80,6 +80,18 @@ interface Invoice {
   linkedDocumentId?: string;
 }
 
+interface CompanyData {
+  fiscalName: string;
+  taxId: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  province: string;
+  country: string;
+  email?: string;
+  phone?: string;
+}
+
 export default function InvoicesPage() {
   const params = useParams();
   const router = useRouter();
@@ -99,6 +111,8 @@ export default function InvoicesPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [pendingReplacementCount, setPendingReplacementCount] = useState(0);
+  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
+  const [showCompanyTooltip, setShowCompanyTooltip] = useState(false);
 
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -131,6 +145,9 @@ export default function InvoicesPage() {
       setLoading(true);
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) setProjectName(projectDoc.data().name || "Proyecto");
+
+      const companyDoc = await getDoc(doc(db, `projects/${id}/config`, "company"));
+      if (companyDoc.exists()) setCompanyData(companyDoc.data() as CompanyData);
 
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${id}/invoices`), orderBy("createdAt", "desc")));
       const allInvoices = invoicesSnapshot.docs.map((docSnap) => {
@@ -506,7 +523,50 @@ export default function InvoicesPage() {
                 <Receipt size={20} style={{ color: '#2F52E0' }} />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-semibold text-slate-900">Facturas</h1>
+                  {/* Company Info Tooltip */}
+                  <div className="relative">
+                    <button
+                      onMouseEnter={() => setShowCompanyTooltip(true)}
+                      onMouseLeave={() => setShowCompanyTooltip(false)}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${companyData ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-slate-100 text-slate-400"}`}
+                    >
+                      <Building2 size={14} />
+                    </button>
+                    {showCompanyTooltip && (
+                      <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
+                        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <Building2 size={16} className="text-slate-600" />
+                          </div>
+                          <p className="text-xs font-medium text-slate-500">Datos fiscales del proyecto</p>
+                        </div>
+                        {companyData ? (
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{companyData.fiscalName}</p>
+                              <p className="text-xs font-mono text-slate-600">{companyData.taxId}</p>
+                            </div>
+                            <div className="text-xs text-slate-600">
+                              <p>{companyData.address}</p>
+                              <p>{companyData.postalCode} {companyData.city}</p>
+                              {companyData.province && <p>{companyData.province}, {companyData.country}</p>}
+                            </div>
+                            {(companyData.email || companyData.phone) && (
+                              <div className="pt-2 border-t border-slate-100 text-xs text-slate-500">
+                                {companyData.email && <p>{companyData.email}</p>}
+                                {companyData.phone && <p>{companyData.phone}</p>}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 text-center py-2">No hay datos fiscales configurados</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 {!permissions.canViewAllPOs && (
                   <p className="text-sm text-slate-500 mt-0.5">
                     {permissions.canViewDepartmentPOs ? `Mostrando documentos de ${permissions.department}` : "Mostrando tus documentos"}
