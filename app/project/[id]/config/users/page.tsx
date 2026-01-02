@@ -305,7 +305,7 @@ export default function ConfigUsers() {
 
         {/* Search */}
         {members.length > 0 && (
-          <div className="relative max-w-md">
+          <div className="relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
