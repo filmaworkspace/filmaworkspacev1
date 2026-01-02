@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { UserCog, UserPlus, Search, Trash2, Shield, X, AlertCircle, CheckCircle2, UserCheck, UserX, Clock, Info, Edit, ArrowLeft, Building2, Users, Download } from "lucide-react";
+import { UserCog, UserPlus, Search, Trash2, Shield, X, AlertCircle, CheckCircle2, UserCheck, UserX, Clock, Info, Edit, Building2, Users, Download } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, setDoc, deleteDoc, updateDoc, query, where, Timestamp } from "firebase/firestore";
@@ -228,17 +228,7 @@ export default function AccountingUsersPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"><ArrowLeft size={12} />Proyectos</Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
@@ -250,7 +240,7 @@ export default function AccountingUsersPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
         {/* Messages */}
         {successMessage && (<div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700"><CheckCircle2 size={20} /><span>{successMessage}</span></div>)}
         {errorMessage && hasAccountingAccess && (<div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700"><AlertCircle size={20} /><span>{errorMessage}</span><button onClick={() => setErrorMessage("")} className="ml-auto"><X size={16} /></button></div>)}
@@ -275,18 +265,18 @@ export default function AccountingUsersPage() {
         )}
 
         {/* Search and Export */}
-        <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
-          <div className="flex-1 relative w-full">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center mb-4">
+          <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Buscar usuarios" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <input type="text" placeholder="Buscar usuarios" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             {searchTerm && (
-              <button onClick={() => setSearchTerm("")} className="px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+              <button onClick={() => setSearchTerm("")} className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
                 <X size={14} />Limpiar
               </button>
             )}
-            <button onClick={exportUsers} className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
+            <button onClick={exportUsers} className="px-3 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs font-medium">
               <Download size={14} />Exportar
             </button>
           </div>
@@ -310,7 +300,7 @@ export default function AccountingUsersPage() {
                   <h2 className="text-sm font-semibold text-slate-900">Equipo de proyecto</h2>
                   <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{projectRoleMembers.length}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {projectRoleMembers.map((member) => (
                     <div key={member.userId} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-all group">
                       <div className="flex items-start gap-3">
@@ -345,15 +335,15 @@ export default function AccountingUsersPage() {
             {Object.entries(departmentGroups).map(([deptName, deptMembers]) => (
               <div key={deptName}>
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center"><Building2 size={16} className="text-indigo-600" /></div>
+                  <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center"><Building2 size={16} className="text-slate-600" /></div>
                   <h2 className="text-sm font-semibold text-slate-900">{deptName}</h2>
                   <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{deptMembers.length}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {deptMembers.map((member) => (
                     <div key={member.userId} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-all group">
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">
                           {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -386,7 +376,7 @@ export default function AccountingUsersPage() {
                   <h2 className="text-sm font-semibold text-slate-900">Sin asignar</h2>
                   <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{unassignedMembers.length}</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {unassignedMembers.map((member) => (
                     <div key={member.userId} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-all group">
                       <div className="flex items-start gap-3">
@@ -455,12 +445,12 @@ export default function AccountingUsersPage() {
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowInviteModal(false); resetForm(); }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
               <h3 className="text-lg font-semibold text-slate-900">Dar acceso a contabilidad</h3>
               <button onClick={() => { setShowInviteModal(false); resetForm(); }} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+            <div className="p-6 overflow-y-auto flex-1">
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <div className="flex gap-2"><Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" /><p className="text-sm text-blue-700">Selecciona el nivel de acceso que tendrá el usuario.</p></div>
               </div>
@@ -531,4 +521,3 @@ export default function AccountingUsersPage() {
     </div>
   );
 }
-
