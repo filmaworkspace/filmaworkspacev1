@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import {
   CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Receipt, AlertCircle,
-  Clock, User, Calendar, Building2, Eye, Check, X, ArrowLeft, AlertTriangle,
+  Clock, User, Calendar, Building2, Eye, Check, X, AlertTriangle,
   MessageSquare, History, TrendingUp, DollarSign, Shield, FileCheck, Zap,
   ChevronDown, ChevronUp, ExternalLink, Send, Info, Flame, Award, Target,
   PieChart, HelpCircle, Link as LinkIcon,
@@ -350,29 +350,15 @@ export default function ApprovalsPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting`} className="hover:text-slate-900 transition-colors">Panel</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center">
-                <CheckCircle size={24} className="text-teal-600" />
+              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+                <CheckCircle size={22} className="text-slate-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Mis aprobaciones</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Aprobaciones</h1>
                 <p className="text-slate-500 text-sm mt-0.5">
                   {userStats.pendingCount} pendiente{userStats.pendingCount !== 1 ? "s" : ""}
                   {userRole && <span className="text-slate-400"> · {userRole}</span>}
@@ -411,7 +397,7 @@ export default function ApprovalsPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {successMessage && (<div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3"><CheckCircle size={18} className="text-emerald-600" /><span className="text-sm text-emerald-700 font-medium">{successMessage}</span></div>)}
         {errorMessage && (<div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3"><AlertCircle size={18} className="text-red-600" /><span className="text-sm text-red-700">{errorMessage}</span><button onClick={() => setErrorMessage("")} className="ml-auto text-red-400 hover:text-red-600"><X size={16} /></button></div>)}
 
@@ -432,7 +418,7 @@ export default function ApprovalsPage() {
                   {filteredApprovals.map((approval, index) => (
                     <button key={approval.id} onClick={() => setCurrentIndex(index)} className={`w-full text-left p-3 rounded-xl border-2 transition-all ${index === currentIndex ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
                       <div className="flex items-start gap-2 mb-1">
-                        {approval.type === "po" ? <FileText size={14} className="text-indigo-500 mt-0.5" /> : <Receipt size={14} className="text-emerald-500 mt-0.5" />}
+                        {approval.type === "po" ? <FileText size={14} className="text-slate-500 mt-0.5" /> : <Receipt size={14} className="text-slate-500 mt-0.5" />}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2"><p className="text-sm font-medium text-slate-900 truncate">{approval.displayNumber}</p>{approval.isUrgent && (<span className="flex items-center gap-0.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-lg"><Flame size={10} /></span>)}</div>
                           <p className="text-xs text-slate-500 truncate">{approval.supplier}</p>
@@ -461,10 +447,10 @@ export default function ApprovalsPage() {
                     <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          {currentApproval.type === "po" ? <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center"><FileText size={20} className="text-indigo-600" /></div> : <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center"><Receipt size={20} className="text-emerald-600" /></div>}
+                          {currentApproval.type === "po" ? <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center"><FileText size={20} className="text-slate-600" /></div> : <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center"><Receipt size={20} className="text-slate-600" /></div>}
                           <div>
                             <div className="flex items-center gap-2"><h2 className="text-lg font-semibold text-slate-900">{currentApproval.displayNumber}</h2>{currentApproval.isUrgent && (<span className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg font-medium"><Flame size={10} />Urgente</span>)}</div>
-                            <p className="text-sm text-slate-500">{currentApproval.department && `${currentApproval.department} · `}{currentApproval.poType}{currentApproval.poNumber && currentApproval.type === "invoice" && (<span className="inline-flex items-center gap-1 ml-2 text-indigo-600"><LinkIcon size={10} />PO-{currentApproval.poNumber}</span>)}</p>
+                            <p className="text-sm text-slate-500">{currentApproval.department && `${currentApproval.department} · `}{currentApproval.poType}{currentApproval.poNumber && currentApproval.type === "invoice" && (<span className="inline-flex items-center gap-1 ml-2 text-slate-600"><LinkIcon size={10} />PO-{currentApproval.poNumber}</span>)}</p>
                           </div>
                         </div>
                         <div className="text-right"><p className="text-xs text-slate-500">Importe</p><p className="text-xl font-bold text-slate-900">{formatCurrency(currentApproval.amount, currentApproval.currency)}</p></div>
@@ -492,7 +478,7 @@ export default function ApprovalsPage() {
                           {showPreview ? (
                             <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-100">
                               {currentApproval.attachmentUrl.toLowerCase().includes(".pdf") ? <iframe src={currentApproval.attachmentUrl} className="w-full h-96" title="Document preview" /> : <img src={currentApproval.attachmentUrl} alt="Document preview" className="w-full max-h-96 object-contain" />}
-                              <div className="px-4 py-2 bg-white border-t border-slate-200 flex items-center justify-between"><span className="text-xs text-slate-500">{currentApproval.attachmentFileName || "Documento"}</span><a href={currentApproval.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"><ExternalLink size={12} />Abrir en nueva pestaña</a></div>
+                              <div className="px-4 py-2 bg-white border-t border-slate-200 flex items-center justify-between"><span className="text-xs text-slate-500">{currentApproval.attachmentFileName || "Documento"}</span><a href={currentApproval.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900"><ExternalLink size={12} />Abrir en nueva pestaña</a></div>
                             </div>
                           ) : (
                             <a href={currentApproval.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"><div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center"><FileCheck size={18} className="text-slate-500" /></div><div className="flex-1"><p className="text-sm font-medium text-slate-900">{currentApproval.attachmentFileName || "Ver documento"}</p><p className="text-xs text-slate-500">Clic para abrir</p></div><Eye size={16} className="text-slate-400" /></a>
@@ -574,7 +560,7 @@ export default function ApprovalsPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200"><h3 className="text-lg font-semibold text-slate-900">Solicitar información</h3><p className="text-sm text-slate-500">{selectedApproval.displayNumber}</p></div>
-            <div className="p-6"><p className="text-sm text-slate-600 mb-4">Se notificará al creador del documento que necesitas más información antes de poder aprobar.</p><label className="block text-sm font-medium text-slate-700 mb-2">¿Qué información necesitas?</label><textarea value={infoRequestMessage} onChange={(e) => setInfoRequestMessage(e.target.value)} placeholder="Describe qué información adicional necesitas..." rows={4} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm" /><div className="flex gap-3 mt-6"><button onClick={() => { setShowInfoRequestModal(false); setInfoRequestMessage(""); setSelectedApproval(null); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium">Cancelar</button><button onClick={handleRequestInfo} disabled={processing || !infoRequestMessage.trim()} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"><Send size={16} />{processing ? "Enviando..." : "Enviar solicitud"}</button></div></div>
+            <div className="p-6"><label className="block text-sm font-medium text-slate-700 mb-2">¿Qué información necesitas?</label><textarea value={infoRequestMessage} onChange={(e) => setInfoRequestMessage(e.target.value)} placeholder="Describe qué información adicional necesitas..." rows={4} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm" /><div className="flex gap-3 mt-6"><button onClick={() => { setShowInfoRequestModal(false); setInfoRequestMessage(""); setSelectedApproval(null); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium">Cancelar</button><button onClick={handleRequestInfo} disabled={processing || !infoRequestMessage.trim()} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"><Send size={16} />{processing ? "Enviando..." : "Enviar solicitud"}</button></div></div>
           </div>
         </div>
       )}
