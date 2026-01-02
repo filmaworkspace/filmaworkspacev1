@@ -34,6 +34,7 @@ const inter = Inter({
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>("");
   const [permissions, setPermissions] = useState({
@@ -167,6 +168,8 @@ export default function Header() {
       ? "users"
       : pathname.includes("/reports")
       ? "reports"
+      : pathname.includes("/config")
+      ? "config"
       : "panel"
     : null;
 
@@ -198,7 +201,7 @@ export default function Header() {
     );
   };
 
-  // Badge de sección actual (CONFIG/ACCOUNTING/TEAM)
+  // Badge de sección actual (CONFIG/ACCOUNTING/TEAM) - con soporte para hover
   const SectionBadge = () => {
     if (!isInProjectSection || !currentSection) return null;
 
@@ -208,8 +211,16 @@ export default function Header() {
       team: "EQUIPO",
     };
 
+    // Si hay hover, mostrar la sección hovered, si no, la actual
+    const displaySection = hoveredSection || currentSection;
+    const isHovering = hoveredSection !== null;
+
     return (
-      <span className="text-xs text-slate-400 mr-2">{sectionLabels[currentSection]}</span>
+      <span className={`text-xs mr-2 transition-all duration-150 ${
+        isHovering ? "text-slate-600 font-medium" : "text-slate-400"
+      }`}>
+        {sectionLabels[displaySection]}
+      </span>
     );
   };
 
@@ -228,7 +239,10 @@ export default function Header() {
     if (availableSections.length === 0) return null;
 
     return (
-      <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200">
+      <div 
+        className="flex items-center gap-0.5 mr-2 pr-2 border-r border-slate-200"
+        onMouseLeave={() => setHoveredSection(null)}
+      >
         {availableSections.map((section) => {
           const Icon = section.icon;
           return (
@@ -237,6 +251,7 @@ export default function Header() {
               href={section.href}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               title={section.label}
+              onMouseEnter={() => setHoveredSection(section.key)}
             >
               <Icon size={16} />
             </Link>
