@@ -317,7 +317,7 @@ export default function Dashboard() {
             <Link href={`/project/${project.id}/config`} className="flex-1">
               <div className="flex items-center justify-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all text-slate-600 text-xs font-medium">
                 <Lock size={12} />
-                Configuración
+                Config
               </div>
             </Link>
           )}
