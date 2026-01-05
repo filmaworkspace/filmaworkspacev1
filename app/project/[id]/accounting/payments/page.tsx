@@ -581,10 +581,10 @@ export default function PaymentsPage() {
         </div>
 
         <div className="flex gap-6">
-          <div className={cx("flex-shrink-0 transition-all duration-300", invoicesPanelExpanded ? "w-80" : "w-14")}>
+          <div className={cx("flex-shrink-0 transition-all duration-300", invoicesPanelExpanded ? "w-80" : "w-20")}>
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden sticky top-24">
               {!invoicesPanelExpanded ? (
-                <button onClick={() => setInvoicesPanelExpanded(true)} className="w-full p-3 flex flex-col items-center gap-2 hover:bg-slate-50 transition-colors">
+                <button onClick={() => setInvoicesPanelExpanded(true)} className="w-full p-4 flex flex-col items-center gap-2 hover:bg-slate-50 transition-colors">
                   <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-slate-600" /></div>
                   <div className="flex flex-col items-center">
                     <span className="text-lg font-bold text-slate-900">{invoiceStats.total}</span>
