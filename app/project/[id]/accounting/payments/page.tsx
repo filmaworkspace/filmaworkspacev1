@@ -951,7 +951,33 @@ export default function PaymentsPage() {
           </div>
         </div>
       )}
--8 bg-slate-50 rounded-xl"><FolderOpen size={24} className="text-slate-400 mx-auto mb-2" /><p className="text-sm text-slate-500">Sin pagos añadidos</p></div>
+
+      {showForecastDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForecastDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900">{showForecastDetail.name}</h3>
+                  {(() => { const config = getStatusConfig(showForecastDetail.status); const Icon = config.icon; return (<span className={cx("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium", config.bg, config.text)}><Icon size={12} />{config.label}</span>); })()}
+                </div>
+                <p className="text-sm text-slate-500">Creada por {showForecastDetail.createdByName} · {formatDate(showForecastDetail.createdAt)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => exportForecastPDF(showForecastDetail)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg" title="Exportar PDF"><Download size={18} /></button>
+                <button onClick={() => setShowForecastDetail(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Fecha de pago</p><p className="text-lg font-bold text-slate-900">{formatDate(showForecastDetail.paymentDate)}</p></div>
+                <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Total</p><p className="text-lg font-bold text-slate-900">{formatCurrency(showForecastDetail.totalAmount)} €</p></div>
+                <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-500 mb-1">Progreso</p>{(() => { const progress = getCompletionProgress(showForecastDetail); return (<div className="flex items-center gap-2"><div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: progress.percent + "%" }} /></div><span className="text-sm font-bold text-slate-900">{progress.completed}/{progress.total}</span></div>); })()}</div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 uppercase mb-3">Pagos ({showForecastDetail.items.length})</h4>
+                {showForecastDetail.items.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-xl"><FolderOpen size={24} className="text-slate-400 mx-auto mb-2" /><p className="text-sm text-slate-500">Sin pagos añadidos</p></div>
                 ) : (
                   <div className="space-y-2">
                     {showForecastDetail.items.map((item) => {
