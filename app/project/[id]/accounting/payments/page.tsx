@@ -10,6 +10,11 @@ import jsPDF from "jspdf";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
+// Helper para clases condicionales
+function cx(...args: (string | boolean | null | undefined)[]): string {
+  return args.filter(Boolean).join(" ");
+}
+
 const PAYMENT_TYPES = {
   invoice: { label: "Pago de factura", icon: Receipt, color: "emerald" },
   partial: { label: "Pago parcial", icon: CircleDollarSign, color: "blue" },
@@ -478,21 +483,18 @@ export default function PaymentsPage() {
     pdf.save("Prevision_" + forecast.name.replace(/\s+/g, "_") + "_" + formatDateForFile(forecast.paymentDate) + ".pdf");
   };
 
-  const baseClassName = "min-h-screen bg-white " + inter.className;
-  const loadingClassName = "min-h-screen bg-white flex items-center justify-center " + inter.className;
-
   if (loading) {
     return (
-      <div className={loadingClassName}>
+      <div className={cx("min-h-screen bg-white flex items-center justify-center", inter.className)}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className={baseClassName}>
+    <div className={cx("min-h-screen bg-white", inter.className)}>
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
+        <div className={cx("fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2", toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white")}>
           {toast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
           {toast.message}
         </div>
@@ -531,49 +533,45 @@ export default function PaymentsPage() {
           </div>
         )}
 
-        {/* Filters */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar previsión o proveedor..." className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
           <div className="flex flex-wrap gap-2">
-            {/* Status Dropdown */}
             <div className="relative" ref={statusDropdownRef}>
               <button onClick={() => setShowStatusDropdown(!showStatusDropdown)} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[160px]">
                 <Filter size={15} className="text-slate-400" />
                 <span className="text-slate-700 flex-1 text-left">{STATUS_OPTIONS.find(o => o.value === statusFilter)?.label}</span>
-                <ChevronDown size={14} className={"text-slate-400 transition-transform " + (showStatusDropdown ? "rotate-180" : "")} />
+                <ChevronDown size={14} className={cx("text-slate-400 transition-transform", showStatusDropdown && "rotate-180")} />
               </button>
               {showStatusDropdown && (
                 <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 min-w-full">
                   {STATUS_OPTIONS.map((option) => (
-                    <button key={option.value} onClick={() => { setStatusFilter(option.value); setShowStatusDropdown(false); }} className={"w-full text-left px-4 py-2.5 text-sm transition-colors " + (statusFilter === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
+                    <button key={option.value} onClick={() => { setStatusFilter(option.value); setShowStatusDropdown(false); }} className={cx("w-full text-left px-4 py-2.5 text-sm transition-colors", statusFilter === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Date Dropdown */}
             <div className="relative" ref={dateDropdownRef}>
               <button onClick={() => setShowDateDropdown(!showDateDropdown)} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white hover:border-slate-300 transition-colors min-w-[160px]">
                 <Calendar size={15} className="text-slate-400" />
                 <span className="text-slate-700 flex-1 text-left">{DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label}</span>
-                <ChevronDown size={14} className={"text-slate-400 transition-transform " + (showDateDropdown ? "rotate-180" : "")} />
+                <ChevronDown size={14} className={cx("text-slate-400 transition-transform", showDateDropdown && "rotate-180")} />
               </button>
               {showDateDropdown && (
                 <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 min-w-full">
                   {DATE_RANGE_OPTIONS.map((option) => (
-                    <button key={option.value} onClick={() => { setDateRange(option.value); setShowDateDropdown(false); }} className={"w-full text-left px-4 py-2.5 text-sm transition-colors " + (dateRange === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
+                    <button key={option.value} onClick={() => { setDateRange(option.value); setShowDateDropdown(false); }} className={cx("w-full text-left px-4 py-2.5 text-sm transition-colors", dateRange === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* View Mode Toggle */}
             <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <button onClick={() => setViewMode("kanban")} className={"px-4 py-2.5 text-sm transition-colors " + (viewMode === "kanban" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")}><LayoutGrid size={18} /></button>
-              <button onClick={() => setViewMode("list")} className={"px-4 py-2.5 text-sm transition-colors border-l border-slate-200 " + (viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")}><List size={18} /></button>
+              <button onClick={() => setViewMode("kanban")} className={cx("px-4 py-2.5 text-sm transition-colors", viewMode === "kanban" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")}><LayoutGrid size={18} /></button>
+              <button onClick={() => setViewMode("list")} className={cx("px-4 py-2.5 text-sm transition-colors border-l border-slate-200", viewMode === "list" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")}><List size={18} /></button>
             </div>
 
             {(statusFilter !== "all" || dateRange !== "all" || searchTerm) && (
@@ -583,8 +581,7 @@ export default function PaymentsPage() {
         </div>
 
         <div className="flex gap-6">
-          {/* Invoices Panel */}
-          <div className={"flex-shrink-0 transition-all duration-300 " + (invoicesPanelExpanded ? "w-80" : "w-14")}>
+          <div className={cx("flex-shrink-0 transition-all duration-300", invoicesPanelExpanded ? "w-80" : "w-14")}>
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden sticky top-24">
               {!invoicesPanelExpanded ? (
                 <button onClick={() => setInvoicesPanelExpanded(true)} className="w-full p-3 flex flex-col items-center gap-2 hover:bg-slate-50 transition-colors">
@@ -610,8 +607,8 @@ export default function PaymentsPage() {
                       <button onClick={() => setInvoicesPanelExpanded(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"><X size={14} /></button>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "overdue" ? "all" : "overdue")} className={"flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all " + (invoiceDueDateFilter === "overdue" ? "bg-red-100 text-red-700 ring-1 ring-red-200" : "bg-white text-slate-600 hover:bg-slate-100")}><span className="text-red-600 font-bold">{invoiceStats.overdue}</span> vencidas</button>
-                      <button onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "week" ? "all" : "week")} className={"flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all " + (invoiceDueDateFilter === "week" ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200" : "bg-white text-slate-600 hover:bg-slate-100")}><span className="text-amber-600 font-bold">{invoiceStats.dueSoon}</span> próximas</button>
+                      <button onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "overdue" ? "all" : "overdue")} className={cx("flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all", invoiceDueDateFilter === "overdue" ? "bg-red-100 text-red-700 ring-1 ring-red-200" : "bg-white text-slate-600 hover:bg-slate-100")}><span className="text-red-600 font-bold">{invoiceStats.overdue}</span> vencidas</button>
+                      <button onClick={() => setInvoiceDueDateFilter(invoiceDueDateFilter === "week" ? "all" : "week")} className={cx("flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all", invoiceDueDateFilter === "week" ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200" : "bg-white text-slate-600 hover:bg-slate-100")}><span className="text-amber-600 font-bold">{invoiceStats.dueSoon}</span> próximas</button>
                     </div>
                   </div>
                   <div className="p-3 border-b border-slate-100">
@@ -629,7 +626,7 @@ export default function PaymentsPage() {
                         {showInvoiceFilterDropdown && (
                           <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
                             {INVOICE_FILTER_OPTIONS.map((option) => (
-                              <button key={option.value} onClick={() => { setInvoiceDueDateFilter(option.value); setShowInvoiceFilterDropdown(false); }} className={"w-full text-left px-3 py-2 text-xs transition-colors " + (invoiceDueDateFilter === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
+                              <button key={option.value} onClick={() => { setInvoiceDueDateFilter(option.value); setShowInvoiceFilterDropdown(false); }} className={cx("w-full text-left px-3 py-2 text-xs transition-colors", invoiceDueDateFilter === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
                             ))}
                           </div>
                         )}
@@ -642,7 +639,7 @@ export default function PaymentsPage() {
                         {showInvoiceSortDropdown && (
                           <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
                             {INVOICE_SORT_OPTIONS.map((option) => (
-                              <button key={option.value} onClick={() => { setInvoiceSortBy(option.value as "dueDate" | "amount" | "supplier"); setShowInvoiceSortDropdown(false); }} className={"w-full text-left px-3 py-2 text-xs transition-colors " + (invoiceSortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
+                              <button key={option.value} onClick={() => { setInvoiceSortBy(option.value as "dueDate" | "amount" | "supplier"); setShowInvoiceSortDropdown(false); }} className={cx("w-full text-left px-3 py-2 text-xs transition-colors", invoiceSortBy === option.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50")}>{option.label}</button>
                             ))}
                           </div>
                         )}
@@ -664,9 +661,9 @@ export default function PaymentsPage() {
                           const isOverdue = days < 0;
                           const isDueSoon = days >= 0 && days <= 7;
                           return (
-                            <div key={invoice.id} draggable onDragStart={() => handleDragStart(invoice)} onDragEnd={() => setDraggedInvoice(null)} className={"p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all border group " + (draggedInvoice?.id === invoice.id ? "opacity-50 scale-95 border-slate-400" : "border-transparent") + " " + (isOverdue ? "bg-red-50 hover:bg-red-100" : "bg-slate-50 hover:bg-slate-100")}>
+                            <div key={invoice.id} draggable onDragStart={() => handleDragStart(invoice)} onDragEnd={() => setDraggedInvoice(null)} className={cx("p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all border group", draggedInvoice?.id === invoice.id ? "opacity-50 scale-95 border-slate-400" : "border-transparent", isOverdue ? "bg-red-50 hover:bg-red-100" : "bg-slate-50 hover:bg-slate-100")}>
                               <div className="flex items-start gap-2">
-                                <div className={"w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 " + (isOverdue ? "bg-red-100" : "bg-slate-200")}><GripVertical size={10} className={isOverdue ? "text-red-400" : "text-slate-400"} /></div>
+                                <div className={cx("w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5", isOverdue ? "bg-red-100" : "bg-slate-200")}><GripVertical size={10} className={isOverdue ? "text-red-400" : "text-slate-400"} /></div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
@@ -676,7 +673,7 @@ export default function PaymentsPage() {
                                     <p className="text-xs font-bold text-slate-900 flex-shrink-0">{formatCurrency(invoice.totalAmount)} €</p>
                                   </div>
                                   <div className="flex items-center justify-between mt-1.5">
-                                    <span className={"text-[10px] px-1.5 py-0.5 rounded-full font-medium " + (isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600")}>{isOverdue ? ("Vencida " + Math.abs(days) + "d") : isDueSoon ? (days + "d") : formatDateShort(invoice.dueDate)}</span>
+                                    <span className={cx("text-[10px] px-1.5 py-0.5 rounded-full font-medium", isOverdue ? "bg-red-100 text-red-700" : isDueSoon ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600")}>{isOverdue ? ("Vencida " + Math.abs(days) + "d") : isDueSoon ? (days + "d") : formatDateShort(invoice.dueDate)}</span>
                                     <span className="text-[9px] text-slate-400 opacity-0 group-hover:opacity-100">Arrastra →</span>
                                   </div>
                                 </div>
@@ -693,7 +690,6 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          {/* Forecasts Grid */}
           <div className="flex-1">
             {filteredForecasts.length === 0 ? (
               <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center">
@@ -714,14 +710,14 @@ export default function PaymentsPage() {
                   const StatusIcon = statusConfig.icon;
                   const TypeIcon = typeConfig.icon;
                   return (
-                    <div key={forecast.id} onDragOver={(e) => handleDragOver(e, forecast.id)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, forecast.id)} className={"bg-white border rounded-2xl overflow-hidden transition-all " + (dragOverForecast === forecast.id && forecast.status === "draft" ? "border-emerald-400 ring-2 ring-emerald-100 scale-[1.01]" : "border-slate-200 hover:shadow-md")}>
+                    <div key={forecast.id} onDragOver={(e) => handleDragOver(e, forecast.id)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, forecast.id)} className={cx("bg-white border rounded-2xl overflow-hidden transition-all", dragOverForecast === forecast.id && forecast.status === "draft" ? "border-emerald-400 ring-2 ring-emerald-100 scale-[1.01]" : "border-slate-200 hover:shadow-md")}>
                       <div className="px-4 py-3 border-b border-slate-100">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-slate-900 truncate">{forecast.name}</h3>
                             <div className="flex items-center gap-2 mt-1">
                               <Calendar size={12} className="text-slate-400" />
-                              <span className={"text-xs " + (daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 3 ? "text-amber-600 font-semibold" : "text-slate-500")}>{formatDate(forecast.paymentDate)}{daysUntil >= 0 && daysUntil <= 7 ? (" (" + daysUntil + "d)") : ""}{daysUntil < 0 ? (" (hace " + Math.abs(daysUntil) + "d)") : ""}</span>
+                              <span className={cx("text-xs", daysUntil < 0 ? "text-red-600 font-semibold" : daysUntil <= 3 ? "text-amber-600 font-semibold" : "text-slate-500")}>{formatDate(forecast.paymentDate)}{daysUntil >= 0 && daysUntil <= 7 ? (" (" + daysUntil + "d)") : ""}{daysUntil < 0 ? (" (hace " + Math.abs(daysUntil) + "d)") : ""}</span>
                             </div>
                           </div>
                           <div className="relative menu-container">
@@ -738,8 +734,8 @@ export default function PaymentsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={"inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium " + statusConfig.bg + " " + statusConfig.text}><StatusIcon size={12} />{statusConfig.label}</span>
-                          <span className={"inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium " + typeConfig.bg + " " + typeConfig.text}><TypeIcon size={12} />{typeConfig.label}</span>
+                          <span className={cx("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium", statusConfig.bg, statusConfig.text)}><StatusIcon size={12} />{statusConfig.label}</span>
+                          <span className={cx("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium", typeConfig.bg, typeConfig.text)}><TypeIcon size={12} />{typeConfig.label}</span>
                         </div>
                       </div>
                       <div className="p-2 min-h-[80px] max-h-[180px] overflow-y-auto bg-slate-50/50">
@@ -753,7 +749,7 @@ export default function PaymentsPage() {
                               return (
                                 <div key={item.id} className="bg-white p-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors group">
                                   <div className="flex items-start gap-2">
-                                    <div className={"w-5 h-5 rounded flex items-center justify-center flex-shrink-0 " + (item.status === "completed" ? "bg-emerald-100" : "bg-slate-100")}>{item.status === "completed" ? <CheckCircle2 size={10} className="text-emerald-600" /> : <ItemIcon size={10} className="text-slate-500" />}</div>
+                                    <div className={cx("w-5 h-5 rounded flex items-center justify-center flex-shrink-0", item.status === "completed" ? "bg-emerald-100" : "bg-slate-100")}>{item.status === "completed" ? <CheckCircle2 size={10} className="text-emerald-600" /> : <ItemIcon size={10} className="text-slate-500" />}</div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between gap-1">
                                         <p className="text-[11px] font-medium text-slate-900 truncate font-mono">{item.invoiceNumber ? ("FAC-" + item.invoiceNumber) : item.description}</p>
@@ -788,7 +784,6 @@ export default function PaymentsPage() {
                 })}
               </div>
             ) : (
-              /* List View */
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -815,13 +810,13 @@ export default function PaymentsPage() {
                           <tr className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4">
                               <button onClick={() => toggleRowExpanded(forecast.id)} className="text-left hover:text-[#2F52E0] flex items-center gap-2 group/row">
-                                <ChevronRight size={16} className={"text-slate-400 transition-transform " + (isExpanded ? "rotate-90" : "")} />
+                                <ChevronRight size={16} className={cx("text-slate-400 transition-transform", isExpanded && "rotate-90")} />
                                 <div><p className="font-semibold text-slate-900 group-hover/row:text-[#2F52E0] transition-colors">{forecast.name}</p><p className="text-xs text-slate-500 mt-0.5">{forecast.items.length} pagos</p></div>
                               </button>
                             </td>
                             <td className="px-4 py-4"><div className="flex items-center gap-1.5"><Calendar size={14} className="text-slate-400" /><span className="text-sm text-slate-700">{formatDate(forecast.paymentDate)}</span></div></td>
-                            <td className="px-4 py-4"><span className={"inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium " + typeConfig.bg + " " + typeConfig.text}><TypeIcon size={12} />{typeConfig.label}</span></td>
-                            <td className="px-4 py-4"><span className={"inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium " + statusConfig.bg + " " + statusConfig.text}><StatusIcon size={12} />{statusConfig.label}</span></td>
+                            <td className="px-4 py-4"><span className={cx("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium", typeConfig.bg, typeConfig.text)}><TypeIcon size={12} />{typeConfig.label}</span></td>
+                            <td className="px-4 py-4"><span className={cx("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium", statusConfig.bg, statusConfig.text)}><StatusIcon size={12} />{statusConfig.label}</span></td>
                             <td className="px-4 py-4">{forecast.items.length > 0 ? (<div className="flex items-center gap-2 justify-center"><div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: progress.percent + "%" }} /></div><span className="text-xs text-slate-500">{progress.completed}/{progress.total}</span></div>) : (<span className="text-xs text-slate-400">-</span>)}</td>
                             <td className="px-6 py-4 text-right"><span className="text-sm font-bold text-slate-900">{formatCurrency(forecast.totalAmount)} €</span></td>
                             <td className="px-4 py-4"><button onClick={() => setShowForecastDetail(forecast)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><Eye size={16} /></button></td>
@@ -835,11 +830,11 @@ export default function PaymentsPage() {
                                   return (
                                     <div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
                                       <div className="flex items-center gap-3">
-                                        <div className={"w-8 h-8 rounded-lg flex items-center justify-center " + (item.status === "completed" ? "bg-emerald-100" : "bg-slate-100")}>{item.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ItemIcon size={16} className="text-slate-500" />}</div>
+                                        <div className={cx("w-8 h-8 rounded-lg flex items-center justify-center", item.status === "completed" ? "bg-emerald-100" : "bg-slate-100")}>{item.status === "completed" ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ItemIcon size={16} className="text-slate-500" />}</div>
                                         <div><p className="text-sm font-medium text-slate-900 font-mono">{item.invoiceNumber ? ("FAC-" + item.invoiceNumber) : item.description}</p><p className="text-xs text-slate-500">{item.supplier}</p></div>
                                       </div>
                                       <div className="flex items-center gap-4">
-                                        <span className={"text-xs px-2 py-1 rounded-lg " + (item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
+                                        <span className={cx("text-xs px-2 py-1 rounded-lg", item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
                                         <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span>
                                         {forecast.status === "pending" && item.status === "pending" && (<button onClick={() => setShowUploadReceipt({ forecast, item })} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Completar</button>)}
                                         {item.receiptUrl && (<a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-slate-700"><ExternalLink size={14} /></a>)}
@@ -861,7 +856,6 @@ export default function PaymentsPage() {
         </div>
       </main>
 
-      {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
@@ -881,12 +875,12 @@ export default function PaymentsPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de pago</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "remesa" })} className={"p-4 rounded-xl border-2 transition-all text-left " + (newForecast.type === "remesa" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
+                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "remesa" })} className={cx("p-4 rounded-xl border-2 transition-all text-left", newForecast.type === "remesa" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
                     <Landmark size={20} className={newForecast.type === "remesa" ? "text-slate-900" : "text-slate-400"} />
                     <p className="font-semibold text-slate-900 mt-2">Remesa</p>
                     <p className="text-xs text-slate-500 mt-1">Pago bancario agrupado</p>
                   </button>
-                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "fuera_remesa" })} className={"p-4 rounded-xl border-2 transition-all text-left " + (newForecast.type === "fuera_remesa" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
+                  <button type="button" onClick={() => setNewForecast({ ...newForecast, type: "fuera_remesa" })} className={cx("p-4 rounded-xl border-2 transition-all text-left", newForecast.type === "fuera_remesa" ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
                     <Banknote size={20} className={newForecast.type === "fuera_remesa" ? "text-slate-900" : "text-slate-400"} />
                     <p className="font-semibold text-slate-900 mt-2">Fuera de remesa</p>
                     <p className="text-xs text-slate-500 mt-1">Transferencia individual</p>
@@ -899,7 +893,6 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* Add Payment Modal */}
       {showAddPaymentModal && selectedForecastId && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowAddPaymentModal(false); setSelectedForecastId(null); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -914,7 +907,7 @@ export default function PaymentsPage() {
                   {Object.entries(PAYMENT_TYPES).map(([key, value]) => {
                     const Icon = value.icon;
                     return (
-                      <button key={key} type="button" onClick={() => setNewPayment({ ...newPayment, type: key as PaymentType })} className={"p-3 rounded-xl border-2 transition-all text-left " + (newPayment.type === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
+                      <button key={key} type="button" onClick={() => setNewPayment({ ...newPayment, type: key as PaymentType })} className={cx("p-3 rounded-xl border-2 transition-all text-left", newPayment.type === key ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
                         <Icon size={16} className={newPayment.type === key ? "text-slate-900" : "text-slate-400"} />
                         <p className="font-medium text-slate-900 text-sm mt-1">{value.label}</p>
                       </button>
@@ -958,6 +951,26 @@ export default function PaymentsPage() {
           </div>
         </div>
       )}
+-8 bg-slate-50 rounded-xl"><FolderOpen size={24} className="text-slate-400 mx-auto mb-2" /><p className="text-sm text-slate-500">Sin pagos añadidos</p></div>
+                ) : (
+                  <div className="space-y-2">
+                    {showForecastDetail.items.map((item) => {
+                      const typeInfo = PAYMENT_TYPES[item.type];
+                      const ItemIcon = typeInfo.icon;
+                      return (
+                        <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="flex items-start gap-3">
+                            <div className={cx("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", item.status === "completed" ? "bg-emerald-100" : "bg-slate-100")}>{item.status === "completed" ? <CheckCircle2 size={18} className="text-emerald-600" /> : <ItemIcon size={18} className="text-slate-500" />}</div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="font-semibold text-slate-900 font-mono">{item.invoiceNumber ? ("FAC-" + item.invoiceNumber) : item.description}</p>
+                                  <p className="text-sm text-slate-600">{item.supplier}</p>
+                                  <p className="text-xs text-slate-400 mt-1">{typeInfo.label} · Añadido por {item.addedByName}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-lg font-bold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</p>
+                                  <span className={cx("text-xs px-2 py-1 rounded-lg", item.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
                                 </div>
                               </div>
                               <div className="mt-3 pt-3 border-t border-slate-200">
@@ -996,7 +1009,6 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* Upload Receipt Modal */}
       {showUploadReceipt && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUploadReceipt(null)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
