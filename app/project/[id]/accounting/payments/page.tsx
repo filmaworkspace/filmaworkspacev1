@@ -478,18 +478,21 @@ export default function PaymentsPage() {
     pdf.save("Prevision_" + forecast.name.replace(/\s+/g, "_") + "_" + formatDateForFile(forecast.paymentDate) + ".pdf");
   };
 
+  const baseClassName = "min-h-screen bg-white " + inter.className;
+  const loadingClassName = "min-h-screen bg-white flex items-center justify-center " + inter.className;
+
   if (loading) {
     return (
-      <div className={"min-h-screen bg-white flex items-center justify-center " + inter.className}>
+      <div className={loadingClassName}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className={"min-h-screen bg-white " + inter.className}>
+    <div className={baseClassName}>
       {toast && (
-        <div className={"fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 " + (toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white")}>
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 ${toast.type === "success" ? "bg-slate-900 text-white" : "bg-red-600 text-white"}`}>
           {toast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
           {toast.message}
         </div>
