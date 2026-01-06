@@ -1,8 +1,9 @@
 "use client";
+import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, db, storage } from "@/lib/firebase";
 import {
   doc,
@@ -44,10 +45,16 @@ import {
   Circle,
   ShieldAlert,
   Lock,
+  ChevronDown,
 } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+
+// Helper para clases condicionales
+function cx(...args: (string | boolean | null | undefined)[]): string {
+  return args.filter(Boolean).join(" ");
+}
 
 interface Supplier {
   id: string;
@@ -153,7 +160,6 @@ export default function NewPOPage() {
   const router = useRouter();
   const id = params?.id as string;
 
-  // ============ HOOK DE PERMISOS ============
   const {
     loading: permissionsLoading,
     error: permissionsError,
@@ -181,6 +187,12 @@ export default function NewPOPage() {
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Dropdowns custom
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const departmentDropdownRef = useRef<HTMLDivElement>(null);
+  const currencyDropdownRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     supplier: "",
@@ -219,7 +231,21 @@ export default function NewPOPage() {
     totalAmount: 0,
   });
 
-  // ============ EFECTO: Asignar departamento fijo para roles de departamento ============
+  // Click outside para cerrar dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(target)) {
+        setShowDepartmentDropdown(false);
+      }
+      if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(target)) {
+        setShowCurrencyDropdown(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (!permissionsLoading && permissions.fixedDepartment) {
       setFormData((prev) => ({ ...prev, department: permissions.fixedDepartment || "" }));
@@ -234,7 +260,6 @@ export default function NewPOPage() {
     calculateTotals();
   }, [items]);
 
-  // Real-time validation
   useEffect(() => {
     if (Object.keys(touched).length > 0) {
       validateForm(true);
@@ -251,7 +276,7 @@ export default function NewPOPage() {
         setDepartments(projectDoc.data().departments || []);
       }
 
-      const membersSnapshot = await getDocs(collection(db, `projects/${id}/members`));
+      const membersSnapshot = await getDocs(collection(db, "projects/" + id + "/members"));
       const membersData: Member[] = [];
       for (const memberDocSnap of membersSnapshot.docs) {
         const memberData = memberDocSnap.data();
@@ -273,7 +298,7 @@ export default function NewPOPage() {
       }
       setMembers(membersData);
 
-      const approvalConfigDoc = await getDoc(doc(db, `projects/${id}/config/approvals`));
+      const approvalConfigDoc = await getDoc(doc(db, "projects/" + id + "/config/approvals"));
       if (approvalConfigDoc.exists()) {
         setApprovalConfig(approvalConfigDoc.data().poApprovals || []);
       } else {
@@ -283,21 +308,21 @@ export default function NewPOPage() {
       }
 
       const suppliersSnapshot = await getDocs(
-        query(collection(db, `projects/${id}/suppliers`), orderBy("fiscalName", "asc"))
+        query(collection(db, "projects/" + id + "/suppliers"), orderBy("fiscalName", "asc"))
       );
       setSuppliers(
-        suppliersSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Supplier))
+        suppliersSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as Supplier))
       );
 
       const accountsSnapshot = await getDocs(
-        query(collection(db, `projects/${id}/accounts`), orderBy("code", "asc"))
+        query(collection(db, "projects/" + id + "/accounts"), orderBy("code", "asc"))
       );
       const allSubAccounts: SubAccount[] = [];
       for (const accountDoc of accountsSnapshot.docs) {
         const accountData = accountDoc.data();
         const subAccountsSnapshot = await getDocs(
           query(
-            collection(db, `projects/${id}/accounts/${accountDoc.id}/subaccounts`),
+            collection(db, "projects/" + id + "/accounts/" + accountDoc.id + "/subaccounts"),
             orderBy("code", "asc")
           )
         );
@@ -319,7 +344,7 @@ export default function NewPOPage() {
       }
       setSubAccounts(allSubAccounts);
 
-      const posSnapshot = await getDocs(collection(db, `projects/${id}/pos`));
+      const posSnapshot = await getDocs(collection(db, "projects/" + id + "/pos"));
       setNextPONumber(String(posSnapshot.size + 1).padStart(4, "0"));
     } catch (error) {
       console.error("Error:", error);
@@ -327,7 +352,6 @@ export default function NewPOPage() {
       setLoading(false);
     }
   };
-
 
   const resolveApprovers = (step: ApprovalStep, dept?: string): { ids: string[]; names: string[] } => {
     let approverIds: string[] = [];
@@ -349,9 +373,9 @@ export default function NewPOPage() {
           .map((m) => m.userId);
         break;
     }
-    const approverNames = approverIds.map((id) => {
-      const member = members.find((m) => m.userId === id);
-      return member?.name || member?.email || id;
+    const approverNames = approverIds.map((uid) => {
+      const member = members.find((m) => m.userId === uid);
+      return member?.name || member?.email || uid;
     });
     return { ids: approverIds, names: approverNames };
   };
@@ -393,7 +417,7 @@ export default function NewPOPage() {
     const calc = calculateItemTotal(newItems[index]);
     newItems[index] = { ...newItems[index], ...calc };
     setItems(newItems);
-    setTouched((prev) => ({ ...prev, [`item_${index}_${field}`]: true }));
+    setTouched((prev) => ({ ...prev, ["item_" + index + "_" + field]: true }));
   };
 
   const addItem = () => {
@@ -454,7 +478,7 @@ export default function NewPOPage() {
         subAccountDescription: subAccount.description,
       };
       setItems(newItems);
-      setTouched((prev) => ({ ...prev, [`item_${currentItemIndex}_account`]: true }));
+      setTouched((prev) => ({ ...prev, ["item_" + currentItemIndex + "_account"]: true }));
     }
     setShowAccountModal(false);
     setAccountSearch("");
@@ -467,10 +491,10 @@ export default function NewPOPage() {
     if (!formData.department) newErrors.department = "Selecciona un departamento";
     if (!formData.generalDescription.trim()) newErrors.generalDescription = "Descripción obligatoria";
     items.forEach((item, index) => {
-      if (!item.description.trim()) newErrors[`item_${index}_description`] = "Obligatorio";
-      if (!item.subAccountId) newErrors[`item_${index}_account`] = "Obligatorio";
-      if (item.quantity <= 0) newErrors[`item_${index}_quantity`] = "Debe ser > 0";
-      if (item.unitPrice <= 0) newErrors[`item_${index}_unitPrice`] = "Debe ser > 0";
+      if (!item.description.trim()) newErrors["item_" + index + "_description"] = "Obligatorio";
+      if (!item.subAccountId) newErrors["item_" + index + "_account"] = "Obligatorio";
+      if (item.quantity <= 0) newErrors["item_" + index + "_quantity"] = "Debe ser > 0";
+      if (item.unitPrice <= 0) newErrors["item_" + index + "_unitPrice"] = "Debe ser > 0";
     });
     if (!silent) setErrors(newErrors);
     else setErrors(newErrors);
@@ -499,9 +523,7 @@ export default function NewPOPage() {
     if (file) handleFileUpload(file);
   }, []);
 
-  // ============ FUNCIÓN AUXILIAR: Actualizar committed en subcuentas ============
   const updateSubAccountsCommitted = async (itemsToCommit: POItem[]) => {
-    // Agrupar por subAccountId para hacer una sola actualización por cuenta
     const commitmentsByAccount: Record<string, number> = {};
     
     for (const item of itemsToCommit) {
@@ -511,15 +533,14 @@ export default function NewPOPage() {
       }
     }
 
-    // Actualizar cada subcuenta
-    const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
+    const accountsSnapshot = await getDocs(collection(db, "projects/" + id + "/accounts"));
     
     for (const [subAccountId, amountToAdd] of Object.entries(commitmentsByAccount)) {
       for (const accountDoc of accountsSnapshot.docs) {
         try {
           const subAccountRef = doc(
             db,
-            `projects/${id}/accounts/${accountDoc.id}/subaccounts`,
+            "projects/" + id + "/accounts/" + accountDoc.id + "/subaccounts",
             subAccountId
           );
           const subAccountSnap = await getDoc(subAccountRef);
@@ -529,10 +550,10 @@ export default function NewPOPage() {
             await updateDoc(subAccountRef, {
               committed: currentCommitted + amountToAdd,
             });
-            break; // Encontramos la subcuenta, salir del loop de accounts
+            break;
           }
         } catch (e) {
-          console.error(`Error updating subaccount ${subAccountId}:`, e);
+          console.error("Error updating subaccount " + subAccountId + ":", e);
         }
       }
     }
@@ -544,7 +565,7 @@ export default function NewPOPage() {
     try {
       let fileUrl = "";
       if (uploadedFile) {
-        const fileRef = ref(storage, `projects/${id}/pos/${nextPONumber}/${uploadedFile.name}`);
+        const fileRef = ref(storage, "projects/" + id + "/pos/" + nextPONumber + "/" + uploadedFile.name);
         await uploadBytes(fileRef, uploadedFile);
         fileUrl = await getDownloadURL(fileRef);
       }
@@ -596,7 +617,6 @@ export default function NewPOPage() {
           poData.approvedBy = permissions.userId;
           poData.approvedByName = permissions.userName;
           poData.autoApproved = true;
-          // ============ NUEVO: Guardar committedAmount y remainingAmount ============
           poData.committedAmount = totals.baseAmount;
           poData.remainingAmount = totals.baseAmount;
         } else {
@@ -608,9 +628,8 @@ export default function NewPOPage() {
         poData.status = "draft";
       }
 
-      await addDoc(collection(db, `projects/${id}/pos`), poData);
+      await addDoc(collection(db, "projects/" + id + "/pos"), poData);
 
-      // ============ NUEVO: Si se auto-aprueba, actualizar committed en subcuentas ============
       if (poData.status === "approved") {
         await updateSubAccountsCommitted(items);
       }
@@ -622,9 +641,9 @@ export default function NewPOPage() {
           ? "PO enviada para aprobación"
           : "Borrador guardado"
       );
-      setTimeout(() => router.push(`/project/${id}/accounting/pos`), 1500);
+      setTimeout(() => router.push("/project/" + id + "/accounting/pos"), 1500);
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      alert("Error: " + error.message);
     } finally {
       setSaving(false);
     }
@@ -647,7 +666,7 @@ export default function NewPOPage() {
       return { autoApprove: true, message: "Se aprobará automáticamente", steps: [] };
     return {
       autoApprove: false,
-      message: `${steps.length} nivel${steps.length > 1 ? "es" : ""} de aprobación`,
+      message: steps.length + " nivel" + (steps.length > 1 ? "es" : "") + " de aprobación",
       steps,
     };
   };
@@ -678,28 +697,23 @@ export default function NewPOPage() {
       s.description.toLowerCase().includes(accountSearch.toLowerCase())
   );
 
-  // ============ DEPARTAMENTOS DISPONIBLES SEGÚN PERMISOS ============
   const availableDepartments = getAvailableDepartments(departments);
-
   const approvalPreview = getApprovalPreview();
   const completionPercentage = getCompletionPercentage();
-
   const hasError = (field: string) => touched[field] && errors[field];
   const isValid = (field: string) => touched[field] && !errors[field];
 
-  // ============ LOADING STATE ============
   if (permissionsLoading || loading) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className={cx("min-h-screen bg-white flex items-center justify-center", inter.className)}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  // ============ ACCESO DENEGADO ============
   if (permissionsError || !permissions.hasAccountingAccess || !permissions.canCreatePO) {
     return (
-      <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
+      <div className={cx("min-h-screen bg-white flex items-center justify-center", inter.className)}>
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShieldAlert size={28} className="text-red-500" />
@@ -707,8 +721,9 @@ export default function NewPOPage() {
           <h2 className="text-lg font-semibold text-slate-900 mb-2">Acceso denegado</h2>
           <p className="text-slate-500 mb-6">{permissionsError || "No tienes permisos para crear órdenes de compra"}</p>
           <Link
-            href={`/project/${id}/accounting/pos`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800"
+            href={"/project/" + id + "/accounting/pos"}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: "#2F52E0" }}
           >
             <ArrowLeft size={16} />
             Volver a POs
@@ -718,48 +733,35 @@ export default function NewPOPage() {
     );
   }
 
-
   return (
-    <div className={`min-h-screen bg-white ${inter.className}`}>
+    <div className={cx("min-h-screen bg-white", inter.className)}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          {/* Project context badge */}
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-              >
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link
-                href={`/project/${id}/accounting/pos`}
-                className="hover:text-slate-900 transition-colors"
-              >
-                Órdenes de compra
-              </Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
-          {/* Page header */}
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-            <div className="flex items-center gap-3">
-              <FileText size={24} className="text-indigo-600" />
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-semibold text-slate-900">Nueva orden de compra</h1>
-                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
-                  PO-{nextPONumber}
-                </span>
-                {permissions.fixedDepartment && (
-                  <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
-                    {permissions.fixedDepartment}
+            <div className="flex items-center gap-4">
+              <Link
+                href={"/project/" + id + "/accounting/pos"}
+                className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                <ArrowLeft size={18} className="text-slate-600" />
+              </Link>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(47, 82, 224, 0.1)" }}>
+                <FileText size={20} style={{ color: "#2F52E0" }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-slate-900">Nueva orden de compra</h1>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
+                    PO-{nextPONumber}
                   </span>
-                )}
+                  {permissions.fixedDepartment && (
+                    <span className="px-2 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: "rgba(47, 82, 224, 0.1)", color: "#2F52E0" }}>
+                      {permissions.fixedDepartment}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500 mt-0.5">{projectName}</p>
               </div>
             </div>
 
@@ -775,7 +777,8 @@ export default function NewPOPage() {
               <button
                 onClick={() => savePO("pending")}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium transition-opacity disabled:opacity-50 hover:opacity-90"
+                style={{ backgroundColor: "#2F52E0" }}
               >
                 {saving ? (
                   <>
@@ -794,7 +797,7 @@ export default function NewPOPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3">
             <CheckCircle size={18} className="text-emerald-600" />
@@ -812,29 +815,21 @@ export default function NewPOPage() {
               </div>
 
               <div className="p-6 space-y-5">
+                {/* Proveedor */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Proveedor *
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Proveedor *</label>
                   <button
                     onClick={() => setShowSupplierModal(true)}
                     onBlur={() => handleBlur("supplier")}
-                    className={`w-full px-4 py-3 border ${
-                      hasError("supplier")
-                        ? "border-red-300 bg-red-50"
-                        : isValid("supplier")
-                        ? "border-emerald-300 bg-emerald-50"
-                        : "border-slate-200"
-                    } rounded-xl hover:border-slate-300 transition-colors text-left flex items-center justify-between bg-white`}
+                    className={cx(
+                      "w-full px-4 py-3 border rounded-xl hover:border-slate-300 transition-colors text-left flex items-center justify-between bg-white",
+                      hasError("supplier") ? "border-red-300 bg-red-50" : isValid("supplier") ? "border-emerald-300 bg-emerald-50" : "border-slate-200"
+                    )}
                   >
                     {formData.supplierName ? (
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 ${isValid("supplier") ? "bg-emerald-100" : "bg-slate-100"} rounded-lg flex items-center justify-center`}>
-                          {isValid("supplier") ? (
-                            <CheckCircle2 size={16} className="text-emerald-600" />
-                          ) : (
-                            <Building2 size={16} className="text-slate-500" />
-                          )}
+                        <div className={cx("w-8 h-8 rounded-lg flex items-center justify-center", isValid("supplier") ? "bg-emerald-100" : "bg-slate-100")}>
+                          {isValid("supplier") ? <CheckCircle2 size={16} className="text-emerald-600" /> : <Building2 size={16} className="text-slate-500" />}
                         </div>
                         <span className="font-medium text-slate-900">{formData.supplierName}</span>
                       </div>
@@ -852,41 +847,52 @@ export default function NewPOPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Departamento - Custom Dropdown */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Departamento *
-                      {/* ============ INDICADOR DE DEPARTAMENTO FIJO ============ */}
                       {permissions.fixedDepartment && (
                         <span className="ml-2 text-xs text-slate-400 font-normal">(asignado)</span>
                       )}
                     </label>
-                    <div className="relative">
-                      <select
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        onBlur={() => handleBlur("department")}
+                    <div className="relative" ref={departmentDropdownRef}>
+                      <button
+                        onClick={() => !permissions.fixedDepartment && setShowDepartmentDropdown(!showDepartmentDropdown)}
                         disabled={!!permissions.fixedDepartment}
-                        className={`w-full px-4 py-3 border ${
-                          hasError("department")
-                            ? "border-red-300 bg-red-50"
-                            : isValid("department")
-                            ? "border-emerald-300 bg-emerald-50"
-                            : "border-slate-200"
-                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed text-sm pr-10`}
+                        className={cx(
+                          "w-full px-4 py-3 border rounded-xl text-left flex items-center justify-between transition-colors",
+                          hasError("department") ? "border-red-300 bg-red-50" : isValid("department") ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white",
+                          permissions.fixedDepartment ? "cursor-not-allowed bg-slate-50" : "hover:border-slate-300"
+                        )}
                       >
-                        <option value="">Seleccionar...</option>
-                        {availableDepartments.map((dept) => (
-                          <option key={dept} value={dept}>
-                            {dept}
-                          </option>
-                        ))}
-                      </select>
-                      {/* ============ ICONO DE CANDADO SI ESTÁ FIJO ============ */}
-                      {permissions.fixedDepartment && (
-                        <Lock size={14} className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400" />
-                      )}
-                      {isValid("department") && !permissions.fixedDepartment && (
-                        <CheckCircle2 size={16} className="absolute right-10 top-1/2 -translate-y-1/2 text-emerald-600" />
+                        <span className={formData.department ? "text-slate-900" : "text-slate-400"}>
+                          {formData.department || "Seleccionar..."}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {permissions.fixedDepartment && <Lock size={14} className="text-slate-400" />}
+                          {isValid("department") && !permissions.fixedDepartment && <CheckCircle2 size={16} className="text-emerald-600" />}
+                          {!permissions.fixedDepartment && <ChevronDown size={14} className={cx("text-slate-400 transition-transform", showDepartmentDropdown && "rotate-180")} />}
+                        </div>
+                      </button>
+                      {showDepartmentDropdown && (
+                        <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 max-h-60 overflow-y-auto">
+                          {availableDepartments.map((dept) => (
+                            <button
+                              key={dept}
+                              onClick={() => {
+                                setFormData({ ...formData, department: dept });
+                                setTouched((prev) => ({ ...prev, department: true }));
+                                setShowDepartmentDropdown(false);
+                              }}
+                              className={cx(
+                                "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                                formData.department === dept ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                              )}
+                            >
+                              {dept}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                     {hasError("department") && (
@@ -897,10 +903,9 @@ export default function NewPOPage() {
                     )}
                   </div>
 
+                  {/* Tipo de PO */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Tipo de PO
-                    </label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de PO</label>
                     <div className="grid grid-cols-2 gap-2">
                       {PO_TYPES.map((type) => {
                         const Icon = type.icon;
@@ -909,11 +914,10 @@ export default function NewPOPage() {
                           <button
                             key={type.value}
                             onClick={() => setFormData({ ...formData, poType: type.value as any })}
-                            className={`px-3 py-2.5 rounded-xl border transition-all flex items-center gap-2 text-sm ${
-                              isSelected
-                                ? "border-slate-900 bg-slate-900 text-white"
-                                : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
-                            }`}
+                            className={cx(
+                              "px-3 py-2.5 rounded-xl border transition-all flex items-center gap-2 text-sm",
+                              isSelected ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                            )}
                             title={type.description}
                           >
                             <Icon size={14} />
@@ -925,45 +929,57 @@ export default function NewPOPage() {
                   </div>
                 </div>
 
+                {/* Moneda - Custom Dropdown */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Moneda</label>
-                  <div className="flex gap-2">
-                    {CURRENCIES.map((currency) => (
-                      <button
-                        key={currency.value}
-                        onClick={() => setFormData({ ...formData, currency: currency.value })}
-                        className={`flex-1 px-4 py-2.5 rounded-xl border transition-all text-sm font-medium ${
-                          formData.currency === currency.value
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
-                        }`}
-                      >
-                        {currency.symbol} {currency.label}
-                      </button>
-                    ))}
+                  <div className="relative" ref={currencyDropdownRef}>
+                    <button
+                      onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-left flex items-center justify-between bg-white hover:border-slate-300 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-900">{CURRENCIES.find((c) => c.value === formData.currency)?.symbol}</span>
+                        <span className="text-slate-600">{formData.currency}</span>
+                      </div>
+                      <ChevronDown size={14} className={cx("text-slate-400 transition-transform", showCurrencyDropdown && "rotate-180")} />
+                    </button>
+                    {showCurrencyDropdown && (
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1">
+                        {CURRENCIES.map((currency) => (
+                          <button
+                            key={currency.value}
+                            onClick={() => {
+                              setFormData({ ...formData, currency: currency.value });
+                              setShowCurrencyDropdown(false);
+                            }}
+                            className={cx(
+                              "w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2",
+                              formData.currency === currency.value ? "bg-slate-100 text-slate-900 font-medium" : "text-slate-700 hover:bg-slate-50"
+                            )}
+                          >
+                            <span className="font-medium">{currency.symbol}</span>
+                            <span>{currency.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
+                {/* Descripción general */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Descripción general *
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Descripción general *</label>
                   <div className="relative">
                     <textarea
                       value={formData.generalDescription}
-                      onChange={(e) =>
-                        setFormData({ ...formData, generalDescription: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, generalDescription: e.target.value })}
                       onBlur={() => handleBlur("generalDescription")}
                       placeholder="Describe el propósito de esta orden de compra..."
                       rows={3}
-                      className={`w-full px-4 py-3 border ${
-                        hasError("generalDescription")
-                          ? "border-red-300 bg-red-50"
-                          : isValid("generalDescription")
-                          ? "border-emerald-300 bg-emerald-50"
-                          : "border-slate-200"
-                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10`}
+                      className={cx(
+                        "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10",
+                        hasError("generalDescription") ? "border-red-300 bg-red-50" : isValid("generalDescription") ? "border-emerald-300 bg-emerald-50" : "border-slate-200"
+                      )}
                     />
                     {isValid("generalDescription") && (
                       <CheckCircle2 size={16} className="absolute right-4 top-4 text-emerald-600" />
@@ -979,7 +995,6 @@ export default function NewPOPage() {
               </div>
             </div>
 
-
             {/* Items */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -991,7 +1006,8 @@ export default function NewPOPage() {
                 </div>
                 <button
                   onClick={addItem}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "#2F52E0" }}
                 >
                   <Plus size={14} />
                   Añadir
@@ -1001,39 +1017,28 @@ export default function NewPOPage() {
               <div className="p-6 space-y-4">
                 {items.map((item, index) => {
                   const itemHasAllFields = item.description.trim() && item.subAccountId && item.quantity > 0 && item.unitPrice > 0;
-                  // ============ BUSCAR CUENTA PARA MOSTRAR PRESUPUESTO ============
                   const selectedAccount = subAccounts.find((a) => a.id === item.subAccountId);
                   
                   return (
                     <div
                       key={item.id}
-                      className={`border rounded-xl p-5 transition-all ${
-                        itemHasAllFields
-                          ? "border-emerald-200 bg-emerald-50/30"
-                          : "border-slate-200 bg-slate-50/50"
-                      }`}
+                      className={cx(
+                        "border rounded-xl p-5 transition-all",
+                        itemHasAllFields ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-slate-50/50"
+                      )}
                     >
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            {itemHasAllFields ? (
-                              <CheckCircle2 size={12} className="text-emerald-600" />
-                            ) : (
-                              <Hash size={12} />
-                            )}
+                            {itemHasAllFields ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Hash size={12} />}
                             Item {index + 1}
                           </span>
                           {itemHasAllFields && (
-                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-medium">
-                              Completo
-                            </span>
+                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-medium">Completo</span>
                           )}
                         </div>
                         {items.length > 1 && (
-                          <button
-                            onClick={() => removeItem(index)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
+                          <button onClick={() => removeItem(index)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -1044,54 +1049,39 @@ export default function NewPOPage() {
                           type="text"
                           value={item.description}
                           onChange={(e) => updateItem(index, "description", e.target.value)}
-                          onBlur={() => handleBlur(`item_${index}_description`)}
+                          onBlur={() => handleBlur("item_" + index + "_description")}
                           placeholder="Descripción del item..."
-                          className={`w-full px-4 py-3 border ${
-                            hasError(`item_${index}_description`)
-                              ? "border-red-300 bg-red-50"
-                              : item.description.trim()
-                              ? "border-emerald-200"
-                              : "border-slate-200"
-                          } rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white`}
+                          className={cx(
+                            "w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white",
+                            hasError("item_" + index + "_description") ? "border-red-300 bg-red-50" : item.description.trim() ? "border-emerald-200" : "border-slate-200"
+                          )}
                         />
 
                         <div>
                           <button
-                            onClick={() => {
-                              setCurrentItemIndex(index);
-                              setShowAccountModal(true);
-                            }}
-                            className={`w-full px-4 py-3 border ${
-                              hasError(`item_${index}_account`)
-                                ? "border-red-300 bg-red-50"
-                                : item.subAccountCode
-                                ? "border-emerald-200 bg-emerald-50"
-                                : "border-slate-200"
-                            } rounded-xl text-sm text-left flex items-center justify-between hover:border-slate-300 transition-colors bg-white`}
+                            onClick={() => { setCurrentItemIndex(index); setShowAccountModal(true); }}
+                            className={cx(
+                              "w-full px-4 py-3 border rounded-xl text-sm text-left flex items-center justify-between hover:border-slate-300 transition-colors bg-white",
+                              hasError("item_" + index + "_account") ? "border-red-300 bg-red-50" : item.subAccountCode ? "border-emerald-200 bg-emerald-50" : "border-slate-200"
+                            )}
                           >
                             {item.subAccountCode ? (
                               <div className="flex items-center gap-2">
                                 <CheckCircle2 size={14} className="text-emerald-600" />
-                                <span className="font-mono text-slate-900">
-                                  {item.subAccountCode} - {item.subAccountDescription}
-                                </span>
+                                <span className="font-mono text-slate-900">{item.subAccountCode} - {item.subAccountDescription}</span>
                               </div>
                             ) : (
                               <span className="text-slate-400">Seleccionar cuenta...</span>
                             )}
                             <Search size={14} className="text-slate-400" />
                           </button>
-                          {/* ============ INFO PRESUPUESTO - SOLO ROLES DE PROYECTO ============ */}
                           {permissions.isProjectRole && selectedAccount && (
                             <div className="mt-2 p-2 bg-slate-50 rounded-lg flex items-center justify-between text-xs">
                               <span className="text-slate-500">Disponible:</span>
-                              <span className={`font-medium ${
-                                selectedAccount.available < item.baseAmount
-                                  ? "text-red-600"
-                                  : selectedAccount.available < selectedAccount.budgeted * 0.2
-                                  ? "text-amber-600"
-                                  : "text-emerald-600"
-                              }`}>
+                              <span className={cx(
+                                "font-medium",
+                                selectedAccount.available < item.baseAmount ? "text-red-600" : selectedAccount.available < selectedAccount.budgeted * 0.2 ? "text-amber-600" : "text-emerald-600"
+                              )}>
                                 {formatCurrency(selectedAccount.available)} €
                               </span>
                             </div>
@@ -1114,12 +1104,8 @@ export default function NewPOPage() {
                               type="number"
                               min="1"
                               value={item.quantity}
-                              onChange={(e) =>
-                                updateItem(index, "quantity", parseFloat(e.target.value) || 0)
-                              }
-                              className={`w-full px-3 py-2.5 border ${
-                                item.quantity > 0 ? "border-emerald-200" : "border-slate-200"
-                              } rounded-xl text-sm bg-white`}
+                              onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                              className={cx("w-full px-3 py-2.5 border rounded-xl text-sm bg-white", item.quantity > 0 ? "border-emerald-200" : "border-slate-200")}
                             />
                           </div>
                           <div>
@@ -1130,16 +1116,10 @@ export default function NewPOPage() {
                                 min="0"
                                 step="0.01"
                                 value={item.unitPrice}
-                                onChange={(e) =>
-                                  updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)
-                                }
-                                className={`w-full pl-6 pr-3 py-2.5 border ${
-                                  item.unitPrice > 0 ? "border-emerald-200" : "border-slate-200"
-                                } rounded-xl text-sm bg-white`}
+                                onChange={(e) => updateItem(index, "unitPrice", parseFloat(e.target.value) || 0)}
+                                className={cx("w-full pl-6 pr-3 py-2.5 border rounded-xl text-sm bg-white", item.unitPrice > 0 ? "border-emerald-200" : "border-slate-200")}
                               />
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                                {getCurrencySymbol()}
-                              </span>
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{getCurrencySymbol()}</span>
                             </div>
                           </div>
                           <div>
@@ -1155,32 +1135,20 @@ export default function NewPOPage() {
                             <label className="block text-xs font-medium text-slate-500 mb-1.5">IVA</label>
                             <select
                               value={item.vatRate}
-                              onChange={(e) =>
-                                updateItem(index, "vatRate", parseFloat(e.target.value))
-                              }
+                              onChange={(e) => updateItem(index, "vatRate", parseFloat(e.target.value))}
                               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
                             >
-                              {VAT_RATES.map((rate) => (
-                                <option key={rate.value} value={rate.value}>
-                                  {rate.label}
-                                </option>
-                              ))}
+                              {VAT_RATES.map((rate) => (<option key={rate.value} value={rate.value}>{rate.label}</option>))}
                             </select>
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-slate-500 mb-1.5">IRPF</label>
                             <select
                               value={item.irpfRate}
-                              onChange={(e) =>
-                                updateItem(index, "irpfRate", parseFloat(e.target.value))
-                              }
+                              onChange={(e) => updateItem(index, "irpfRate", parseFloat(e.target.value))}
                               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
                             >
-                              {IRPF_RATES.map((rate) => (
-                                <option key={rate.value} value={rate.value}>
-                                  {rate.label}
-                                </option>
-                              ))}
+                              {IRPF_RATES.map((rate) => (<option key={rate.value} value={rate.value}>{rate.label}</option>))}
                             </select>
                           </div>
                           <div>
@@ -1200,9 +1168,7 @@ export default function NewPOPage() {
                         <div className="flex justify-end">
                           <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm">
                             <span className="text-slate-400">Total:</span>
-                            <span className="ml-2 font-semibold">
-                              {formatCurrency(item.totalAmount)} {getCurrencySymbol()}
-                            </span>
+                            <span className="ml-2 font-semibold">{formatCurrency(item.totalAmount)} {getCurrencySymbol()}</span>
                           </div>
                         </div>
                       </div>
@@ -1211,7 +1177,6 @@ export default function NewPOPage() {
                 })}
               </div>
             </div>
-
 
             {/* File Upload */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -1225,13 +1190,11 @@ export default function NewPOPage() {
                   onDrop={handleDrop}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                    isDragging
-                      ? "border-indigo-400 bg-indigo-50"
-                      : uploadedFile
-                      ? "border-emerald-300 bg-emerald-50"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
+                  className={cx(
+                    "border-2 border-dashed rounded-xl p-8 text-center transition-all",
+                    isDragging ? "border-blue-400 bg-blue-50" : uploadedFile ? "border-emerald-300 bg-emerald-50" : "border-slate-200 hover:border-slate-300"
+                  )}
+                  style={isDragging ? { borderColor: "#2F52E0", backgroundColor: "rgba(47, 82, 224, 0.05)" } : {}}
                 >
                   {uploadedFile ? (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-4">
@@ -1240,18 +1203,11 @@ export default function NewPOPage() {
                           <FileUp size={18} className="text-emerald-600" />
                         </div>
                         <div className="text-left">
-                          <span className="text-sm font-medium text-slate-900 block">
-                            {uploadedFile.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {(uploadedFile.size / 1024).toFixed(0)} KB
-                          </span>
+                          <span className="text-sm font-medium text-slate-900 block">{uploadedFile.name}</span>
+                          <span className="text-xs text-slate-500">{(uploadedFile.size / 1024).toFixed(0)} KB</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setUploadedFile(null)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => setUploadedFile(null)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <X size={16} />
                       </button>
                     </div>
@@ -1265,10 +1221,7 @@ export default function NewPOPage() {
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(file);
-                        }}
+                        onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); }}
                         className="hidden"
                       />
                     </label>
@@ -1285,9 +1238,7 @@ export default function NewPOPage() {
 
               <div className="p-6 space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Condiciones de pago
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Condiciones de pago</label>
                   <input
                     type="text"
                     value={formData.paymentTerms}
@@ -1298,9 +1249,7 @@ export default function NewPOPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Notas internas
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Notas internas</label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1313,60 +1262,39 @@ export default function NewPOPage() {
             </div>
           </div>
 
-
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="space-y-4">
+            <div className="space-y-4 sticky top-24">
               {/* Progress */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-slate-700">Progreso</span>
-                  <span className={`text-sm font-bold ${completionPercentage === 100 ? "text-emerald-600" : "text-slate-900"}`}>
+                  <span className={cx("text-sm font-bold", completionPercentage === 100 ? "text-emerald-600" : "text-slate-900")}>
                     {completionPercentage}%
                   </span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-300 ${
-                      completionPercentage === 100 ? "bg-emerald-500" : "bg-indigo-500"
-                    }`}
-                    style={{ width: `${completionPercentage}%` }}
+                    className={cx("h-full transition-all duration-300", completionPercentage === 100 ? "bg-emerald-500" : "")}
+                    style={{ width: completionPercentage + "%", backgroundColor: completionPercentage < 100 ? "#2F52E0" : undefined }}
                   />
                 </div>
                 <div className="mt-3 space-y-1.5">
                   <div className="flex items-center gap-2 text-xs">
-                    {formData.supplier ? (
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                    ) : (
-                      <Circle size={12} className="text-slate-300" />
-                    )}
+                    {formData.supplier ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Circle size={12} className="text-slate-300" />}
                     <span className={formData.supplier ? "text-slate-700" : "text-slate-400"}>Proveedor</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    {formData.department ? (
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                    ) : (
-                      <Circle size={12} className="text-slate-300" />
-                    )}
+                    {formData.department ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Circle size={12} className="text-slate-300" />}
                     <span className={formData.department ? "text-slate-700" : "text-slate-400"}>Departamento</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    {formData.generalDescription.trim() ? (
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                    ) : (
-                      <Circle size={12} className="text-slate-300" />
-                    )}
+                    {formData.generalDescription.trim() ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Circle size={12} className="text-slate-300" />}
                     <span className={formData.generalDescription.trim() ? "text-slate-700" : "text-slate-400"}>Descripción</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    {items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? (
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                    ) : (
-                      <Circle size={12} className="text-slate-300" />
-                    )}
-                    <span className={items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? "text-slate-700" : "text-slate-400"}>
-                      Items válidos
-                    </span>
+                    {items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Circle size={12} className="text-slate-300" />}
+                    <span className={items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? "text-slate-700" : "text-slate-400"}>Items válidos</span>
                   </div>
                 </div>
               </div>
@@ -1381,44 +1309,30 @@ export default function NewPOPage() {
                   <div className="space-y-3 mb-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-500">Base imponible</span>
-                      <span className="font-medium text-slate-900">
-                        {formatCurrency(totals.baseAmount)} {getCurrencySymbol()}
-                      </span>
+                      <span className="font-medium text-slate-900">{formatCurrency(totals.baseAmount)} {getCurrencySymbol()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-500">IVA</span>
-                      <span className="font-medium text-emerald-600">
-                        +{formatCurrency(totals.vatAmount)} {getCurrencySymbol()}
-                      </span>
+                      <span className="font-medium text-emerald-600">+{formatCurrency(totals.vatAmount)} {getCurrencySymbol()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-500">IRPF</span>
-                      <span className="font-medium text-red-600">
-                        -{formatCurrency(totals.irpfAmount)} {getCurrencySymbol()}
-                      </span>
+                      <span className="font-medium text-red-600">-{formatCurrency(totals.irpfAmount)} {getCurrencySymbol()}</span>
                     </div>
                   </div>
 
                   <div className="border-t border-slate-200 pt-4">
                     <div className="flex justify-between items-center">
                       <span className="text-base font-semibold text-slate-900">Total</span>
-                      <span className="text-xl font-bold text-slate-900">
-                        {formatCurrency(totals.totalAmount)} {getCurrencySymbol()}
-                      </span>
+                      <span className="text-xl font-bold text-slate-900">{formatCurrency(totals.totalAmount)} {getCurrencySymbol()}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Approval Preview */}
-              <div
-                className={`border rounded-2xl overflow-hidden ${
-                  approvalPreview.autoApprove
-                    ? "bg-emerald-50 border-emerald-200"
-                    : "bg-amber-50 border-amber-200"
-                }`}
-              >
-                <div className="px-5 py-4 border-b border-opacity-50" style={{ borderColor: approvalPreview.autoApprove ? "#a7f3d0" : "#fcd34d" }}>
+              <div className={cx("border rounded-2xl overflow-hidden", approvalPreview.autoApprove ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200")}>
+                <div className="px-5 py-4 border-b" style={{ borderColor: approvalPreview.autoApprove ? "#a7f3d0" : "#fcd34d" }}>
                   <div className="flex items-center gap-3">
                     {approvalPreview.autoApprove ? (
                       <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -1430,10 +1344,10 @@ export default function NewPOPage() {
                       </div>
                     )}
                     <div>
-                      <p className={`font-semibold ${approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800"}`}>
+                      <p className={cx("font-semibold", approvalPreview.autoApprove ? "text-emerald-800" : "text-amber-800")}>
                         {approvalPreview.autoApprove ? "Aprobación automática" : "Requiere aprobación"}
                       </p>
-                      <p className={`text-sm ${approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700"}`}>
+                      <p className={cx("text-sm", approvalPreview.autoApprove ? "text-emerald-700" : "text-amber-700")}>
                         {approvalPreview.message}
                       </p>
                     </div>
@@ -1466,25 +1380,18 @@ export default function NewPOPage() {
                             {step.approverNames.length > 0 && (
                               <div className="mt-1 flex flex-wrap gap-1">
                                 {step.approverNames.slice(0, 3).map((name, i) => (
-                                  <span
-                                    key={i}
-                                    className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg"
-                                  >
+                                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg">
                                     <Users size={10} />
                                     {name.split(" ")[0]}
                                   </span>
                                 ))}
                                 {step.approverNames.length > 3 && (
-                                  <span className="text-xs text-amber-700">
-                                    +{step.approverNames.length - 3} más
-                                  </span>
+                                  <span className="text-xs text-amber-700">+{step.approverNames.length - 3} más</span>
                                 )}
                               </div>
                             )}
                             <p className="text-xs text-amber-700 mt-1">
-                              {step.requireAll
-                                ? "Todos deben aprobar"
-                                : `1 de ${step.approvers.length} debe aprobar`}
+                              {step.requireAll ? "Todos deben aprobar" : "1 de " + step.approvers.length + " debe aprobar"}
                             </p>
                           </div>
                         </div>
@@ -1524,20 +1431,13 @@ export default function NewPOPage() {
         </div>
       </main>
 
-
       {/* Supplier Modal */}
       {showSupplierModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Seleccionar proveedor</h2>
-              <button
-                onClick={() => {
-                  setShowSupplierModal(false);
-                  setSupplierSearch("");
-                }}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
+              <button onClick={() => { setShowSupplierModal(false); setSupplierSearch(""); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1573,9 +1473,7 @@ export default function NewPOPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <p className="font-medium text-slate-900">{supplier.fiscalName}</p>
-                          {supplier.commercialName && (
-                            <p className="text-sm text-slate-500">{supplier.commercialName}</p>
-                          )}
+                          {supplier.commercialName && (<p className="text-sm text-slate-500">{supplier.commercialName}</p>)}
                           <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
                             <span className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded">
                               <Hash size={10} />
@@ -1600,17 +1498,8 @@ export default function NewPOPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Seleccionar cuenta presupuestaria
-              </h2>
-              <button
-                onClick={() => {
-                  setShowAccountModal(false);
-                  setAccountSearch("");
-                  setCurrentItemIndex(null);
-                }}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
+              <h2 className="text-lg font-semibold text-slate-900">Seleccionar cuenta presupuestaria</h2>
+              <button onClick={() => { setShowAccountModal(false); setAccountSearch(""); setCurrentItemIndex(null); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1645,13 +1534,10 @@ export default function NewPOPage() {
                       <button
                         key={subAccount.id}
                         onClick={() => selectAccount(subAccount)}
-                        className={`w-full text-left p-4 border rounded-xl hover:bg-slate-50 transition-all ${
-                          isOverBudget
-                            ? "border-red-200 bg-red-50/50"
-                            : isLowBudget
-                            ? "border-amber-200 bg-amber-50/50"
-                            : "border-slate-200"
-                        }`}
+                        className={cx(
+                          "w-full text-left p-4 border rounded-xl hover:bg-slate-50 transition-all",
+                          isOverBudget ? "border-red-200 bg-red-50/50" : isLowBudget ? "border-amber-200 bg-amber-50/50" : "border-slate-200"
+                        )}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
@@ -1671,53 +1557,26 @@ export default function NewPOPage() {
                               )}
                             </div>
                             <p className="text-sm text-slate-700">{subAccount.description}</p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {subAccount.accountCode} - {subAccount.accountDescription}
-                            </p>
+                            <p className="text-xs text-slate-500 mt-1">{subAccount.accountCode} - {subAccount.accountDescription}</p>
                           </div>
                         </div>
-                        {/* ============ INFO PRESUPUESTO - SOLO ROLES DE PROYECTO ============ */}
                         {permissions.isProjectRole && (
                           <div className="grid grid-cols-4 gap-3 text-xs">
                             <div className="bg-slate-50 rounded-lg p-2">
                               <p className="text-slate-500">Presupuestado</p>
-                              <p className="font-semibold text-slate-900">
-                                {formatCurrency(subAccount.budgeted)} €
-                              </p>
+                              <p className="font-semibold text-slate-900">{formatCurrency(subAccount.budgeted)} €</p>
                             </div>
                             <div className="bg-amber-50 rounded-lg p-2">
                               <p className="text-amber-600">Comprometido</p>
-                              <p className="font-semibold text-amber-700">
-                                {formatCurrency(subAccount.committed)} €
-                              </p>
+                              <p className="font-semibold text-amber-700">{formatCurrency(subAccount.committed)} €</p>
                             </div>
                             <div className="bg-emerald-50 rounded-lg p-2">
                               <p className="text-emerald-600">Realizado</p>
-                              <p className="font-semibold text-emerald-700">
-                                {formatCurrency(subAccount.actual)} €
-                              </p>
+                              <p className="font-semibold text-emerald-700">{formatCurrency(subAccount.actual)} €</p>
                             </div>
-                            <div className={`rounded-lg p-2 ${
-                              isOverBudget
-                                ? "bg-red-50"
-                                : isLowBudget
-                                ? "bg-amber-50"
-                                : "bg-emerald-50"
-                            }`}>
-                              <p className={`${
-                                isOverBudget
-                                  ? "text-red-600"
-                                  : isLowBudget
-                                  ? "text-amber-600"
-                                  : "text-emerald-600"
-                              }`}>Disponible</p>
-                              <p className={`font-semibold ${
-                                isOverBudget
-                                  ? "text-red-700"
-                                  : isLowBudget
-                                  ? "text-amber-700"
-                                  : "text-emerald-700"
-                              }`}>
+                            <div className={cx("rounded-lg p-2", isOverBudget ? "bg-red-50" : isLowBudget ? "bg-amber-50" : "bg-emerald-50")}>
+                              <p className={isOverBudget ? "text-red-600" : isLowBudget ? "text-amber-600" : "text-emerald-600"}>Disponible</p>
+                              <p className={cx("font-semibold", isOverBudget ? "text-red-700" : isLowBudget ? "text-amber-700" : "text-emerald-700")}>
                                 {formatCurrency(subAccount.available)} €
                               </p>
                             </div>
