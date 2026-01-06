@@ -761,7 +761,6 @@ export default function NewPOPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5">{projectName}</p>
               </div>
             </div>
 
@@ -1264,7 +1263,7 @@ export default function NewPOPage() {
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="space-y-4 sticky top-24">
+            <div className="space-y-4">
               {/* Progress */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
