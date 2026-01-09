@@ -76,7 +76,7 @@ export default function ConfigUsers() {
     role: "",
     department: "",
     position: "",
-    permissions: { accounting: false, team: false }
+    permissions: { config: false, accounting: false, team: false }
   });
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -176,11 +176,11 @@ export default function ConfigUsers() {
 
       if (inviteForm.roleType === "project") {
         inviteData.role = inviteForm.role;
-        inviteData.permissions = { config: ["EP", "PM"].includes(inviteForm.role), accounting: inviteForm.permissions.accounting, team: inviteForm.permissions.team };
+        inviteData.permissions = { config: inviteForm.permissions.config, accounting: inviteForm.permissions.accounting, team: inviteForm.permissions.team };
       } else {
         inviteData.department = inviteForm.department;
         inviteData.position = inviteForm.position;
-        inviteData.permissions = { config: false, accounting: inviteForm.permissions.accounting, team: inviteForm.permissions.team };
+        inviteData.permissions = { config: inviteForm.permissions.config, accounting: inviteForm.permissions.accounting, team: inviteForm.permissions.team };
       }
 
       await setDoc(doc(collection(db, "invitations")), inviteData);
@@ -212,7 +212,7 @@ export default function ConfigUsers() {
 
   const closeModal = () => {
     setShowInviteModal(false);
-    setInviteForm({ email: "", name: "", roleType: "project", role: "", department: "", position: "", permissions: { accounting: false, team: false } });
+    setInviteForm({ email: "", name: "", roleType: "project", role: "", department: "", position: "", permissions: { config: false, accounting: false, team: false } });
     setUserExists(null); setFoundUser(null);
   };
 
@@ -309,7 +309,7 @@ export default function ConfigUsers() {
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar usuarios"
+              placeholder="Buscar miembro..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
@@ -538,21 +538,29 @@ export default function ConfigUsers() {
                 </>
               )}
               <div>
-                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Permisos adicionales</label>
-                <div className="flex gap-3">
+                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Permisos</label>
+                <div className="flex flex-wrap gap-2">
+                  <label 
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all"
+                    style={inviteForm.permissions.config ? { backgroundColor: 'rgba(100, 116, 139, 0.15)', borderColor: 'rgba(100, 116, 139, 0.4)' } : {}}
+                  >
+                    <input type="checkbox" checked={inviteForm.permissions.config} onChange={(e) => setInviteForm({ ...inviteForm, permissions: { ...inviteForm.permissions, config: e.target.checked } })} className="sr-only" />
+                    <Shield size={14} style={inviteForm.permissions.config ? { color: '#475569' } : { color: '#94a3b8' }} />
+                    <span className="text-sm font-medium" style={inviteForm.permissions.config ? { color: '#475569' } : { color: '#64748b' }}>Config</span>
+                  </label>
                   <label 
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all"
                     style={inviteForm.permissions.accounting ? { backgroundColor: 'rgba(47, 82, 224, 0.1)', borderColor: 'rgba(47, 82, 224, 0.3)' } : {}}
                   >
                     <input type="checkbox" checked={inviteForm.permissions.accounting} onChange={(e) => setInviteForm({ ...inviteForm, permissions: { ...inviteForm.permissions, accounting: e.target.checked } })} className="sr-only" />
-                    <span className="text-sm font-medium" style={inviteForm.permissions.accounting ? { color: '#2F52E0' } : { color: '#64748b' }}>Contabilidad</span>
+                    <span className="text-sm font-medium" style={inviteForm.permissions.accounting ? { color: '#2F52E0' } : { color: '#64748b' }}>Accounting</span>
                   </label>
                   <label 
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all"
                     style={inviteForm.permissions.team ? { backgroundColor: 'rgba(137, 211, 34, 0.15)', borderColor: 'rgba(137, 211, 34, 0.4)' } : {}}
                   >
                     <input type="checkbox" checked={inviteForm.permissions.team} onChange={(e) => setInviteForm({ ...inviteForm, permissions: { ...inviteForm.permissions, team: e.target.checked } })} className="sr-only" />
-                    <span className="text-sm font-medium" style={inviteForm.permissions.team ? { color: '#6BA319' } : { color: '#64748b' }}>Equipo</span>
+                    <span className="text-sm font-medium" style={inviteForm.permissions.team ? { color: '#6BA319' } : { color: '#64748b' }}>Team</span>
                   </label>
                 </div>
               </div>
