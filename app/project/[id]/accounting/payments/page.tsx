@@ -504,11 +504,10 @@ export default function PaymentsPage() {
         <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(47, 82, 224, 0.1)" }}>
-                <CreditCard size={20} style={{ color: "#2F52E0" }} />
-              </div>
+              <CreditCard size={24} style={{ color: "#2F52E0" }} />
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Previsiones de pago</h1>
+                <p className="text-sm text-slate-500 mt-0.5">{forecasts.length} previsiones · {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} € total</p>
               </div>
             </div>
             <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity" style={{ backgroundColor: "#2F52E0" }}>
@@ -535,7 +534,7 @@ export default function PaymentsPage() {
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar previsiones" className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar previsión o proveedor..." className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm" />
           </div>
           <div className="flex flex-wrap gap-2">
             <div className="relative" ref={statusDropdownRef}>
@@ -613,7 +612,7 @@ export default function PaymentsPage() {
                   <div className="p-3 border-b border-slate-100">
                     <div className="relative mb-2">
                       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} placeholder="Buscar facturas" className="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white" />
+                      <input type="text" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} placeholder="Buscar factura..." className="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white" />
                       {invoiceSearch && (<button onClick={() => setInvoiceSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"><X size={12} /></button>)}
                     </div>
                     <div className="flex gap-2">
