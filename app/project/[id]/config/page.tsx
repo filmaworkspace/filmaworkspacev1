@@ -121,6 +121,12 @@ export default function ConfigGeneral() {
   const [savingProduction, setSavingProduction] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
+  const LANGUAGES = [
+    "Español", "Inglés", "Francés", "Alemán", "Italiano", 
+    "Portugués", "Catalán", "Euskera", "Gallego"
+  ];
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -239,15 +245,33 @@ export default function ConfigGeneral() {
     if (!id) return;
     setSavingProduction(true);
     try {
-      await setDoc(doc(db, `projects/${id}/config`, "production"), {
-        ...productionForm,
+      // Limpiar valores undefined antes de guardar
+      const dataToSave: Record<string, any> = {
+        projectType: productionForm.projectType,
         updatedAt: Timestamp.now(),
-      });
+      };
+      
+      if (productionForm.episodes) dataToSave.episodes = productionForm.episodes;
+      if (productionForm.episodeDuration) dataToSave.episodeDuration = productionForm.episodeDuration;
+      if (productionForm.totalDuration) dataToSave.totalDuration = productionForm.totalDuration;
+      if (productionForm.shootingDays) dataToSave.shootingDays = productionForm.shootingDays;
+      if (productionForm.shootingStartDate) dataToSave.shootingStartDate = productionForm.shootingStartDate;
+      if (productionForm.shootingEndDate) dataToSave.shootingEndDate = productionForm.shootingEndDate;
+      if (productionForm.preproductionStartDate) dataToSave.preproductionStartDate = productionForm.preproductionStartDate;
+      if (productionForm.postproductionEndDate) dataToSave.postproductionEndDate = productionForm.postproductionEndDate;
+      if (productionForm.language) dataToSave.language = productionForm.language;
+      if (productionForm.originalTitle) dataToSave.originalTitle = productionForm.originalTitle;
+      if (productionForm.workingTitle) dataToSave.workingTitle = productionForm.workingTitle;
+
+      await setDoc(doc(db, `projects/${id}/config`, "production"), dataToSave);
       setProductionData(productionForm);
       setEditingProduction(false);
       showToast("success", "Datos de producción guardados");
-    } catch {
-      showToast("error", "Error al guardar datos de producción");
+    } catch (err: any) {
+      console.error("Error saving production data:", err);
+      console.error("Error code:", err?.code);
+      console.error("Error message:", err?.message);
+      showToast("error", err?.message || "Error al guardar datos de producción");
     } finally {
       setSavingProduction(false);
     }
@@ -957,25 +981,46 @@ export default function ConfigGeneral() {
                           className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Idioma principal</label>
-                        <select
-                          value={productionForm.language || ""}
-                          onChange={(e) => setProductionForm({ ...productionForm, language: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm bg-white"
-                        >
-                          <option value="">Seleccionar...</option>
-                          <option value="Español">Español</option>
-                          <option value="Inglés">Inglés</option>
-                          <option value="Francés">Francés</option>
-                          <option value="Alemán">Alemán</option>
-                          <option value="Italiano">Italiano</option>
-                          <option value="Portugués">Portugués</option>
-                          <option value="Catalán">Catalán</option>
-                          <option value="Euskera">Euskera</option>
-                          <option value="Gallego">Gallego</option>
-                        </select>
-                      </div>
+                      <div className="relative">
+                          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Idioma principal</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm bg-white text-left flex items-center justify-between hover:border-slate-300 transition-colors"
+                          >
+                            <span className={productionForm.language ? "text-slate-900" : "text-slate-400"}>
+                              {productionForm.language || "Seleccionar idioma"}
+                            </span>
+                            <svg className={`w-4 h-4 text-slate-400 transition-transform ${showLanguageDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {showLanguageDropdown && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setShowLanguageDropdown(false)} />
+                              <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-60 overflow-auto">
+                                {LANGUAGES.map((lang) => (
+                                  <button
+                                    key={lang}
+                                    type="button"
+                                    onClick={() => {
+                                      setProductionForm({ ...productionForm, language: lang });
+                                      setShowLanguageDropdown(false);
+                                    }}
+                                    className={`w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center justify-between ${
+                                      productionForm.language === lang ? "bg-slate-50 text-slate-900 font-medium" : "text-slate-700"
+                                    }`}
+                                  >
+                                    {lang}
+                                    {productionForm.language === lang && (
+                                      <CheckCircle size={16} className="text-emerald-500" />
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
                     </div>
                   )}
 
