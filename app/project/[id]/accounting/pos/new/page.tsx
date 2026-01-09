@@ -746,9 +746,7 @@ export default function NewPOPage() {
               >
                 <ArrowLeft size={18} className="text-slate-600" />
               </Link>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(47, 82, 224, 0.1)" }}>
-                <FileText size={20} style={{ color: "#2F52E0" }} />
-              </div>
+              <FileText size={24} style={{ color: "#2F52E0" }} />
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-semibold text-slate-900">Nueva orden de compra</h1>
@@ -971,12 +969,12 @@ export default function NewPOPage() {
                   <div className="relative">
                     <textarea
                       value={formData.generalDescription}
-                      onChange={(e) => setFormData({ ...formData, generalDescription: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, generalDescription: e.target.value.toUpperCase() })}
                       onBlur={() => handleBlur("generalDescription")}
-                      placeholder="Describe el propósito de esta orden de compra..."
+                      placeholder="DESCRIBE EL PROPÓSITO DE ESTA ORDEN DE COMPRA..."
                       rows={3}
                       className={cx(
-                        "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10",
+                        "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10 uppercase",
                         hasError("generalDescription") ? "border-red-300 bg-red-50" : isValid("generalDescription") ? "border-emerald-300 bg-emerald-50" : "border-slate-200"
                       )}
                     />
