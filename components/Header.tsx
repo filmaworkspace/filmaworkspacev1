@@ -217,7 +217,7 @@ export default function Header() {
 
     return (
       <span className={`text-xs mr-2 transition-all duration-150 ${
-        isHovering ? "text-slate-600 font-medium" : "text-slate-400"
+        isHovering ? "text-slate-400" : "text-slate-600 font-medium"
       }`}>
         {sectionLabels[displaySection]}
       </span>
