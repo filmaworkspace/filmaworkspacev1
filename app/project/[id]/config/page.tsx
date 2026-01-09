@@ -894,8 +894,7 @@ export default function ConfigGeneral() {
                     <p className="text-sm text-slate-500 mb-4">Configura los datos de tu producción</p>
                     <button
                       onClick={() => setEditingProduction(true)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: "#2F52E0" }}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors"
                     >
                       <Edit2 size={16} />
                       Configurar
@@ -1100,8 +1099,7 @@ export default function ConfigGeneral() {
                     <button
                       onClick={handleSaveProduction}
                       disabled={savingProduction || !productionForm.projectType}
-                      className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium transition-opacity disabled:opacity-50 hover:opacity-90"
-                      style={{ backgroundColor: "#2F52E0" }}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 hover:bg-slate-800"
                     >
                       <Save size={16} />
                       {savingProduction ? "Guardando..." : "Guardar"}
