@@ -47,6 +47,7 @@ interface PaymentItem {
   invoiceId?: string;
   invoiceNumber?: string;
   supplier: string;
+  supplierId?: string;
   description: string;
   amount: number;
   partialAmount?: number;
@@ -333,6 +334,7 @@ export default function PaymentsPage() {
       invoiceId: invoice?.id || newPayment.invoiceId || undefined,
       invoiceNumber: invoice?.number || undefined,
       supplier: invoice?.supplier || newPayment.supplier,
+      supplierId: invoice?.supplierId || undefined,
       description: invoice?.description || newPayment.description,
       amount: invoice?.totalAmount || newPayment.amount,
       department: invoice?.department, addedBy: userId!, addedByName: userName, addedAt: new Date(), status: "pending",
