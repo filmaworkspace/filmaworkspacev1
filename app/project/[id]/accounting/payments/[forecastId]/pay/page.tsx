@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import { auth, db, storage } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, getDocs, collection, updateDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   ArrowLeft,
@@ -93,8 +93,16 @@ interface PaymentForecast {
 interface CompanyData {
   fiscalName: string;
   taxId: string;
-  iban?: string;
+}
+
+interface BankAccount {
+  id: string;
+  alias: string;
+  fiscalName: string;
+  taxId: string;
+  iban: string;
   bic?: string;
+  isDefault?: boolean;
 }
 
 interface SupplierData {
@@ -114,6 +122,8 @@ export default function PaymentPayPage() {
   const [userName, setUserName] = useState("");
   const [forecast, setForecast] = useState<PaymentForecast | null>(null);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [selectedBankAccount, setSelectedBankAccount] = useState<BankAccount | null>(null);
   const [suppliers, setSuppliers] = useState<Record<string, SupplierData>>({});
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -179,6 +189,18 @@ export default function PaymentPayPage() {
         if (companySnap.exists()) {
           setCompanyData(companySnap.data() as CompanyData);
         }
+
+        // Cargar cuentas bancarias
+        const bankAccountsSnap = await getDocs(collection(db, `projects/${id}/config/company/bankAccounts`));
+        const accounts = bankAccountsSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        })) as BankAccount[];
+        const sortedAccounts = accounts.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+        setBankAccounts(sortedAccounts);
+        // Seleccionar cuenta por defecto
+        const defaultAccount = sortedAccounts.find(a => a.isDefault) || sortedAccounts[0];
+        if (defaultAccount) setSelectedBankAccount(defaultAccount);
 
         // Cargar proveedores para obtener IBANs
         const suppliersMap: Record<string, SupplierData> = {};
@@ -390,8 +412,8 @@ export default function PaymentPayPage() {
   }, [forecast, pendingItems]);
 
   const generateSepaXml = () => {
-    if (!forecast || !companyData) {
-      showToast("error", "Faltan datos de empresa para generar SEPA");
+    if (!forecast || !selectedBankAccount) {
+      showToast("error", "Selecciona una cuenta bancaria para generar SEPA");
       return;
     }
 
@@ -412,11 +434,6 @@ export default function PaymentPayPage() {
 
     if (itemsWithoutIban.length > 0) {
       showToast("error", `${itemsWithoutIban.length} proveedor(es) sin IBAN configurado`);
-      return;
-    }
-
-    if (!companyData.iban) {
-      showToast("error", "Falta el IBAN de la empresa en configuración");
       return;
     }
 
@@ -465,11 +482,11 @@ export default function PaymentPayPage() {
       <NbOfTxs>${itemsToExport.length}</NbOfTxs>
       <CtrlSum>${totalAmount.toFixed(2)}</CtrlSum>
       <InitgPty>
-        <Nm>${escapeXml(companyData.fiscalName)}</Nm>
+        <Nm>${escapeXml(selectedBankAccount.fiscalName)}</Nm>
         <Id>
           <OrgId>
             <Othr>
-              <Id>${companyData.taxId}</Id>
+              <Id>${selectedBankAccount.taxId}</Id>
             </Othr>
           </OrgId>
         </Id>
@@ -488,14 +505,14 @@ export default function PaymentPayPage() {
       </PmtTpInf>
       <ReqdExctnDt>${executionDate}</ReqdExctnDt>
       <Dbtr>
-        <Nm>${escapeXml(companyData.fiscalName)}</Nm>
+        <Nm>${escapeXml(selectedBankAccount.fiscalName)}</Nm>
       </Dbtr>
       <DbtrAcct>
         <Id>
-          <IBAN>${companyData.iban.replace(/\s/g, "")}</IBAN>
+          <IBAN>${selectedBankAccount.iban.replace(/\s/g, "")}</IBAN>
         </Id>
       </DbtrAcct>
-      ${companyData.bic ? `<DbtrAgt><FinInstnId><BIC>${companyData.bic}</BIC></FinInstnId></DbtrAgt>` : ""}
+      ${selectedBankAccount.bic ? `<DbtrAgt><FinInstnId><BIC>${selectedBankAccount.bic}</BIC></FinInstnId></DbtrAgt>` : ""}
       <ChrgBr>SLEV</ChrgBr>${transactions}
     </PmtInf>
   </CstmrCdtTrfInitn>
@@ -933,6 +950,51 @@ export default function PaymentPayPage() {
             </div>
             
             <div className="p-6">
+              {/* Selector de cuenta bancaria */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Cuenta ordenante</label>
+                {bankAccounts.length > 0 ? (
+                  <div className="space-y-2">
+                    {bankAccounts.map((account) => (
+                      <label
+                        key={account.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          selectedBankAccount?.id === account.id
+                            ? "border-slate-900 bg-slate-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bankAccount"
+                          checked={selectedBankAccount?.id === account.id}
+                          onChange={() => setSelectedBankAccount(account)}
+                          className="w-4 h-4 text-slate-900 focus:ring-slate-900"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-slate-900">{account.alias}</p>
+                            {account.isDefault && (
+                              <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Principal</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">{account.fiscalName}</p>
+                          <p className="text-xs font-mono text-slate-400">{account.iban.replace(/(.{4})/g, "$1 ").trim()}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Sin cuentas bancarias</p>
+                      <p className="text-xs text-amber-700 mt-0.5">Añade una cuenta en Configuración → Cuentas bancarias</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Fecha de ejecución</label>
                 <input
@@ -962,16 +1024,6 @@ export default function PaymentPayPage() {
                 </div>
               </div>
 
-              {!companyData?.iban && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-                  <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-800">Falta IBAN de empresa</p>
-                    <p className="text-xs text-amber-700 mt-0.5">Configura el IBAN en Configuración → Datos fiscales</p>
-                  </div>
-                </div>
-              )}
-
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSepaModal(false)}
@@ -981,7 +1033,7 @@ export default function PaymentPayPage() {
                 </button>
                 <button
                   onClick={generateSepaXml}
-                  disabled={!companyData?.iban}
+                  disabled={!selectedBankAccount}
                   className="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <Download size={16} />
