@@ -133,7 +133,6 @@ export default function PaymentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showForecastDetail, setShowForecastDetail] = useState<PaymentForecast | null>(null);
-  const [showUploadReceipt, setShowUploadReceipt] = useState<{ forecast: PaymentForecast; item: PaymentItem } | null>(null);
   const [newForecast, setNewForecast] = useState({ name: "", paymentDate: "", type: "remesa" as "remesa" | "fuera_remesa" });
   const [selectedForecastId, setSelectedForecastId] = useState<string | null>(null);
   const [newPayment, setNewPayment] = useState({ type: "invoice" as PaymentType, invoiceId: "", supplier: "", description: "", amount: 0, partialAmount: 0 });
@@ -369,26 +368,6 @@ export default function PaymentsPage() {
     try {
       await updateDoc(doc(db, "projects/" + id + "/paymentForecasts", forecastId), { status: "pending" });
       showToast("success", "Previsión enviada"); loadData();
-    } catch (error) { console.error("Error:", error); }
-  };
-
-  const handleCompletePaymentItem = async (forecastId: string, itemId: string, receiptUrl?: string, receiptName?: string) => {
-    const forecast = forecasts.find((f) => f.id === forecastId);
-    if (!forecast) return;
-    const updatedItems = forecast.items.map((item) => {
-      if (item.id === itemId) {
-        return { ...item, status: "completed" as const, receiptUrl: receiptUrl || "", receiptName: receiptName || "Justificante", completedAt: new Date(), completedBy: userId, completedByName: userName };
-      }
-      return item;
-    });
-    const allCompleted = updatedItems.every((item) => item.status === "completed");
-    try {
-      await updateDoc(doc(db, "projects/" + id + "/paymentForecasts", forecastId), { items: updatedItems, status: allCompleted ? "completed" : forecast.status });
-      const item = forecast.items.find((i) => i.id === itemId);
-      if (item?.invoiceId && item.type !== "partial") {
-        await updateDoc(doc(db, "projects/" + id + "/invoices", item.invoiceId), { status: "paid", paidAt: Timestamp.now(), paymentForecastId: forecastId });
-      }
-      setShowUploadReceipt(null); showToast("success", "Pago completado"); loadData();
     } catch (error) { console.error("Error:", error); }
   };
 
@@ -725,6 +704,7 @@ export default function PaymentsPage() {
                                 <button onClick={() => { setShowForecastDetail(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={14} /> Ver detalles</button>
                                 <button onClick={() => { exportForecastPDF(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Download size={14} /> Exportar PDF</button>
                                 {forecast.status === "draft" && (<><button onClick={() => { setSelectedForecastId(forecast.id); setShowAddPaymentModal(true); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Plus size={14} /> Añadir pago</button>{forecast.items.length > 0 && (<button onClick={() => { handleSendForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"><Send size={14} /> Enviar</button>)}</>)}
+                                {forecast.status === "pending" && (<button onClick={() => { router.push("/project/" + id + "/payments/" + forecast.id + "/pay"); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><Banknote size={14} /> Ir a pagar</button>)}
                                 <div className="border-t border-slate-100 my-1" />
                                 <button onClick={() => { handleDeleteForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Eliminar</button>
                               </div>
@@ -834,7 +814,6 @@ export default function PaymentsPage() {
                                       <div className="flex items-center gap-4">
                                         <span className={cx("text-xs px-2 py-1 rounded-lg", item.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>{item.status === "completed" ? "Completado" : "Pendiente"}</span>
                                         <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.partialAmount || item.amount)} €</span>
-                                        {forecast.status === "pending" && item.status === "pending" && (<button onClick={() => setShowUploadReceipt({ forecast, item })} className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Completar</button>)}
                                         {item.receiptUrl && (<a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-400 hover:text-slate-700"><ExternalLink size={14} /></a>)}
                                       </div>
                                     </div>
@@ -1005,10 +984,8 @@ export default function PaymentsPage() {
                                   </div>
                                 ) : item.status === "completed" ? (
                                   <p className="text-xs text-emerald-600">✓ Completado el {formatDate(item.completedAt!)} por {item.completedByName}</p>
-                                ) : showForecastDetail.status === "pending" ? (
-                                  <button onClick={() => setShowUploadReceipt({ forecast: showForecastDetail, item })} className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"><Upload size={14} />Subir justificante</button>
                                 ) : (
-                                  <p className="text-xs text-slate-400">Pendiente de envío</p>
+                                  <p className="text-xs text-slate-400">Pendiente de pago</p>
                                 )}
                               </div>
                             </div>
@@ -1027,31 +1004,15 @@ export default function PaymentsPage() {
               {showForecastDetail.status === "draft" && (
                 <button onClick={() => { setSelectedForecastId(showForecastDetail.id); setShowAddPaymentModal(true); setShowForecastDetail(null); }} className="px-4 py-2 text-sm text-white hover:opacity-90 rounded-lg flex items-center gap-2" style={{ backgroundColor: "#2F52E0" }}><Plus size={14} />Añadir pago</button>
               )}
+              {showForecastDetail.status === "pending" && (
+                <button onClick={() => router.push("/project/" + id + "/payments/" + showForecastDetail.id + "/pay")} className="px-4 py-2 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg flex items-center gap-2"><Banknote size={14} />Ir a pagar</button>
+              )}
               <button onClick={() => setShowForecastDetail(null)} className="px-4 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-white rounded-lg">Cerrar</button>
             </div>
           </div>
         </div>
       )}
 
-      {showUploadReceipt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUploadReceipt(null)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Completar pago</h3>
-              <button onClick={() => setShowUploadReceipt(null)} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
-            </div>
-            <div className="p-6">
-              <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Pago</p>
-                <p className="font-semibold text-slate-900 font-mono">{showUploadReceipt.item.invoiceNumber ? ("FAC-" + showUploadReceipt.item.invoiceNumber) : showUploadReceipt.item.description}</p>
-                <p className="text-sm text-slate-600">{showUploadReceipt.item.supplier}</p>
-                <p className="text-lg font-bold text-slate-900 mt-2">{formatCurrency(showUploadReceipt.item.partialAmount || showUploadReceipt.item.amount)} €</p>
-              </div>
-              <button onClick={() => handleCompletePaymentItem(showUploadReceipt.forecast.id, showUploadReceipt.item.id)} className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"><CheckCircle2 size={18} />Marcar como completado</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
