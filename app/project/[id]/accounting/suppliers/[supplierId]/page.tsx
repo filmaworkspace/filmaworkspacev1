@@ -21,6 +21,7 @@ interface Supplier {
   contact: { name: string; email: string; phone: string };
   paymentMethod: string;
   bankAccount: string;
+  bic?: string;
   certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate };
   createdAt: Date;
 }
@@ -83,6 +84,7 @@ export default function SupplierDetailPage() {
     address: { street: "", number: "", city: "", province: "", postalCode: "" },
     paymentMethod: "transferencia",
     bankAccount: "",
+    bic: "",
   });
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeProjectData, setCloseProjectData] = useState({
@@ -167,6 +169,7 @@ export default function SupplierDetailPage() {
         contact: data.contact || {},
         paymentMethod: data.paymentMethod || "transferencia",
         bankAccount: data.bankAccount || "",
+        bic: data.bic || "",
         certificates: {
           bankOwnership: { ...data.certificates?.bankOwnership, expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(), verifiedAt: data.certificates?.bankOwnership?.verifiedAt?.toDate() },
           contractorsCertificate: { ...data.certificates?.contractorsCertificate, expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(), verifiedAt: data.certificates?.contractorsCertificate?.verifiedAt?.toDate() },
@@ -218,6 +221,7 @@ export default function SupplierDetailPage() {
         address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
         paymentMethod: data.paymentMethod || "transferencia",
         bankAccount: formatIBAN(data.bankAccount || ""),
+        bic: data.bic || "",
       });
 
       // Cargar datos de cierre si existen
@@ -289,6 +293,7 @@ export default function SupplierDetailPage() {
         address: editForm.address,
         paymentMethod: editForm.paymentMethod,
         bankAccount: editForm.bankAccount.replace(/\s/g, ""),
+        bic: editForm.bic.trim().toUpperCase(),
       });
       setSuccessMessage("Datos actualizados");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -363,6 +368,39 @@ export default function SupplierDetailPage() {
   };
 
   const formatIBAN = (iban: string) => iban.replace(/\s/g, "").toUpperCase().match(/.{1,4}/g)?.join(" ") || iban;
+  
+  // Calcula los dígitos de control del IBAN español
+  const calculateSpanishIBANCheckDigits = (accountNumber: string): string => {
+    const clean = accountNumber.replace(/\s/g, "");
+    if (clean.length !== 20 || !/^\d{20}$/.test(clean)) return "";
+    const numericString = clean + "142800";
+    let remainder = 0;
+    for (let i = 0; i < numericString.length; i++) {
+      remainder = (remainder * 10 + parseInt(numericString[i])) % 97;
+    }
+    const checkDigits = (98 - remainder).toString().padStart(2, "0");
+    return "ES" + checkDigits + clean;
+  };
+
+  const handleBankAccountChange = (value: string) => {
+    let clean = value.replace(/\s/g, "").toUpperCase();
+    // Si tiene exactamente 20 dígitos numéricos, calcular IBAN completo
+    const withoutPrefix = clean.replace(/^ES\d{0,2}/, "");
+    if (/^\d{20}$/.test(withoutPrefix)) {
+      const fullIban = calculateSpanishIBANCheckDigits(withoutPrefix);
+      if (fullIban) {
+        setEditForm({ ...editForm, bankAccount: formatIBAN(fullIban) });
+        return;
+      }
+    }
+    // Si empieza con números, añadir ES
+    if (/^\d/.test(clean)) {
+      clean = "ES" + clean;
+    }
+    if (clean.length > 24) clean = clean.slice(0, 24);
+    setEditForm({ ...editForm, bankAccount: formatIBAN(clean) });
+  };
+
   const formatDate = (date?: Date) => date ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date) : "-";
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
 
@@ -1099,7 +1137,7 @@ export default function SupplierDetailPage() {
                 ) : (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setEditingFiscal(false); setEditForm({ ...editForm, address: supplier.address, paymentMethod: supplier.paymentMethod, bankAccount: supplier.bankAccount }); }}
+                      onClick={() => { setEditingFiscal(false); setEditForm({ ...editForm, address: supplier.address, paymentMethod: supplier.paymentMethod, bankAccount: supplier.bankAccount, bic: supplier.bic || "" }); }}
                       className="text-xs text-slate-500 hover:text-slate-900"
                     >
                       Cancelar
@@ -1148,6 +1186,9 @@ export default function SupplierDetailPage() {
                               <Copy size={14} />
                             </button>
                           </div>
+                          {supplier.bic && (
+                            <p className="font-mono text-xs text-slate-500 mt-1">BIC: {supplier.bic}</p>
+                          )}
                           <p className="text-sm text-slate-500 mt-1">{PAYMENT_METHODS[supplier.paymentMethod]}</p>
                         </div>
                       ) : (
@@ -1204,12 +1245,23 @@ export default function SupplierDetailPage() {
                       
                       <div className="space-y-3">
                         <p className="text-xs text-slate-400 uppercase tracking-wide">Datos bancarios</p>
+                        <div>
+                          <input
+                            type="text"
+                            value={editForm.bankAccount}
+                            onChange={(e) => handleBankAccountChange(e.target.value)}
+                            placeholder="Pega 20 dígitos o IBAN completo"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                          <p className="text-xs text-slate-400 mt-1">Pega 20 dígitos y se calcula ESXX automáticamente</p>
+                        </div>
                         <input
                           type="text"
-                          value={editForm.bankAccount}
-                          onChange={(e) => setEditForm({ ...editForm, bankAccount: formatIBAN(e.target.value) })}
-                          placeholder="IBAN"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          value={editForm.bic}
+                          onChange={(e) => setEditForm({ ...editForm, bic: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) })}
+                          placeholder="BIC/SWIFT (opcional)"
+                          maxLength={11}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-slate-900"
                         />
                         <select
                           value={editForm.paymentMethod}
