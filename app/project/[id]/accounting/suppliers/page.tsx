@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 interface Address { street: string; number: string; city: string; province: string; postalCode: string; }
 interface Contact { name: string; email: string; phone: string; }
 interface Certificate { url?: string; expiryDate?: Date; uploaded: boolean; fileName?: string; verified?: boolean; verifiedBy?: string; verifiedByName?: string; verifiedAt?: Date; }
-interface Supplier { id: string; fiscalName: string; commercialName: string; country: string; taxId: string; address: Address; contact: Contact; paymentMethod: string; bankAccount: string; certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate & { aeatVerified?: boolean }; }; createdAt: Date; createdBy: string; hasAssignedPOs: boolean; hasAssignedInvoices: boolean; closure?: { closedAt: Date; closedByName: string; notes?: string; }; }
+interface Supplier { id: string; fiscalName: string; commercialName: string; country: string; taxId: string; address: Address; contact: Contact; paymentMethod: string; bankAccount: string; bic?: string; certificates: { bankOwnership: Certificate; contractorsCertificate: Certificate & { aeatVerified?: boolean }; }; createdAt: Date; createdBy: string; hasAssignedPOs: boolean; hasAssignedInvoices: boolean; closure?: { closedAt: Date; closedByName: string; notes?: string; }; }
 
 type PaymentMethod = "transferencia" | "tb30" | "tb60" | "tarjeta" | "efectivo";
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
@@ -73,6 +73,26 @@ const formatIBAN = (iban: string): string => {
   return clean.match(/.{1,4}/g)?.join(" ") || clean;
 };
 
+// Calcula los dígitos de control del IBAN español
+const calculateSpanishIBANCheckDigits = (accountNumber: string): string => {
+  // accountNumber debe ser los 20 dígitos de la cuenta (entidad + oficina + DC + cuenta)
+  const clean = accountNumber.replace(/\s/g, "");
+  if (clean.length !== 20 || !/^\d{20}$/.test(clean)) return "";
+  
+  // Para calcular: cuenta + ES00 -> convertir letras a números (E=14, S=28) -> mod 97
+  // IBAN = ES + (98 - (cuenta + 142800) mod 97)
+  const numericString = clean + "142800"; // 14=E, 28=S, 00=dígitos placeholder
+  
+  // Calcular mod 97 para números grandes
+  let remainder = 0;
+  for (let i = 0; i < numericString.length; i++) {
+    remainder = (remainder * 10 + parseInt(numericString[i])) % 97;
+  }
+  
+  const checkDigits = (98 - remainder).toString().padStart(2, "0");
+  return "ES" + checkDigits + clean;
+};
+
 const validateSpanishTaxId = (taxId: string): boolean => {
   const clean = taxId.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (clean.length !== 9) return false;
@@ -118,7 +138,7 @@ export default function SuppliersPage() {
     fiscalName: "", commercialName: "", country: "ES", taxId: "",
     address: { street: "", number: "", city: "", province: "", postalCode: "" },
     contact: { name: "", email: "", phone: "" },
-    paymentMethod: "transferencia" as PaymentMethod, bankAccount: "",
+    paymentMethod: "transferencia" as PaymentMethod, bankAccount: "", bic: "",
   });
 
   const [certificates, setCertificates] = useState({
@@ -172,7 +192,7 @@ export default function SuppliersPage() {
           country: data.country || "ES", taxId: data.taxId || "",
           address: data.address || { street: "", number: "", city: "", province: "", postalCode: "" },
           contact: data.contact || { name: "", email: "", phone: "" },
-          paymentMethod: data.paymentMethod || "transferencia", bankAccount: data.bankAccount || "",
+          paymentMethod: data.paymentMethod || "transferencia", bankAccount: data.bankAccount || "", bic: data.bic || "",
           certificates: {
             bankOwnership: { ...data.certificates?.bankOwnership, expiryDate: data.certificates?.bankOwnership?.expiryDate?.toDate(), uploaded: data.certificates?.bankOwnership?.uploaded || false, verified: data.certificates?.bankOwnership?.verified || false, verifiedAt: data.certificates?.bankOwnership?.verifiedAt?.toDate() },
             contractorsCertificate: { ...data.certificates?.contractorsCertificate, expiryDate: data.certificates?.contractorsCertificate?.expiryDate?.toDate(), uploaded: data.certificates?.contractorsCertificate?.uploaded || false, verified: data.certificates?.contractorsCertificate?.verified || false, verifiedAt: data.certificates?.contractorsCertificate?.verifiedAt?.toDate() },
@@ -233,6 +253,27 @@ export default function SuppliersPage() {
   const handleBankAccountChange = (value: string) => {
     const countryInfo = getCountryInfo(formData.country);
     let clean = value.replace(/\s/g, "").toUpperCase();
+    
+    // Si es España y el usuario introduce solo números (20 dígitos de cuenta)
+    if (formData.country === "ES") {
+      // Quitar prefijo ES si existe para analizar
+      const withoutPrefix = clean.replace(/^ES\d{0,2}/, "");
+      
+      // Si tiene exactamente 20 dígitos numéricos, calcular IBAN completo
+      if (/^\d{20}$/.test(withoutPrefix)) {
+        const fullIban = calculateSpanishIBANCheckDigits(withoutPrefix);
+        if (fullIban) {
+          setFormData({ ...formData, bankAccount: formatIBAN(fullIban) });
+          return;
+        }
+      }
+      
+      // Si el usuario está escribiendo y empieza con números, añadir ES
+      if (/^\d/.test(clean)) {
+        clean = "ES" + clean;
+      }
+    }
+    
     if (countryInfo.ibanPrefix && !clean.startsWith(countryInfo.ibanPrefix)) {
       clean = countryInfo.ibanPrefix + clean.replace(/^[A-Z]{0,2}/, "");
     }
@@ -280,6 +321,7 @@ export default function SuppliersPage() {
         },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.replace(/\s/g, ""),
+        bic: formData.bic.trim().toUpperCase(),
         certificates: {
           bankOwnership: { uploaded: !!certificates.bankOwnership.file, expiryDate: certificates.bankOwnership.expiryDate ? Timestamp.fromDate(new Date(certificates.bankOwnership.expiryDate)) : null, fileName: certificates.bankOwnership.file?.name || "", verified: false },
           contractorsCertificate: { uploaded: !!certificates.contractorsCertificate.file, expiryDate: certificates.contractorsCertificate.expiryDate ? Timestamp.fromDate(new Date(certificates.contractorsCertificate.expiryDate)) : null, fileName: certificates.contractorsCertificate.file?.name || "", verified: false, aeatVerified: false },
@@ -322,6 +364,7 @@ export default function SuppliersPage() {
         },
         paymentMethod: formData.paymentMethod,
         bankAccount: formData.bankAccount.replace(/\s/g, ""),
+        bic: formData.bic.trim().toUpperCase(),
       };
 
       const bankOwnershipUpdate: any = { ...selectedSupplier.certificates.bankOwnership };
@@ -378,7 +421,7 @@ export default function SuppliersPage() {
       fiscalName: "", commercialName: "", country: "ES", taxId: "",
       address: { street: "", number: "", city: "", province: "", postalCode: "" },
       contact: { name: "", email: "", phone: "" },
-      paymentMethod: "transferencia", bankAccount: "ES",
+      paymentMethod: "transferencia", bankAccount: "ES", bic: "",
     });
     setCertificates({
       bankOwnership: { file: null, expiryDate: "", verified: false },
@@ -399,6 +442,7 @@ export default function SuppliersPage() {
       contact: supplier.contact || { name: "", email: "", phone: "" },
       paymentMethod: supplier.paymentMethod as PaymentMethod,
       bankAccount: formatIBAN(supplier.bankAccount),
+      bic: supplier.bic || "",
     });
     setCertificates({
       bankOwnership: { file: null, expiryDate: supplier.certificates.bankOwnership.expiryDate ? new Date(supplier.certificates.bankOwnership.expiryDate).toISOString().split('T')[0] : "", verified: supplier.certificates.bankOwnership.verified || false },
@@ -430,9 +474,9 @@ export default function SuppliersPage() {
   };
 
   const exportSuppliers = () => {
-    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "CONTACTO", "EMAIL", "TELÉFONO", "MÉTODO PAGO", "CUENTA BANCARIA"]];
+    const rows = [["NOMBRE FISCAL", "NOMBRE COMERCIAL", "PAÍS", "NIF/CIF", "CONTACTO", "EMAIL", "TELÉFONO", "MÉTODO PAGO", "IBAN", "BIC"]];
     suppliers.forEach((supplier) => {
-      rows.push([supplier.fiscalName, supplier.commercialName, supplier.country, supplier.taxId, supplier.contact?.name || "", supplier.contact?.email || "", supplier.contact?.phone || "", supplier.paymentMethod, supplier.bankAccount]);
+      rows.push([supplier.fiscalName, supplier.commercialName, supplier.country, supplier.taxId, supplier.contact?.name || "", supplier.contact?.email || "", supplier.contact?.phone || "", supplier.paymentMethod, supplier.bankAccount, supplier.bic || ""]);
     });
     const csvContent = rows.map((row) => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -721,8 +765,13 @@ export default function SuppliersPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">Cuenta bancaria (IBAN)</label>
-                      <input type="text" value={formData.bankAccount} onChange={(e) => handleBankAccountChange(e.target.value)} placeholder={`${getCountryInfo(formData.country).ibanPrefix}XX XXXX XXXX XXXX XXXX XXXX`} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
-                      <p className="text-xs text-slate-500 mt-1">Prefijo {getCountryInfo(formData.country).ibanPrefix} automático</p>
+                      <input type="text" value={formData.bankAccount} onChange={(e) => handleBankAccountChange(e.target.value)} placeholder={formData.country === "ES" ? "Pega los 20 dígitos o IBAN completo" : `${getCountryInfo(formData.country).ibanPrefix}XX XXXX XXXX XXXX XXXX XXXX`} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono" />
+                      <p className="text-xs text-slate-500 mt-1">{formData.country === "ES" ? "Pega 20 dígitos y se calcula ESXX automáticamente" : `Prefijo ${getCountryInfo(formData.country).ibanPrefix} automático`}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">BIC/SWIFT <span className="text-slate-400 font-normal">(opcional)</span></label>
+                      <input type="text" value={formData.bic} onChange={(e) => setFormData({ ...formData, bic: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) })} placeholder="Ej: CAIXESBBXXX" maxLength={11} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 font-mono uppercase" />
+                      <p className="text-xs text-slate-500 mt-1">Código de 8 u 11 caracteres</p>
                     </div>
                   </div>
                 </div>
