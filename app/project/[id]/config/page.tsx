@@ -15,7 +15,6 @@ import {
   MoreHorizontal,
   Calendar,
   RefreshCw,
-  CreditCard,
   X,
   Film,
   Tv,
@@ -24,35 +23,15 @@ import {
   Clock,
   Users,
   MapPin,
-  Plus,
-  Star,
-  Landmark,
 } from "lucide-react";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc, setDoc, addDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, Timestamp, deleteDoc, setDoc } from "firebase/firestore";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const PHASES = ["Desarrollo", "Preproducción", "Rodaje", "Postproducción", "Finalizado"];
-
-const formatIBAN = (iban: string): string => {
-  const clean = iban.replace(/\s/g, "").toUpperCase();
-  return clean.match(/.{1,4}/g)?.join(" ") || clean;
-};
-
-const calculateSpanishIBANCheckDigits = (accountNumber: string): string => {
-  const clean = accountNumber.replace(/\s/g, "");
-  if (clean.length !== 20 || !/^\d{20}$/.test(clean)) return "";
-  const numericString = clean + "142800";
-  let remainder = 0;
-  for (let i = 0; i < numericString.length; i++) {
-    remainder = (remainder * 10 + parseInt(numericString[i])) % 97;
-  }
-  const checkDigits = (98 - remainder).toString().padStart(2, "0");
-  return "ES" + checkDigits + clean;
-};
 
 interface ProjectData {
   name: string;
@@ -67,26 +46,6 @@ interface ProjectData {
 interface Producer {
   id: string;
   name: string;
-}
-
-interface CompanyData {
-  fiscalName: string;
-  taxId: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  province: string;
-  country: string;
-}
-
-interface BankAccount {
-  id: string;
-  alias: string;
-  fiscalName: string;
-  taxId: string;
-  iban: string;
-  bic?: string;
-  isDefault?: boolean;
 }
 
 interface ProductionData {
@@ -119,46 +78,18 @@ const emptyProductionData: ProductionData = {
   workingTitle: "",
 };
 
-const emptyCompanyData: CompanyData = {
-  fiscalName: "",
-  taxId: "",
-  address: "",
-  postalCode: "",
-  city: "",
-  province: "",
-  country: "España",
-};
-
-const emptyBankAccount: Omit<BankAccount, "id"> = {
-  alias: "",
-  fiscalName: "",
-  taxId: "",
-  iban: "",
-  bic: "",
-  isDefault: false,
-};
-
 export default function ConfigGeneral() {
   const { id } = useParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingCompany, setSavingCompany] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasConfigAccess, setHasConfigAccess] = useState(false);
   const [project, setProject] = useState<ProjectData | null>(null);
   const [allProducers, setAllProducers] = useState<Producer[]>([]);
   const [editingProject, setEditingProject] = useState(false);
-  const [editingCompany, setEditingCompany] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [projectForm, setProjectForm] = useState({ name: "", phase: "", description: "" });
-  const [companyData, setCompanyData] = useState<CompanyData>(emptyCompanyData);
-  const [companyForm, setCompanyForm] = useState<CompanyData>(emptyCompanyData);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
-  const [bankAccountForm, setBankAccountForm] = useState<Omit<BankAccount, "id">>(emptyBankAccount);
-  const [showBankAccountModal, setShowBankAccountModal] = useState(false);
-  const [savingBankAccount, setSavingBankAccount] = useState(false);
   const [productionData, setProductionData] = useState<ProductionData>(emptyProductionData);
   const [productionForm, setProductionForm] = useState<ProductionData>(emptyProductionData);
   const [editingProduction, setEditingProduction] = useState(false);
@@ -216,26 +147,6 @@ export default function ConfigGeneral() {
           setProjectForm({ name: d.name, phase: d.phase, description: d.description || "" });
         }
 
-        const companySnap = await getDoc(doc(db, `projects/${id}/config`, "company"));
-        if (companySnap.exists()) {
-          const data = companySnap.data() as CompanyData;
-          setCompanyData(data);
-          setCompanyForm(data);
-        }
-
-        // Cargar cuentas bancarias (solo si existe el documento company)
-        try {
-          const bankAccountsSnap = await getDocs(collection(db, `projects/${id}/config/company/bankAccounts`));
-          const accounts = bankAccountsSnap.docs.map(d => ({
-            id: d.id,
-            ...d.data()
-          })) as BankAccount[];
-          setBankAccounts(accounts.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)));
-        } catch (bankErr) {
-          console.log("No bank accounts yet:", bankErr);
-          setBankAccounts([]);
-        }
-
         const productionSnap = await getDoc(doc(db, `projects/${id}/config`, "production"));
         if (productionSnap.exists()) {
           const data = productionSnap.data() as ProductionData;
@@ -278,121 +189,6 @@ export default function ConfigGeneral() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleSaveCompany = async () => {
-    if (!id) return;
-    setSavingCompany(true);
-    try {
-      const dataToSave = {
-        ...companyForm,
-        updatedAt: Timestamp.now(),
-      };
-      await setDoc(doc(db, `projects/${id}/config`, "company"), dataToSave);
-      setCompanyData(companyForm);
-      setEditingCompany(false);
-      showToast("success", "Datos fiscales guardados");
-    } catch {
-      showToast("error", "Error al guardar datos fiscales");
-    } finally {
-      setSavingCompany(false);
-    }
-  };
-
-  const handleSaveBankAccount = async () => {
-    if (!id || !bankAccountForm.alias || !bankAccountForm.iban) return;
-    setSavingBankAccount(true);
-    try {
-      const dataToSave = {
-        alias: bankAccountForm.alias.trim(),
-        fiscalName: bankAccountForm.fiscalName.trim(),
-        taxId: bankAccountForm.taxId.trim().toUpperCase(),
-        iban: bankAccountForm.iban.replace(/\s/g, ""),
-        bic: bankAccountForm.bic?.trim().toUpperCase() || "",
-        isDefault: bankAccountForm.isDefault || false,
-      };
-
-      // Si se marca como default, quitar default de las demás
-      if (dataToSave.isDefault) {
-        for (const acc of bankAccounts) {
-          if (acc.isDefault && acc.id !== editingBankAccount?.id) {
-            await updateDoc(doc(db, `projects/${id}/config/company/bankAccounts`, acc.id), { isDefault: false });
-          }
-        }
-      }
-
-      if (editingBankAccount) {
-        await updateDoc(doc(db, `projects/${id}/config/company/bankAccounts`, editingBankAccount.id), dataToSave);
-        showToast("success", "Cuenta actualizada");
-      } else {
-        await addDoc(collection(db, `projects/${id}/config/company/bankAccounts`), dataToSave);
-        showToast("success", "Cuenta añadida");
-      }
-
-      // Recargar cuentas
-      const bankAccountsSnap = await getDocs(collection(db, `projects/${id}/config/company/bankAccounts`));
-      const accounts = bankAccountsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BankAccount[];
-      setBankAccounts(accounts.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)));
-
-      setShowBankAccountModal(false);
-      setEditingBankAccount(null);
-      setBankAccountForm(emptyBankAccount);
-    } catch (err) {
-      console.error(err);
-      showToast("error", "Error al guardar cuenta");
-    } finally {
-      setSavingBankAccount(false);
-    }
-  };
-
-  const handleDeleteBankAccount = async (accountId: string) => {
-    if (!id || !confirm("¿Eliminar esta cuenta bancaria?")) return;
-    try {
-      await deleteDoc(doc(db, `projects/${id}/config/company/bankAccounts`, accountId));
-      setBankAccounts(bankAccounts.filter(a => a.id !== accountId));
-      showToast("success", "Cuenta eliminada");
-    } catch {
-      showToast("error", "Error al eliminar");
-    }
-  };
-
-  const openEditBankAccount = (account: BankAccount) => {
-    setEditingBankAccount(account);
-    setBankAccountForm({
-      alias: account.alias,
-      fiscalName: account.fiscalName,
-      taxId: account.taxId,
-      iban: formatIBAN(account.iban),
-      bic: account.bic || "",
-      isDefault: account.isDefault || false,
-    });
-    setShowBankAccountModal(true);
-  };
-
-  const openNewBankAccount = () => {
-    setEditingBankAccount(null);
-    setBankAccountForm({
-      ...emptyBankAccount,
-      fiscalName: companyData.fiscalName,
-      taxId: companyData.taxId,
-      isDefault: bankAccounts.length === 0,
-    });
-    setShowBankAccountModal(true);
-  };
-
-  const handleBankAccountIbanChange = (value: string) => {
-    let clean = value.replace(/\s/g, "").toUpperCase();
-    const withoutPrefix = clean.replace(/^ES\d{0,2}/, "");
-    if (/^\d{20}$/.test(withoutPrefix)) {
-      const fullIban = calculateSpanishIBANCheckDigits(withoutPrefix);
-      if (fullIban) {
-        setBankAccountForm({ ...bankAccountForm, iban: formatIBAN(fullIban) });
-        return;
-      }
-    }
-    if (/^\d/.test(clean)) clean = "ES" + clean;
-    if (clean.length > 24) clean = clean.slice(0, 24);
-    setBankAccountForm({ ...bankAccountForm, iban: formatIBAN(clean) });
   };
 
   const handleSaveProduction = async () => {
@@ -714,240 +510,6 @@ export default function ConfigGeneral() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Panel 2: Datos fiscales + Cuentas bancarias */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-900">Datos fiscales y bancarios</h2>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {/* Sección: Datos fiscales */}
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <Building2 size={14} />
-                    Datos fiscales
-                  </h3>
-                  {!editingCompany && companyData.fiscalName && hasConfigAccess && (
-                    <button
-                      onClick={() => setEditingCompany(true)}
-                      className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1"
-                    >
-                      <Edit2 size={12} />
-                      Editar
-                    </button>
-                  )}
-                </div>
-
-                {!editingCompany ? (
-                  companyData.fiscalName ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Razón social</p>
-                          <p className="text-sm font-medium text-slate-900">{companyData.fiscalName}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">NIF/CIF</p>
-                          <p className="text-sm font-mono text-slate-900">{companyData.taxId}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">Dirección</p>
-                        <p className="text-sm text-slate-700">{companyData.address}</p>
-                        <p className="text-sm text-slate-500">{companyData.postalCode} {companyData.city}, {companyData.province}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <p className="text-sm text-slate-400 mb-3">Sin datos fiscales</p>
-                      {hasConfigAccess && (
-                        <button
-                          onClick={() => setEditingCompany(true)}
-                          className="text-sm text-slate-600 hover:text-slate-900 font-medium"
-                        >
-                          + Añadir datos fiscales
-                        </button>
-                      )}
-                    </div>
-                  )
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">Razón social *</label>
-                        <input
-                          type="text"
-                          value={companyForm.fiscalName}
-                          onChange={(e) => setCompanyForm({ ...companyForm, fiscalName: e.target.value })}
-                          placeholder="Nombre de la empresa"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">NIF/CIF *</label>
-                        <input
-                          type="text"
-                          value={companyForm.taxId}
-                          onChange={(e) => setCompanyForm({ ...companyForm, taxId: e.target.value.toUpperCase() })}
-                          placeholder="B12345678"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm font-mono"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1.5">Dirección *</label>
-                      <input
-                        type="text"
-                        value={companyForm.address}
-                        onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
-                        placeholder="Calle, número, piso..."
-                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">C.P. *</label>
-                        <input
-                          type="text"
-                          value={companyForm.postalCode}
-                          onChange={(e) => setCompanyForm({ ...companyForm, postalCode: e.target.value })}
-                          placeholder="28001"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">Ciudad *</label>
-                        <input
-                          type="text"
-                          value={companyForm.city}
-                          onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
-                          placeholder="Madrid"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">Provincia</label>
-                        <input
-                          type="text"
-                          value={companyForm.province}
-                          onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })}
-                          placeholder="Madrid"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1.5">País</label>
-                        <input
-                          type="text"
-                          value={companyForm.country}
-                          onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
-                          placeholder="España"
-                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={handleSaveCompany}
-                        disabled={savingCompany || !companyForm.fiscalName || !companyForm.taxId || !companyForm.address || !companyForm.postalCode || !companyForm.city}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
-                      >
-                        <Save size={14} />
-                        {savingCompany ? "Guardando..." : "Guardar"}
-                      </button>
-                      <button
-                        onClick={() => { setEditingCompany(false); setCompanyForm(companyData); }}
-                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sección: Cuentas bancarias */}
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <Landmark size={14} />
-                    Cuentas bancarias
-                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-normal">{bankAccounts.length}</span>
-                  </h3>
-                  {hasConfigAccess && (
-                    <button
-                      onClick={openNewBankAccount}
-                      className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1"
-                    >
-                      <Plus size={12} />
-                      Añadir
-                    </button>
-                  )}
-                </div>
-
-                {bankAccounts.length > 0 ? (
-                  <div className="space-y-2">
-                    {bankAccounts.map((account) => (
-                      <div
-                        key={account.id}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-slate-200 flex-shrink-0">
-                            <CreditCard size={14} className="text-slate-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-slate-900 truncate">{account.alias}</p>
-                              {account.isDefault && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] rounded">
-                                  <Star size={8} />
-                                  Principal
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 truncate">{account.fiscalName}</p>
-                            <p className="text-xs font-mono text-slate-400">{formatIBAN(account.iban)}</p>
-                          </div>
-                        </div>
-                        {hasConfigAccess && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <button
-                              onClick={() => openEditBankAccount(account)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBankAccount(account.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-slate-400 mb-2">Sin cuentas bancarias</p>
-                    {hasConfigAccess && (
-                      <button
-                        onClick={openNewBankAccount}
-                        className="text-sm text-slate-600 hover:text-slate-900 font-medium"
-                      >
-                        + Añadir cuenta
-                      </button>
-                    )}
-                  </div>
-                )}
-                <p className="text-[11px] text-slate-400 mt-3">Para generar ficheros de remesa SEPA</p>
-              </div>
             </div>
           </div>
         </div>
@@ -1338,123 +900,6 @@ export default function ConfigGeneral() {
           </div>
         </div>
       </main>
-
-      {/* Modal para cuenta bancaria */}
-      {showBankAccountModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowBankAccountModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                  <CreditCard size={20} className="text-slate-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {editingBankAccount ? "Editar cuenta" : "Nueva cuenta bancaria"}
-                  </h3>
-                  <p className="text-xs text-slate-500">Para remesas SEPA</p>
-                </div>
-              </div>
-              <button onClick={() => setShowBankAccountModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X size={18} className="text-slate-500" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Alias *</label>
-                <input
-                  type="text"
-                  value={bankAccountForm.alias}
-                  onChange={(e) => setBankAccountForm({ ...bankAccountForm, alias: e.target.value })}
-                  placeholder="Ej: Cuenta principal, Cuenta rodaje..."
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Razón social titular</label>
-                  <input
-                    type="text"
-                    value={bankAccountForm.fiscalName}
-                    onChange={(e) => setBankAccountForm({ ...bankAccountForm, fiscalName: e.target.value })}
-                    placeholder="Nombre empresa"
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">NIF/CIF titular</label>
-                  <input
-                    type="text"
-                    value={bankAccountForm.taxId}
-                    onChange={(e) => setBankAccountForm({ ...bankAccountForm, taxId: e.target.value.toUpperCase() })}
-                    placeholder="B12345678"
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">IBAN *</label>
-                <input
-                  type="text"
-                  value={bankAccountForm.iban}
-                  onChange={(e) => handleBankAccountIbanChange(e.target.value)}
-                  placeholder="Pega 20 dígitos o IBAN completo"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm font-mono"
-                />
-                <p className="text-xs text-slate-400 mt-1">Pega 20 dígitos y se calcula ESXX automáticamente</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">BIC/SWIFT <span className="font-normal text-slate-400">(opcional)</span></label>
-                <input
-                  type="text"
-                  value={bankAccountForm.bic || ""}
-                  onChange={(e) => setBankAccountForm({ ...bankAccountForm, bic: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) })}
-                  placeholder="Ej: CAIXESBBXXX"
-                  maxLength={11}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none text-sm font-mono uppercase"
-                />
-              </div>
-
-              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={bankAccountForm.isDefault || false}
-                  onChange={(e) => setBankAccountForm({ ...bankAccountForm, isDefault: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <Star size={14} className="text-amber-500" />
-                    Cuenta principal
-                  </p>
-                  <p className="text-xs text-slate-500">Se usará por defecto en las remesas</p>
-                </div>
-              </label>
-            </div>
-
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-              <button
-                onClick={() => setShowBankAccountModal(false)}
-                className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveBankAccount}
-                disabled={savingBankAccount || !bankAccountForm.alias || !bankAccountForm.iban}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                <Save size={16} />
-                {savingBankAccount ? "Guardando..." : editingBankAccount ? "Guardar cambios" : "Añadir cuenta"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
