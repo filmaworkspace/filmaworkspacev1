@@ -121,29 +121,44 @@ export default function NewInvoicePage() {
       var approvalDoc = await getDoc(doc(db, "projects/" + id + "/config/approvals"));
       setApprovalConfig(approvalDoc.exists() ? approvalDoc.data().invoiceApprovals || [] : [{ id: "default-1", order: 1, approverType: "role", roles: ["Controller", "PM", "EP"], requireAll: false }]);
 
-      var posSnap = await getDocs(query(collection(db, "projects/" + id + "/pos"), where("status", "==", "approved"), orderBy("createdAt", "desc")));
-      var allPOs = posSnap.docs.map(function(d) { return { id: d.id, number: d.data().number, supplier: d.data().supplier, supplierId: d.data().supplierId, department: d.data().department || "", totalAmount: d.data().totalAmount || 0, baseAmount: d.data().baseAmount || d.data().totalAmount || 0, items: (d.data().items || []).map(function(item: any, idx: number) { return { ...item, id: item.id || "item-" + idx }; }) }; });
-      var filteredPOs = allPOs.filter(function(po) { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && po.department === permissions.department) return true; return false; });
-      setPOs(filteredPOs);
+      // Cargar POs aprobadas
+      try {
+        var posSnap = await getDocs(query(collection(db, "projects/" + id + "/pos"), where("status", "==", "approved")));
+        var allPOs = posSnap.docs.map(function(d) { return { id: d.id, number: d.data().number, supplier: d.data().supplier, supplierId: d.data().supplierId, department: d.data().department || "", totalAmount: d.data().totalAmount || 0, baseAmount: d.data().baseAmount || d.data().totalAmount || 0, items: (d.data().items || []).map(function(item: any, idx: number) { return { ...item, id: item.id || "item-" + idx }; }) }; });
+        allPOs.sort(function(a, b) { return b.number.localeCompare(a.number); });
+        var filteredPOs = allPOs.filter(function(po) { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && po.department === permissions.department) return true; return false; });
+        setPOs(filteredPOs);
+      } catch (posErr) { console.error("Error loading POs:", posErr); }
 
-      var suppSnap = await getDocs(collection(db, "projects/" + id + "/suppliers"));
-      var suppList = suppSnap.docs.map(function(d) { return { id: d.id, ...d.data() } as Supplier; });
-      suppList.sort(function(a, b) { return (a.fiscalName || "").localeCompare(b.fiscalName || ""); });
-      console.log("Suppliers loaded:", suppList.length, suppList);
-      setSuppliers(suppList);
+      // Cargar proveedores
+      try {
+        var suppSnap = await getDocs(collection(db, "projects/" + id + "/suppliers"));
+        var suppList = suppSnap.docs.map(function(d) { return { id: d.id, ...d.data() } as Supplier; });
+        suppList.sort(function(a, b) { return (a.fiscalName || "").localeCompare(b.fiscalName || ""); });
+        console.log("Suppliers loaded:", suppList.length, suppList);
+        setSuppliers(suppList);
+      } catch (suppErr) { console.error("Error loading suppliers:", suppErr); }
 
-      var accsSnap = await getDocs(query(collection(db, "projects/" + id + "/accounts"), orderBy("code", "asc")));
-      var allSubs: SubAccount[] = [];
-      for (var accDoc of accsSnap.docs) {
-        var accData = accDoc.data();
-        var subsSnap = await getDocs(query(collection(db, "projects/" + id + "/accounts/" + accDoc.id + "/subaccounts"), orderBy("code", "asc")));
-        subsSnap.docs.forEach(function(s) { var d = s.data(); allSubs.push({ id: s.id, code: d.code, description: d.description, budgeted: d.budgeted || 0, committed: d.committed || 0, actual: d.actual || 0, available: (d.budgeted || 0) - (d.committed || 0) - (d.actual || 0), accountId: accDoc.id, accountCode: accData.code, accountDescription: accData.description }); });
-      }
-      setSubAccounts(allSubs);
+      // Cargar cuentas
+      try {
+        var accsSnap = await getDocs(collection(db, "projects/" + id + "/accounts"));
+        var accsList = accsSnap.docs.slice().sort(function(a, b) { return (a.data().code || "").localeCompare(b.data().code || ""); });
+        var allSubs: SubAccount[] = [];
+        for (var accDoc of accsList) {
+          var accData = accDoc.data();
+          var subsSnap = await getDocs(collection(db, "projects/" + id + "/accounts/" + accDoc.id + "/subaccounts"));
+          var subsList = subsSnap.docs.slice().sort(function(a, b) { return (a.data().code || "").localeCompare(b.data().code || ""); });
+          subsList.forEach(function(s) { var d = s.data(); allSubs.push({ id: s.id, code: d.code, description: d.description, budgeted: d.budgeted || 0, committed: d.committed || 0, actual: d.actual || 0, available: (d.budgeted || 0) - (d.committed || 0) - (d.actual || 0), accountId: accDoc.id, accountCode: accData.code, accountDescription: accData.description }); });
+        }
+        setSubAccounts(allSubs);
+      } catch (accsErr) { console.error("Error loading accounts:", accsErr); }
 
-      var pendingSnap = await getDocs(query(collection(db, "projects/" + id + "/invoices"), where("status", "==", "paid"), where("requiresReplacement", "==", true)));
-      var pendingDocs = pendingSnap.docs.filter(function(d) { return !d.data().replacedByInvoiceId; }).map(function(d) { var data = d.data(); return { id: d.id, documentType: data.documentType || "proforma", number: data.number, displayNumber: data.displayNumber || (DOCUMENT_TYPES[data.documentType as DocumentType]?.code || "PRF") + "-" + data.number, supplier: data.supplier, supplierId: data.supplierId, department: data.department || "", totalAmount: data.totalAmount, baseAmount: data.baseAmount || data.totalAmount, paidAt: data.paidAt?.toDate() || new Date(), poId: data.poId || null, poNumber: data.poNumber || null, items: data.items || [], description: data.description || "" }; }).filter(function(pd) { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && pd.department === permissions.department) return true; return false; });
-      setPendingDocuments(pendingDocs);
+      // Cargar documentos pendientes de sustitución
+      try {
+        var pendingSnap = await getDocs(query(collection(db, "projects/" + id + "/invoices"), where("status", "==", "paid"), where("requiresReplacement", "==", true)));
+        var pendingDocs = pendingSnap.docs.filter(function(d) { return !d.data().replacedByInvoiceId; }).map(function(d) { var data = d.data(); return { id: d.id, documentType: data.documentType || "proforma", number: data.number, displayNumber: data.displayNumber || (DOCUMENT_TYPES[data.documentType as DocumentType]?.code || "PRF") + "-" + data.number, supplier: data.supplier, supplierId: data.supplierId, department: data.department || "", totalAmount: data.totalAmount, baseAmount: data.baseAmount || data.totalAmount, paidAt: data.paidAt?.toDate() || new Date(), poId: data.poId || null, poNumber: data.poNumber || null, items: data.items || [], description: data.description || "" }; }).filter(function(pd) { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && pd.department === permissions.department) return true; return false; });
+        setPendingDocuments(pendingDocs);
+      } catch (pendingErr) { console.error("Error loading pending docs:", pendingErr); }
 
       var invSnap = await getDocs(query(collection(db, "projects/" + id + "/invoices"), where("documentType", "==", "invoice")));
       setNextNumber(String(invSnap.size + 1).padStart(4, "0"));
@@ -492,7 +507,73 @@ export default function NewInvoicePage() {
 
       {showPOItemsModal && selectedPO && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden border border-slate-200"><div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Items de PO-{selectedPO.number}</h2><p className="text-sm text-slate-500">Selecciona el item a facturar</p></div><button onClick={function() { setShowPOItemsModal(false); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"><X size={20} /></button></div><div className="p-6 max-h-96 overflow-y-auto"><div className="space-y-3">{poItemsWithInvoiced.map(function(poItem, idx) { var isOver = poItem.availableAmount < 0; return (<button key={poItem.id || idx} onClick={function() { addPOItemToInvoice(poItem, idx); }} className={cx("w-full text-left p-4 border rounded-xl", isOver ? "border-red-200 bg-red-50 hover:border-red-300" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50")}><div className="flex items-start justify-between mb-2"><div className="flex-1"><p className="font-medium text-slate-900">{poItem.description || "Sin descripcion"}</p><p className="text-xs text-slate-500 font-mono mt-1">{poItem.subAccountCode} - {poItem.subAccountDescription}</p></div><div className="text-right"><p className="font-semibold text-slate-900">{formatCurrency(poItem.totalAmount)} €</p><p className="text-xs text-slate-500">Total PO</p></div></div><div className="grid grid-cols-3 gap-4 text-sm mt-3 pt-3 border-t border-slate-100"><div><p className="text-slate-500 text-xs">Facturado</p><p className="font-medium text-slate-700">{formatCurrency(poItem.invoicedAmount)} €</p></div><div><p className="text-slate-500 text-xs">Disponible</p><p className={cx("font-medium", isOver ? "text-red-600" : poItem.availableAmount < poItem.totalAmount * 0.1 ? "text-amber-600" : "text-emerald-600")}>{formatCurrency(poItem.availableAmount)} €</p></div><div className="text-right"><span className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg"><Plus size={12} />Anadir</span></div></div>{isOver && <div className="flex items-center gap-2 mt-3 text-xs text-red-600"><AlertTriangle size={12} />Este item ya esta sobre-facturado</div>}</button>); })}</div></div></div></div>)}
 
-      {showSupplierModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200"><div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">Seleccionar proveedor</h2><button onClick={function() { setShowSupplierModal(false); setSupplierSearch(""); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"><X size={20} /></button></div><div className="p-6"><div className="relative mb-4"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" value={supplierSearch} onChange={function(e) { setSupplierSearch(e.target.value); }} placeholder="Buscar por nombre o NIF..." className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm" autoFocus /></div><div className="max-h-80 overflow-y-auto space-y-2">{suppliers.length === 0 ? <div className="text-center py-12"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><Building2 size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">No hay proveedores registrados</p><p className="text-xs text-slate-400 mt-1">Añade proveedores en Accounting → Proveedores</p></div> : filteredSuppliers.length === 0 ? <div className="text-center py-12"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><Building2 size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">No se encontraron proveedores</p></div> : filteredSuppliers.map(function(s) { return (<button key={s.id} onClick={function() { selectSupplier(s); }} className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50"><div className="flex items-start justify-between"><div className="flex-1"><p className="font-medium text-slate-900">{s.fiscalName}</p>{s.commercialName && <p className="text-sm text-slate-500">{s.commercialName}</p>}<p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><Hash size={10} />{s.taxId}</p></div><Building2 size={16} className="text-slate-300" /></div></button>); })}</div></div></div></div>)}
+      {showSupplierModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Seleccionar proveedor</h2>
+              <button onClick={function() { setShowSupplierModal(false); setSupplierSearch(""); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={supplierSearch}
+                  onChange={function(e) { setSupplierSearch(e.target.value); }}
+                  placeholder="Buscar por nombre o NIF..."
+                  className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="max-h-80 overflow-y-auto space-y-2">
+                {suppliers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Building2 size={20} className="text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">No hay proveedores registrados</p>
+                    <p className="text-xs text-slate-400 mt-1">Añade proveedores en Proveedores</p>
+                  </div>
+                ) : filteredSuppliers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Building2 size={20} className="text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">No se encontraron proveedores</p>
+                  </div>
+                ) : (
+                  filteredSuppliers.map(function(supplier) {
+                    return (
+                      <button
+                        key={supplier.id}
+                        onClick={function() { selectSupplier(supplier); }}
+                        className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-all group"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-900">{supplier.fiscalName}</p>
+                            {supplier.commercialName && (<p className="text-sm text-slate-500">{supplier.commercialName}</p>)}
+                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                              <Hash size={10} />
+                              {supplier.taxId}
+                            </p>
+                          </div>
+                          <Building2 size={16} className="text-slate-300 group-hover:text-slate-400" />
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAccountModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden border border-slate-200"><div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">Seleccionar cuenta</h2><button onClick={function() { setShowAccountModal(false); setAccountSearch(""); setCurrentItemIndex(null); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"><X size={20} /></button></div><div className="p-6"><div className="relative mb-4"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" value={accountSearch} onChange={function(e) { setAccountSearch(e.target.value); }} placeholder="Buscar por codigo o descripcion..." className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm" autoFocus /></div><div className="max-h-80 overflow-y-auto space-y-2">{filteredSubAccounts.length === 0 ? <div className="text-center py-12"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3"><Hash size={20} className="text-slate-400" /></div><p className="text-sm text-slate-500">No encontrado</p></div> : filteredSubAccounts.map(function(sub) { var isLow = sub.available < sub.budgeted * 0.1; var isOver = sub.available < 0; return (<button key={sub.id} onClick={function() { selectAccount(sub); }} className={cx("w-full text-left p-4 border rounded-xl hover:bg-slate-50", isOver ? "border-red-200 bg-red-50/50" : isLow ? "border-amber-200 bg-amber-50/50" : "border-slate-200")}><div className="flex items-start justify-between mb-3"><div className="flex-1"><div className="flex items-center gap-2"><p className="font-mono font-semibold text-slate-900">{sub.code}</p>{isOver && <span className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg"><AlertTriangle size={10} />Sin presupuesto</span>}{!isOver && isLow && <span className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-lg"><AlertTriangle size={10} />Bajo</span>}</div><p className="text-sm text-slate-700">{sub.description}</p></div></div><div className="grid grid-cols-4 gap-3 text-xs"><div className="bg-slate-50 rounded-lg p-2"><p className="text-slate-500">Presupuestado</p><p className="font-semibold text-slate-900">{formatCurrency(sub.budgeted)} €</p></div><div className="bg-amber-50 rounded-lg p-2"><p className="text-amber-600">Comprometido</p><p className="font-semibold text-amber-700">{formatCurrency(sub.committed)} €</p></div><div className="bg-emerald-50 rounded-lg p-2"><p className="text-emerald-600">Realizado</p><p className="font-semibold text-emerald-700">{formatCurrency(sub.actual)} €</p></div><div className={cx("rounded-lg p-2", isOver ? "bg-red-50" : isLow ? "bg-amber-50" : "bg-emerald-50")}><p className={isOver ? "text-red-600" : isLow ? "text-amber-600" : "text-emerald-600"}>Disponible</p><p className={cx("font-semibold", isOver ? "text-red-700" : isLow ? "text-amber-700" : "text-emerald-700")}>{formatCurrency(sub.available)} €</p></div></div></button>); })}</div></div></div></div>)}
     </div>
