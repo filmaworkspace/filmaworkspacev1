@@ -30,7 +30,7 @@ interface POItem { id?: string; description: string; subAccountId: string; subAc
 interface POItemWithInvoiced extends POItem { invoicedAmount: number; availableAmount: number; }
 interface InvoiceItem { id: string; description: string; poItemId?: string; poItemIndex?: number; isNewItem: boolean; subAccountId: string; subAccountCode: string; subAccountDescription: string; quantity: number; unitPrice: number; baseAmount: number; vatRate: number; vatAmount: number; irpfRate: number; irpfAmount: number; totalAmount: number; }
 interface SubAccount { id: string; code: string; description: string; budgeted: number; committed: number; actual: number; available: number; accountId: string; accountCode: string; accountDescription: string; }
-interface Supplier { id: string; fiscalName: string; commercialName: string; taxId: string; }
+interface Supplier { id: string; fiscalName: string; commercialName?: string; taxId: string; }
 interface Member { userId: string; name?: string; email?: string; role?: string; department?: string; position?: string; }
 interface ApprovalStep { id: string; order: number; approverType: "fixed" | "role" | "hod" | "coordinator"; approvers?: string[]; roles?: string[]; department?: string; requireAll: boolean; }
 interface ApprovalStepStatus { id: string; order: number; approverType: "fixed" | "role" | "hod" | "coordinator"; approvers: string[]; approverNames: string[]; roles?: string[]; department?: string; approvedBy: string[]; rejectedBy: string[]; status: "pending" | "approved" | "rejected"; requireAll: boolean; }
@@ -126,8 +126,11 @@ export default function NewInvoicePage() {
       var filteredPOs = allPOs.filter(function(po) { if (permissions.canViewAllPOs) return true; if (permissions.canViewDepartmentPOs && po.department === permissions.department) return true; return false; });
       setPOs(filteredPOs);
 
-      var suppSnap = await getDocs(query(collection(db, "projects/" + id + "/suppliers"), orderBy("fiscalName", "asc")));
-      setSuppliers(suppSnap.docs.map(function(d) { return { id: d.id, ...d.data() } as Supplier; }));
+      var suppSnap = await getDocs(collection(db, "projects/" + id + "/suppliers"));
+      var suppList = suppSnap.docs.map(function(d) { return { id: d.id, ...d.data() } as Supplier; });
+      suppList.sort(function(a, b) { return (a.fiscalName || "").localeCompare(b.fiscalName || ""); });
+      console.log("Suppliers loaded:", suppList.length, suppList);
+      setSuppliers(suppList);
 
       var accsSnap = await getDocs(query(collection(db, "projects/" + id + "/accounts"), orderBy("code", "asc")));
       var allSubs: SubAccount[] = [];
