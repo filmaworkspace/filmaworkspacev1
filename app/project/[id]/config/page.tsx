@@ -519,7 +519,6 @@ export default function ConfigGeneral() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Clapperboard size={20} className="text-slate-400" />
                 <h2 className="font-semibold text-slate-900">Datos de producción</h2>
               </div>
               {!editingProduction && productionData.projectType && (
@@ -903,3 +902,4 @@ export default function ConfigGeneral() {
     </div>
   );
 }
+
