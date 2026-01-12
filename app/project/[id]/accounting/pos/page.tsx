@@ -5,8 +5,8 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
-import { FileText, Plus, Search, Eye, Edit, Trash2, X, FileEdit, Download, Receipt, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
+import { doc, getDoc, collection, getDocs, updateDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { FileText, Plus, Search, Eye, Edit, X, FileEdit, Download, Receipt, MoreHorizontal, Lock, Unlock, XCircle, ExternalLink, AlertTriangle, ArrowUp, ArrowDown, Clock, CheckCircle2, Ban, Archive, LayoutGrid, List, Calendar, Building2, Hash, KeyRound, AlertCircle, ShieldAlert } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -87,7 +87,6 @@ export default function POsPage() {
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PO | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [modificationReason, setModificationReason] = useState("");
@@ -616,34 +615,6 @@ export default function POsPage() {
     }
   };
 
-  const handleDeleteDraft = (po: PO) => {
-    if (po.status !== "draft") return;
-    const perms = getPOPermissions(po);
-    if (!perms.canDelete) {
-      alert("No tienes permisos para eliminar esta PO");
-      return;
-    }
-    closeMenu();
-    setSelectedPO(po);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteDraft = async () => {
-    if (!selectedPO) return;
-    setProcessing(true);
-    try {
-      await deleteDoc(doc(db, `projects/${id}/pos`, selectedPO.id));
-      setShowDeleteModal(false);
-      resetModalState();
-      await loadData();
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error al eliminar la PO");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   const generatePDF = (po: PO) => {
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1037,12 +1008,6 @@ export default function POsPage() {
                         <Edit size={15} className="text-slate-400" />
                         Editar borrador
                       </button>
-                      {poPerms.canDelete && (
-                        <button onClick={() => handleDeleteDraft(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
-                          <Trash2 size={15} />
-                          Eliminar
-                        </button>
-                      )}
                     </>
                   )}
 
@@ -1409,34 +1374,6 @@ export default function POsPage() {
                   style={{ backgroundColor: '#2F52E0' }}
                 >
                   {processing ? "Modificando..." : "Modificar"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Draft Modal */}
-      {showDeleteModal && selectedPO && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowDeleteModal(false); resetModalState(); }}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                <Trash2 size={20} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Eliminar PO-{selectedPO.number}</h3>
-                <p className="text-xs text-slate-500">Esta acción no se puede deshacer</p>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-slate-600 mb-6">¿Estás seguro de que quieres eliminar este borrador? Esta acción es permanente.</p>
-              <div className="flex gap-3">
-                <button onClick={() => { setShowDeleteModal(false); resetModalState(); }} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors">
-                  Cancelar
-                </button>
-                <button onClick={confirmDeleteDraft} disabled={processing} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
-                  {processing ? "Eliminando..." : "Eliminar"}
                 </button>
               </div>
             </div>
