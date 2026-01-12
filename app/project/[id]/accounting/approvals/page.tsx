@@ -21,7 +21,7 @@ interface TimelineEvent { id: string; type: "created" | "approved" | "rejected" 
 interface AutoCheck { id: string; label: string; status: "pass" | "warning" | "fail" | "info"; message: string; details?: string; }
 interface POComparison { poNumber: string; poTotal: number; invoicedBefore: number; thisInvoice: number; remaining: number; percentageUsed: number; itemDiscrepancies: { description: string; poAmount: number; invoiceAmount: number; difference: number; }[]; }
 interface SupplierStats { totalPOs: number; totalInvoices: number; pendingAmount: number; avgApprovalTime: number; lastTransaction: Date | null; }
-interface PendingApproval { id: string; type: "po" | "invoice"; documentId: string; documentNumber: string; displayNumber?: string; projectId: string; projectName: string; supplier: string; supplierId?: string; amount: number; description: string; createdAt: Date; createdBy: string; createdByName: string; currentApprovalStep: number; approvalSteps: ApprovalStepStatus[]; attachmentUrl?: string; attachmentFileName?: string; items?: any[]; department?: string; poType?: string; currency?: string; poId?: string; poNumber?: string; timeline: TimelineEvent[]; autoChecks: AutoCheck[]; poComparison?: POComparison; supplierStats?: SupplierStats; daysWaiting: number; isUrgent: boolean; budgetImpact?: { accountCode: string; accountName: string; budgeted: number; committed: number; actual: number; available: number; afterApproval: number; }[]; }
+interface PendingApproval { id: string; type: "po" | "invoice"; documentId: string; documentNumber: string; displayNumber?: string; projectId: string; projectName: string; supplier: string; supplierId?: string; amount: number; baseAmount: number; description: string; createdAt: Date; createdBy: string; createdByName: string; currentApprovalStep: number; approvalSteps: ApprovalStepStatus[]; attachmentUrl?: string; attachmentFileName?: string; items?: any[]; department?: string; poType?: string; currency?: string; poId?: string; poNumber?: string; timeline: TimelineEvent[]; autoChecks: AutoCheck[]; poComparison?: POComparison; supplierStats?: SupplierStats; daysWaiting: number; isUrgent: boolean; budgetImpact?: { accountCode: string; accountName: string; budgeted: number; committed: number; actual: number; available: number; afterApproval: number; }[]; }
 interface UserStats { approvedToday: number; approvedThisWeek: number; approvedThisMonth: number; avgResponseTime: number; pendingCount: number; }
 
 export default function ApprovalsPage() {
@@ -97,7 +97,7 @@ export default function ApprovalsPage() {
           approvals.push({
             id: poDoc.id, type: "po", documentId: poDoc.id, documentNumber: d.number, displayNumber: `PO-${d.number}`,
             projectId: id, projectName: localProjectName, supplier: d.supplier, supplierId: d.supplierId,
-            amount: d.totalAmount || 0, description: d.generalDescription || d.description || "",
+            amount: d.totalAmount || 0, baseAmount: d.baseAmount || d.totalAmount || 0, description: d.generalDescription || d.description || "",
             createdAt, createdBy: d.createdBy, createdByName: d.createdByName || membersMap[d.createdBy] || "Usuario",
             currentApprovalStep: d.currentApprovalStep || 0, approvalSteps: d.approvalSteps || [],
             attachmentUrl: d.attachmentUrl, attachmentFileName: d.attachmentFileName,
@@ -122,7 +122,7 @@ export default function ApprovalsPage() {
             approvals.push({
               id: invDoc.id, type: "invoice", documentId: invDoc.id, documentNumber: d.number,
               displayNumber: d.displayNumber || `FAC-${d.number}`, projectId: id, projectName: localProjectName,
-              supplier: d.supplier, supplierId: d.supplierId, amount: d.totalAmount || 0,
+              supplier: d.supplier, supplierId: d.supplierId, amount: d.totalAmount || 0, baseAmount: d.baseAmount || d.totalAmount || 0,
               description: d.description || "", createdAt, createdBy: d.createdBy,
               createdByName: d.createdByName || membersMap[d.createdBy] || "Usuario",
               currentApprovalStep: d.currentApprovalStep || 0, approvalSteps: d.approvalSteps || [],
@@ -354,9 +354,7 @@ export default function ApprovalsPage() {
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                <CheckCircle size={22} className="text-slate-600" />
-              </div>
+              <CheckCircle size={24} className="text-slate-400" />
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Aprobaciones</h1>
                 <p className="text-slate-500 text-sm mt-0.5">
@@ -453,7 +451,7 @@ export default function ApprovalsPage() {
                             <p className="text-sm text-slate-500">{currentApproval.department && `${currentApproval.department} · `}{currentApproval.poType}{currentApproval.poNumber && currentApproval.type === "invoice" && (<span className="inline-flex items-center gap-1 ml-2 text-slate-600"><LinkIcon size={10} />PO-{currentApproval.poNumber}</span>)}</p>
                           </div>
                         </div>
-                        <div className="text-right"><p className="text-xs text-slate-500">Importe</p><p className="text-xl font-bold text-slate-900">{formatCurrency(currentApproval.amount, currentApproval.currency)}</p></div>
+                        <div className="text-right"><p className="text-xs text-slate-500">Coste</p><p className="text-xl font-bold text-slate-900">{formatCurrency(currentApproval.baseAmount, currentApproval.currency)}</p></div>
                       </div>
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                         <button onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))} disabled={currentIndex === 0} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 disabled:opacity-30"><ChevronLeft size={16} />Anterior</button>
