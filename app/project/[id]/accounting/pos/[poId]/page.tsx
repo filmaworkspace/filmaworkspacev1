@@ -158,7 +158,6 @@ export default function PODetailPage() {
       const invoicesSnapshot = await getDocs(query(collection(db, `projects/${projectId}/invoices`), where("poId", "==", poId)));
       setInvoices(invoicesSnapshot.docs.map((d) => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() } as Invoice)));
 
-      // ============ CAMBIADO: Orden ASC para que PO-0001 sea la primera ============
       const posSnapshot = await getDocs(query(collection(db, `projects/${projectId}/pos`), orderBy("createdAt", "asc")));
       const ids = posSnapshot.docs.map((d) => d.id);
       setAllPOIds(ids);
@@ -210,7 +209,6 @@ export default function PODetailPage() {
     }
   };
 
-  // ============ NUEVA FUNCIÓN: Liberar committed restante ============
   const releaseRemainingCommitted = async (poToClose: PO) => {
     const baseAmount = poToClose.baseAmount || 0;
     const invoicedAmount = poToClose.invoicedAmount || 0;
@@ -247,7 +245,6 @@ export default function PODetailPage() {
     }
   };
 
-  // ============ NUEVA FUNCIÓN: Restaurar committed al reabrir ============
   const restoreCommittedOnReopen = async (poToReopen: PO) => {
     const baseAmount = poToReopen.baseAmount || 0;
     const invoicedAmount = poToReopen.invoicedAmount || 0;
@@ -290,7 +287,6 @@ export default function PODetailPage() {
     if (!verified) return;
     setProcessing(true);
     try {
-      // ============ NUEVO: Liberar el committed restante ============
       await releaseRemainingCommitted(po);
 
       await updateDoc(doc(db, `projects/${projectId}/pos`, po.id), {
@@ -316,7 +312,6 @@ export default function PODetailPage() {
     if (!verified) return;
     setProcessing(true);
     try {
-      // ============ NUEVO: Restaurar el committed ============
       await restoreCommittedOnReopen(po);
 
       const baseAmount = po.baseAmount || 0;
@@ -509,28 +504,14 @@ export default function PODetailPage() {
   const Icon = config.icon;
   const remainingAmount = po.baseAmount - po.invoicedAmount;
   const invoiceProgress = po.baseAmount > 0 ? Math.min(100, (po.invoicedAmount / po.baseAmount) * 100) : 0;
+
   return (
     <div className={`min-h-screen bg-white ${inter.className}`}>
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${projectId}/accounting/pos`} className="hover:text-slate-900">
-                Órdenes de compra
-              </Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-3">
-              <FileText size={24} className="text-indigo-600" />
+              <FileText size={24} className="text-slate-400" />
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-semibold text-slate-900">Orden de compra</h1>
@@ -653,7 +634,7 @@ export default function PODetailPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {po.generalDescription && (
@@ -874,6 +855,7 @@ export default function PODetailPage() {
           </div>
         </div>
       </main>
+
       {/* Close Modal */}
       {showCloseModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowCloseModal(false); resetModals(); }}>
