@@ -165,9 +165,6 @@ const ACTUAL_TRIGGERS = [
 interface CostSettings {
   poCommitmentTrigger: "on_create" | "on_approve" | "on_account";
   invoiceActualTrigger: "on_approve" | "on_paid" | "on_account";
-  allowOverBudget: boolean;
-  overBudgetWarningThreshold: number;
-  requireJustificationOverBudget: boolean;
 }
 
 // Configuración de permisos por defecto
@@ -241,9 +238,6 @@ export default function AccountingConfigPage() {
   const [costSettings, setCostSettings] = useState<CostSettings>({
     poCommitmentTrigger: "on_approve",
     invoiceActualTrigger: "on_paid",
-    allowOverBudget: true,
-    overBudgetWarningThreshold: 90,
-    requireJustificationOverBudget: false,
   });
   
   // Tab de aprobaciones (PO vs Invoice)
@@ -430,9 +424,6 @@ export default function AccountingConfigPage() {
         setCostSettings({
           poCommitmentTrigger: data.poCommitmentTrigger || "on_approve",
           invoiceActualTrigger: data.invoiceActualTrigger || "on_paid",
-          allowOverBudget: data.allowOverBudget !== false,
-          overBudgetWarningThreshold: data.overBudgetWarningThreshold || 90,
-          requireJustificationOverBudget: data.requireJustificationOverBudget || false,
         });
       }
 
@@ -1483,72 +1474,6 @@ export default function AccountingConfigPage() {
           </div>
         </div>
       </div>
-
-      {/* Control de sobrepresupuesto */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-900">Control de sobrepresupuesto</h2>
-          <p className="text-sm text-slate-500 mt-1">Configura alertas y restricciones cuando se supera el presupuesto</p>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Permitir sobrepresupuesto */}
-          <label className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-            <input
-              type="checkbox"
-              checked={costSettings.allowOverBudget}
-              onChange={(e) => setCostSettings({ ...costSettings, allowOverBudget: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
-            />
-            <div className="flex-1">
-              <p className="font-medium text-slate-900">Permitir crear documentos sin presupuesto disponible</p>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Si está desactivado, no se podrán crear POs o facturas cuando el presupuesto disponible sea insuficiente
-              </p>
-            </div>
-          </label>
-
-          {/* Umbral de advertencia */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Umbral de advertencia (%)
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="50"
-                max="100"
-                value={costSettings.overBudgetWarningThreshold}
-                onChange={(e) => setCostSettings({ ...costSettings, overBudgetWarningThreshold: parseInt(e.target.value) })}
-                className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
-              />
-              <div className="w-16 px-3 py-2 bg-slate-100 rounded-lg text-center">
-                <span className="text-sm font-semibold text-slate-900">{costSettings.overBudgetWarningThreshold}%</span>
-              </div>
-            </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Se mostrará una advertencia cuando una partida supere este porcentaje de uso
-            </p>
-          </div>
-
-          {/* Requerir justificación */}
-          <label className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-            <input
-              type="checkbox"
-              checked={costSettings.requireJustificationOverBudget}
-              onChange={(e) => setCostSettings({ ...costSettings, requireJustificationOverBudget: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
-            />
-            <div className="flex-1">
-              <p className="font-medium text-slate-900">Requerir justificación al superar presupuesto</p>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Se pedirá una nota explicativa cuando se cree un documento que supere el presupuesto disponible
-              </p>
-            </div>
-          </label>
-        </div>
-      </div>
-    </div>
   );
 
   // Render de la sección de aprobaciones
