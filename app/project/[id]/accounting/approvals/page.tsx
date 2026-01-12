@@ -19,9 +19,9 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] }
 interface ApprovalStepStatus { id: string; order: number; approverType: "fixed" | "role" | "hod" | "coordinator"; approvers: string[]; approverNames?: string[]; roles?: string[]; department?: string; approvedBy: string[]; rejectedBy: string[]; status: "pending" | "approved" | "rejected"; requireAll: boolean; hasAmountThreshold?: boolean; amountThreshold?: number; amountCondition?: string; }
 interface TimelineEvent { id: string; type: "created" | "approved" | "rejected" | "comment" | "info_requested"; date: Date; userId: string; userName: string; stepOrder?: number; comment?: string; }
 interface AutoCheck { id: string; label: string; status: "pass" | "warning" | "fail" | "info"; message: string; details?: string; }
-interface POComparison { poNumber: string; poTotal: number; invoicedBefore: number; thisInvoice: number; remaining: number; percentageUsed: number; itemDiscrepancies: { description: string; poAmount: number; invoiceAmount: number; difference: number; }[]; }
+interface POComparison { poNumber: string; poBaseAmount: number; invoicedBefore: number; thisInvoice: number; remaining: number; percentageUsed: number; itemDiscrepancies: { description: string; poAmount: number; invoiceAmount: number; difference: number; }[]; }
 interface SupplierStats { totalPOs: number; totalInvoices: number; pendingAmount: number; avgApprovalTime: number; lastTransaction: Date | null; }
-interface PendingApproval { id: string; type: "po" | "invoice"; documentId: string; documentNumber: string; displayNumber?: string; projectId: string; projectName: string; supplier: string; supplierId?: string; amount: number; baseAmount: number; description: string; createdAt: Date; createdBy: string; createdByName: string; currentApprovalStep: number; approvalSteps: ApprovalStepStatus[]; attachmentUrl?: string; attachmentFileName?: string; items?: any[]; department?: string; poType?: string; currency?: string; poId?: string; poNumber?: string; timeline: TimelineEvent[]; autoChecks: AutoCheck[]; poComparison?: POComparison; supplierStats?: SupplierStats; daysWaiting: number; isUrgent: boolean; budgetImpact?: { accountCode: string; accountName: string; budgeted: number; committed: number; actual: number; available: number; afterApproval: number; }[]; }
+interface PendingApproval { id: string; type: "po" | "invoice"; documentId: string; documentNumber: string; displayNumber?: string; projectId: string; projectName: string; supplier: string; supplierId?: string; amount: number; baseAmount: number; description: string; createdAt: Date; createdBy: string; createdByName: string; currentApprovalStep: number; approvalSteps: ApprovalStepStatus[]; attachmentUrl?: string; attachmentFileName?: string; items?: any[]; department?: string; poType?: string; currency?: string; poId?: string; poNumber?: string; timeline: TimelineEvent[]; autoChecks: AutoCheck[]; poComparison?: POComparison; supplierStats?: SupplierStats; daysWaiting: number; isUrgent: boolean; budgetImpact?: { accountCode: string; accountName: string; budgeted: number; committed: number; actual: number; available: number; afterApproval: number; committedAfter?: number; actualAfter?: number; }[]; }
 interface UserStats { approvedToday: number; approvedThisWeek: number; approvedThisMonth: number; avgResponseTime: number; pendingCount: number; }
 
 export default function ApprovalsPage() {
@@ -103,7 +103,7 @@ export default function ApprovalsPage() {
             attachmentUrl: d.attachmentUrl, attachmentFileName: d.attachmentFileName,
             items: d.items || [], department: d.department, poType: d.poType, currency: d.currency || "EUR",
             timeline: buildTimeline(d, membersMap), autoChecks: buildAutoChecks(d, "po", subAccountsMap),
-            budgetImpact: calculateBudgetImpact(d.items || [], subAccountsMap),
+            budgetImpact: calculateBudgetImpact(d.items || [], subAccountsMap, false),
             supplierStats: await loadSupplierStats(d.supplierId), daysWaiting, isUrgent: daysWaiting >= 3,
           });
         }
@@ -118,7 +118,7 @@ export default function ApprovalsPage() {
             const createdAt = d.createdAt?.toDate() || new Date();
             const daysWaiting = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
             let poComparison: POComparison | undefined;
-            if (d.poId) poComparison = await loadPOComparison(d.poId, d.items || [], d.totalAmount || 0, invDoc.id);
+            if (d.poId) poComparison = await loadPOComparison(d.poId, d.items || [], d.baseAmount || 0, invDoc.id);
             approvals.push({
               id: invDoc.id, type: "invoice", documentId: invDoc.id, documentNumber: d.number,
               displayNumber: d.displayNumber || `FAC-${d.number}`, projectId: id, projectName: localProjectName,
@@ -129,7 +129,7 @@ export default function ApprovalsPage() {
               attachmentUrl: d.attachmentUrl, attachmentFileName: d.attachmentFileName,
               items: d.items || [], poId: d.poId, poNumber: d.poNumber,
               timeline: buildTimeline(d, membersMap), autoChecks: buildAutoChecks(d, "invoice", subAccountsMap),
-              budgetImpact: calculateBudgetImpact(d.items || [], subAccountsMap),
+              budgetImpact: calculateBudgetImpact(d.items || [], subAccountsMap, !!d.poId),
               supplierStats: await loadSupplierStats(d.supplierId), poComparison, daysWaiting, isUrgent: daysWaiting >= 3,
             });
           }
@@ -187,16 +187,16 @@ export default function ApprovalsPage() {
     } catch (e) { return undefined; }
   };
 
-  const loadPOComparison = async (poId: string, invoiceItems: any[], invoiceTotal: number, currentInvoiceId: string): Promise<POComparison | undefined> => {
+  const loadPOComparison = async (poId: string, invoiceItems: any[], invoiceBaseAmount: number, currentInvoiceId: string): Promise<POComparison | undefined> => {
     try {
       const poDoc = await getDoc(doc(db, `projects/${id}/pos`, poId));
       if (!poDoc.exists()) return undefined;
       const poData = poDoc.data();
-      const poTotal = poData.totalAmount || 0;
+      const poBaseAmount = poData.baseAmount || 0;
       let invoicedBefore = 0;
-      try { const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", poId))); for (const invDoc of invSnap.docs) { if (invDoc.id !== currentInvoiceId) { const d = invDoc.data(); if (["pending", "pending_approval", "approved", "paid"].includes(d.status)) invoicedBefore += d.totalAmount || 0; } } } catch (e) {}
-      const remaining = poTotal - invoicedBefore - invoiceTotal;
-      const percentageUsed = poTotal > 0 ? ((invoicedBefore + invoiceTotal) / poTotal) * 100 : 0;
+      try { const invSnap = await getDocs(query(collection(db, `projects/${id}/invoices`), where("poId", "==", poId))); for (const invDoc of invSnap.docs) { if (invDoc.id !== currentInvoiceId) { const d = invDoc.data(); if (["pending", "pending_approval", "approved", "paid"].includes(d.status)) invoicedBefore += d.baseAmount || 0; } } } catch (e) {}
+      const remaining = poBaseAmount - invoicedBefore - invoiceBaseAmount;
+      const percentageUsed = poBaseAmount > 0 ? ((invoicedBefore + invoiceBaseAmount) / poBaseAmount) * 100 : 0;
       const itemDiscrepancies: POComparison["itemDiscrepancies"] = [];
       const poItems = poData.items || [];
       for (const invItem of invoiceItems) {
@@ -204,12 +204,12 @@ export default function ApprovalsPage() {
           const poItemIndex = invItem.poItemIndex ?? poItems.findIndex((p: any) => p.id === invItem.poItemId);
           if (poItemIndex >= 0 && poItemIndex < poItems.length) {
             const poItem = poItems[poItemIndex];
-            const diff = (invItem.totalAmount || 0) - (poItem.totalAmount || 0);
-            if (Math.abs(diff) > 0.01) itemDiscrepancies.push({ description: invItem.description || poItem.description, poAmount: poItem.totalAmount || 0, invoiceAmount: invItem.totalAmount || 0, difference: diff });
+            const diff = (invItem.baseAmount || 0) - (poItem.baseAmount || 0);
+            if (Math.abs(diff) > 0.01) itemDiscrepancies.push({ description: invItem.description || poItem.description, poAmount: poItem.baseAmount || 0, invoiceAmount: invItem.baseAmount || 0, difference: diff });
           }
         }
       }
-      return { poNumber: poData.number, poTotal, invoicedBefore, thisInvoice: invoiceTotal, remaining, percentageUsed, itemDiscrepancies };
+      return { poNumber: poData.number, poBaseAmount, invoicedBefore, thisInvoice: invoiceBaseAmount, remaining, percentageUsed, itemDiscrepancies };
     } catch (e) { return undefined; }
   };
 
@@ -241,11 +241,32 @@ export default function ApprovalsPage() {
     return checks;
   };
 
-  const calculateBudgetImpact = (items: any[], subAccountsMap: Record<string, any>): PendingApproval["budgetImpact"] => {
+  const calculateBudgetImpact = (items: any[], subAccountsMap: Record<string, any>, hasPO: boolean): PendingApproval["budgetImpact"] => {
     const impact: PendingApproval["budgetImpact"] = [];
     const accountImpacts: Record<string, number> = {};
-    for (const item of items) { if (item.subAccountId && subAccountsMap[item.subAccountId]) accountImpacts[item.subAccountId] = (accountImpacts[item.subAccountId] || 0) + (item.baseAmount || item.totalAmount || 0); }
-    for (const [subAccountId, amount] of Object.entries(accountImpacts)) { const sub = subAccountsMap[subAccountId]; if (sub) impact.push({ accountCode: sub.code, accountName: sub.description, budgeted: sub.budgeted, committed: sub.committed, actual: sub.actual, available: sub.available, afterApproval: sub.available - amount }); }
+    for (const item of items) { if (item.subAccountId && subAccountsMap[item.subAccountId]) accountImpacts[item.subAccountId] = (accountImpacts[item.subAccountId] || 0) + (item.baseAmount || 0); }
+    for (const [subAccountId, amount] of Object.entries(accountImpacts)) { 
+      const sub = subAccountsMap[subAccountId]; 
+      if (sub) {
+        // Si tiene PO: el realizado aumenta y el comprometido disminuye (el available no cambia)
+        // Si no tiene PO: el realizado aumenta y el available disminuye
+        const newCommitted = hasPO ? Math.max(0, sub.committed - amount) : sub.committed;
+        const newActual = sub.actual + amount;
+        const newAvailable = hasPO ? sub.available : sub.available - amount;
+        impact.push({ 
+          accountCode: sub.code, 
+          accountName: sub.description, 
+          budgeted: sub.budgeted, 
+          committed: sub.committed, 
+          actual: sub.actual, 
+          available: sub.available, 
+          afterApproval: newAvailable,
+          // Campos adicionales para mostrar el cambio
+          committedAfter: newCommitted,
+          actualAfter: newActual,
+        }); 
+      }
+    }
     return impact;
   };
 
@@ -521,7 +542,7 @@ export default function ApprovalsPage() {
                   {currentApproval.poComparison && (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                       <button onClick={() => toggleSection("po-comparison")} className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"><div className="flex items-center gap-3"><Target size={18} className="text-slate-500" /><span className="font-semibold text-slate-900">Comparativa con PO-{currentApproval.poComparison.poNumber}</span>{currentApproval.poComparison.percentageUsed > 100 && (<span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">Excede PO</span>)}</div>{expandedSections.has("po-comparison") ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}</button>
-                      {expandedSections.has("po-comparison") && (<div className="px-6 pb-6"><div className="grid grid-cols-4 gap-4 mb-4"><div className="text-center p-3 bg-slate-50 rounded-xl"><p className="text-xs text-slate-500">Total PO</p><p className="text-sm font-bold text-slate-900">{formatCurrency(currentApproval.poComparison.poTotal)}</p></div><div className="text-center p-3 bg-emerald-50 rounded-xl"><p className="text-xs text-emerald-600">Facturado antes</p><p className="text-sm font-bold text-emerald-700">{formatCurrency(currentApproval.poComparison.invoicedBefore)}</p></div><div className="text-center p-3 bg-amber-50 rounded-xl"><p className="text-xs text-amber-600">Esta factura</p><p className="text-sm font-bold text-amber-700">{formatCurrency(currentApproval.poComparison.thisInvoice)}</p></div><div className={`text-center p-3 rounded-xl ${currentApproval.poComparison.remaining < 0 ? "bg-red-50" : "bg-slate-50"}`}><p className={`text-xs ${currentApproval.poComparison.remaining < 0 ? "text-red-600" : "text-slate-500"}`}>Restante</p><p className={`text-sm font-bold ${currentApproval.poComparison.remaining < 0 ? "text-red-700" : "text-slate-900"}`}>{formatCurrency(currentApproval.poComparison.remaining)}</p></div></div><div className="mb-4"><div className="flex items-center justify-between text-xs text-slate-500 mb-1"><span>Uso de la PO</span><span className={currentApproval.poComparison.percentageUsed > 100 ? "text-red-600 font-medium" : ""}>{currentApproval.poComparison.percentageUsed.toFixed(1)}%</span></div><div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${currentApproval.poComparison.percentageUsed > 100 ? "bg-red-500" : currentApproval.poComparison.percentageUsed > 90 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(currentApproval.poComparison.percentageUsed, 100)}%` }} /></div></div>{currentApproval.poComparison.itemDiscrepancies.length > 0 && (<div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl"><p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-2"><AlertTriangle size={12} />Discrepancias en items</p><div className="space-y-2">{currentApproval.poComparison.itemDiscrepancies.map((disc, idx) => (<div key={idx} className="flex items-center justify-between text-xs"><span className="text-slate-700">{disc.description}</span><div className="flex items-center gap-3"><span className="text-slate-500">PO: {formatCurrency(disc.poAmount)}</span><span className="text-slate-900">FAC: {formatCurrency(disc.invoiceAmount)}</span><span className={disc.difference > 0 ? "text-red-600 font-medium" : "text-emerald-600 font-medium"}>{disc.difference > 0 ? "+" : ""}{formatCurrency(disc.difference)}</span></div></div>))}</div></div>)}</div>)}
+                      {expandedSections.has("po-comparison") && (<div className="px-6 pb-6"><div className="grid grid-cols-4 gap-4 mb-4"><div className="text-center p-3 bg-slate-50 rounded-xl"><p className="text-xs text-slate-500">Base PO</p><p className="text-sm font-bold text-slate-900">{formatCurrency(currentApproval.poComparison.poBaseAmount)}</p></div><div className="text-center p-3 bg-emerald-50 rounded-xl"><p className="text-xs text-emerald-600">Facturado antes</p><p className="text-sm font-bold text-emerald-700">{formatCurrency(currentApproval.poComparison.invoicedBefore)}</p></div><div className="text-center p-3 bg-amber-50 rounded-xl"><p className="text-xs text-amber-600">Esta factura</p><p className="text-sm font-bold text-amber-700">{formatCurrency(currentApproval.poComparison.thisInvoice)}</p></div><div className={`text-center p-3 rounded-xl ${currentApproval.poComparison.remaining < 0 ? "bg-red-50" : "bg-slate-50"}`}><p className={`text-xs ${currentApproval.poComparison.remaining < 0 ? "text-red-600" : "text-slate-500"}`}>Restante</p><p className={`text-sm font-bold ${currentApproval.poComparison.remaining < 0 ? "text-red-700" : "text-slate-900"}`}>{formatCurrency(currentApproval.poComparison.remaining)}</p></div></div><div className="mb-4"><div className="flex items-center justify-between text-xs text-slate-500 mb-1"><span>Uso de la PO</span><span className={currentApproval.poComparison.percentageUsed > 100 ? "text-red-600 font-medium" : ""}>{currentApproval.poComparison.percentageUsed.toFixed(1)}%</span></div><div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${currentApproval.poComparison.percentageUsed > 100 ? "bg-red-500" : currentApproval.poComparison.percentageUsed > 90 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(currentApproval.poComparison.percentageUsed, 100)}%` }} /></div></div>{currentApproval.poComparison.itemDiscrepancies.length > 0 && (<div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl"><p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-2"><AlertTriangle size={12} />Discrepancias en items</p><div className="space-y-2">{currentApproval.poComparison.itemDiscrepancies.map((disc, idx) => (<div key={idx} className="flex items-center justify-between text-xs"><span className="text-slate-700">{disc.description}</span><div className="flex items-center gap-3"><span className="text-slate-500">PO: {formatCurrency(disc.poAmount)}</span><span className="text-slate-900">FAC: {formatCurrency(disc.invoiceAmount)}</span><span className={disc.difference > 0 ? "text-red-600 font-medium" : "text-emerald-600 font-medium"}>{disc.difference > 0 ? "+" : ""}{formatCurrency(disc.difference)}</span></div></div>))}</div></div>)}</div>)}
                     </div>
                   )}
 
