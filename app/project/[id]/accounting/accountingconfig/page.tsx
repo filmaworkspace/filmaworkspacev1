@@ -1681,10 +1681,8 @@ export default function AccountingConfigPage() {
           {/* Page header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <Settings size={20} className="text-slate-600" />
-              </div>
-              <h1 className="text-2xl font-semibold text-slate-900">Configuración</h1>
+              <Settings size={24} className="text-slate-400" />
+              <h1 className="text-2xl font-semibold text-slate-900">Configuración de contabilidad</h1>
             </div>
 
             <button
