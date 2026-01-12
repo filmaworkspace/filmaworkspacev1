@@ -144,9 +144,31 @@ const PRESET_THRESHOLDS = [1000, 2500, 5000, 10000, 25000, 50000];
 // Secciones de configuración
 const CONFIG_SECTIONS = [
   { id: "company", label: "Datos fiscales", icon: Building2, description: "Datos de la empresa y cuentas bancarias" },
+  { id: "cost", label: "Coste", icon: TrendingUp, description: "Comportamiento del comprometido y realizado" },
   { id: "approvals", label: "Aprobaciones", icon: FileCheck, description: "Flujos de aprobación para POs y facturas" },
   { id: "permissions", label: "Permisos", icon: Shield, description: "Quién puede realizar cada acción" },
 ];
+
+// Opciones de comportamiento del presupuesto
+const COMMITMENT_TRIGGERS = [
+  { value: "on_create", label: "Al crear", description: "Se compromete en cuanto se crea el documento (borrador)" },
+  { value: "on_approve", label: "Al aprobar", description: "Se compromete cuando el documento es aprobado" },
+  { value: "on_account", label: "Al contabilizar", description: "Se compromete cuando se marca como contabilizado" },
+];
+
+const ACTUAL_TRIGGERS = [
+  { value: "on_approve", label: "Al aprobar factura", description: "Pasa a realizado cuando la factura es aprobada" },
+  { value: "on_paid", label: "Al pagar", description: "Pasa a realizado cuando la factura se marca como pagada" },
+  { value: "on_account", label: "Al contabilizar", description: "Pasa a realizado cuando se marca como contabilizado" },
+];
+
+interface CostSettings {
+  poCommitmentTrigger: "on_create" | "on_approve" | "on_account";
+  invoiceActualTrigger: "on_approve" | "on_paid" | "on_account";
+  allowOverBudget: boolean;
+  overBudgetWarningThreshold: number;
+  requireJustificationOverBudget: boolean;
+}
 
 // Configuración de permisos por defecto
 interface PermissionConfig {
@@ -214,6 +236,15 @@ export default function AccountingConfigPage() {
   const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
   const [showBankAccountModal, setShowBankAccountModal] = useState(false);
   const [savingBankAccount, setSavingBankAccount] = useState(false);
+  
+  // Configuración de coste
+  const [costSettings, setCostSettings] = useState<CostSettings>({
+    poCommitmentTrigger: "on_approve",
+    invoiceActualTrigger: "on_paid",
+    allowOverBudget: true,
+    overBudgetWarningThreshold: 90,
+    requireJustificationOverBudget: false,
+  });
   
   // Tab de aprobaciones (PO vs Invoice)
   const [activeTab, setActiveTab] = useState<"po" | "invoice">("po");
@@ -389,6 +420,20 @@ export default function AccountingConfigPage() {
       } catch (bankErr) {
         console.log("No bank accounts yet:", bankErr);
         setBankAccounts([]);
+      }
+
+      // Cargar configuración de coste
+      const costConfigRef = doc(db, `projects/${id}/config/cost`);
+      const costConfigSnap = await getDoc(costConfigRef);
+      if (costConfigSnap.exists()) {
+        const data = costConfigSnap.data();
+        setCostSettings({
+          poCommitmentTrigger: data.poCommitmentTrigger || "on_approve",
+          invoiceActualTrigger: data.invoiceActualTrigger || "on_paid",
+          allowOverBudget: data.allowOverBudget !== false,
+          overBudgetWarningThreshold: data.overBudgetWarningThreshold || 90,
+          requireJustificationOverBudget: data.requireJustificationOverBudget || false,
+        });
       }
 
       setLoading(false);
@@ -640,6 +685,14 @@ export default function AccountingConfigPage() {
       // Guardar permisos
       await setDoc(doc(db, `projects/${id}/config/permissions`), {
         settings: permissionSettings,
+        updatedAt: now,
+        updatedBy: userId,
+        updatedByName: currentUserName,
+      });
+      
+      // Guardar configuración de coste
+      await setDoc(doc(db, `projects/${id}/config/cost`), {
+        ...costSettings,
         updatedAt: now,
         updatedBy: userId,
         updatedByName: currentUserName,
@@ -1330,6 +1383,174 @@ export default function AccountingConfigPage() {
     </div>
   );
 
+  // Render de la sección de coste
+  const renderCostSection = () => (
+    <div className="space-y-6">
+      {/* Comprometido - POs */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Comprometido (POs)</h2>
+          <p className="text-sm text-slate-500 mt-1">Define cuándo se suma el importe al presupuesto comprometido</p>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-3">
+            {COMMITMENT_TRIGGERS.map((trigger) => (
+              <label
+                key={trigger.value}
+                className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  costSettings.poCommitmentTrigger === trigger.value
+                    ? "border-slate-900 bg-slate-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="poCommitmentTrigger"
+                  value={trigger.value}
+                  checked={costSettings.poCommitmentTrigger === trigger.value}
+                  onChange={(e) => setCostSettings({ ...costSettings, poCommitmentTrigger: e.target.value as any })}
+                  className="mt-1 w-4 h-4 text-slate-900 border-slate-300 focus:ring-slate-500"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900">{trigger.label}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{trigger.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex gap-3">
+              <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-800">¿Cómo funciona?</p>
+                <p className="text-amber-700 mt-1">
+                  Cuando una PO alcanza el estado seleccionado, su importe base se suma al "comprometido" de las partidas presupuestarias asociadas. 
+                  Esto reduce el presupuesto disponible sin afectar al realizado.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Realizado - Facturas */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Realizado (Facturas)</h2>
+          <p className="text-sm text-slate-500 mt-1">Define cuándo el importe pasa de comprometido a realizado</p>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-3">
+            {ACTUAL_TRIGGERS.map((trigger) => (
+              <label
+                key={trigger.value}
+                className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  costSettings.invoiceActualTrigger === trigger.value
+                    ? "border-slate-900 bg-slate-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="invoiceActualTrigger"
+                  value={trigger.value}
+                  checked={costSettings.invoiceActualTrigger === trigger.value}
+                  onChange={(e) => setCostSettings({ ...costSettings, invoiceActualTrigger: e.target.value as any })}
+                  className="mt-1 w-4 h-4 text-slate-900 border-slate-300 focus:ring-slate-500"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900">{trigger.label}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{trigger.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div className="flex gap-3">
+              <Info size={18} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-emerald-800">¿Cómo funciona?</p>
+                <p className="text-emerald-700 mt-1">
+                  Cuando una factura alcanza el estado seleccionado, su importe se mueve de "comprometido" a "realizado". 
+                  El presupuesto disponible no cambia, solo la distribución entre comprometido y realizado.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Control de sobrepresupuesto */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Control de sobrepresupuesto</h2>
+          <p className="text-sm text-slate-500 mt-1">Configura alertas y restricciones cuando se supera el presupuesto</p>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Permitir sobrepresupuesto */}
+          <label className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={costSettings.allowOverBudget}
+              onChange={(e) => setCostSettings({ ...costSettings, allowOverBudget: e.target.checked })}
+              className="mt-1 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-slate-900">Permitir crear documentos sin presupuesto disponible</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Si está desactivado, no se podrán crear POs o facturas cuando el presupuesto disponible sea insuficiente
+              </p>
+            </div>
+          </label>
+
+          {/* Umbral de advertencia */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Umbral de advertencia (%)
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="50"
+                max="100"
+                value={costSettings.overBudgetWarningThreshold}
+                onChange={(e) => setCostSettings({ ...costSettings, overBudgetWarningThreshold: parseInt(e.target.value) })}
+                className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+              />
+              <div className="w-16 px-3 py-2 bg-slate-100 rounded-lg text-center">
+                <span className="text-sm font-semibold text-slate-900">{costSettings.overBudgetWarningThreshold}%</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Se mostrará una advertencia cuando una partida supere este porcentaje de uso
+            </p>
+          </div>
+
+          {/* Requerir justificación */}
+          <label className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={costSettings.requireJustificationOverBudget}
+              onChange={(e) => setCostSettings({ ...costSettings, requireJustificationOverBudget: e.target.checked })}
+              className="mt-1 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-slate-900">Requerir justificación al superar presupuesto</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Se pedirá una nota explicativa cuando se cree un documento que supere el presupuesto disponible
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
   // Render de la sección de aprobaciones
   const renderApprovalsSection = () => (
     <div className="space-y-6">
@@ -1788,6 +2009,7 @@ export default function AccountingConfigPage() {
           {/* Contenido principal */}
           <div className="flex-1 min-w-0">
             {activeSection === "company" && renderCompanySection()}
+            {activeSection === "cost" && renderCostSection()}
             {activeSection === "approvals" && renderApprovalsSection()}
             {activeSection === "permissions" && renderPermissionsSection()}
           </div>
