@@ -44,7 +44,6 @@ export default function EditPOPage() {
   const id = params?.id as string;
   const poId = params?.poId as string;
 
-  // ============ HOOK DE PERMISOS ============
   const {
     loading: permissionsLoading,
     error: permissionsError,
@@ -106,7 +105,6 @@ export default function EditPOPage() {
     try {
       setLoading(true);
 
-      // Primero cargar la PO para verificar permisos
       const poDoc = await getDoc(doc(db, `projects/${id}/pos`, poId));
       if (!poDoc.exists()) {
         router.push(`/project/${id}/accounting/pos`);
@@ -121,14 +119,12 @@ export default function EditPOPage() {
         status: poData.status || "draft",
       };
 
-      // ============ VERIFICAR PERMISOS DE EDICIÓN ============
       if (!canEditPO(poForPermissions as any)) {
         setAccessDenied(true);
         setLoading(false);
         return;
       }
 
-      // Guardar datos de la PO para validaciones
       setPOCreatedBy(poData.createdBy || "");
       setPODepartment(poData.department || "");
       setPONumber(poData.number || "");
@@ -161,7 +157,6 @@ export default function EditPOPage() {
       }
       setItems(loadedItems);
 
-      // Cargar resto de datos
       const projectDoc = await getDoc(doc(db, "projects", id));
       if (projectDoc.exists()) {
         setProjectName(projectDoc.data().name || "Proyecto");
@@ -314,9 +309,7 @@ export default function EditPOPage() {
     if (file) handleFileUpload(file);
   }, []);
 
-  // ============ FUNCIÓN AUXILIAR: Actualizar committed en subcuentas ============
   const updateSubAccountsCommitted = async (itemsToCommit: POItem[]) => {
-    // Agrupar por subAccountId para hacer una sola actualización por cuenta
     const commitmentsByAccount: Record<string, number> = {};
     
     for (const item of itemsToCommit) {
@@ -326,7 +319,6 @@ export default function EditPOPage() {
       }
     }
 
-    // Actualizar cada subcuenta
     const accountsSnapshot = await getDocs(collection(db, `projects/${id}/accounts`));
     
     for (const [subAccountId, amountToAdd] of Object.entries(commitmentsByAccount)) {
@@ -344,7 +336,7 @@ export default function EditPOPage() {
             await updateDoc(subAccountRef, {
               committed: currentCommitted + amountToAdd,
             });
-            break; // Encontramos la subcuenta, salir del loop de accounts
+            break;
           }
         } catch (e) {
           console.error(`Error updating subaccount ${subAccountId}:`, e);
@@ -396,7 +388,6 @@ export default function EditPOPage() {
           poData.approvedBy = permissions.userId;
           poData.approvedByName = permissions.userName;
           poData.autoApproved = true;
-          // ============ NUEVO: Guardar committedAmount y remainingAmount ============
           poData.committedAmount = totals.baseAmount;
           poData.remainingAmount = totals.baseAmount;
         } else {
@@ -410,7 +401,6 @@ export default function EditPOPage() {
 
       await updateDoc(doc(db, `projects/${id}/pos`, poId), poData);
 
-      // ============ NUEVO: Si se auto-aprueba, actualizar committed en subcuentas ============
       if (poData.status === "approved") {
         await updateSubAccountsCommitted(items);
       }
@@ -447,7 +437,6 @@ export default function EditPOPage() {
   const filteredSuppliers = suppliers.filter((s) => s.fiscalName.toLowerCase().includes(supplierSearch.toLowerCase()) || s.commercialName?.toLowerCase().includes(supplierSearch.toLowerCase()) || s.taxId.toLowerCase().includes(supplierSearch.toLowerCase()));
   const filteredSubAccounts = subAccounts.filter((s) => s.code.toLowerCase().includes(accountSearch.toLowerCase()) || s.description.toLowerCase().includes(accountSearch.toLowerCase()));
 
-  // ============ DEPARTAMENTOS DISPONIBLES SEGÚN PERMISOS ============
   const availableDepartments = getAvailableDepartments(departments);
 
   const approvalPreview = getApprovalPreview();
@@ -455,7 +444,6 @@ export default function EditPOPage() {
   const hasError = (field: string) => touched[field] && errors[field];
   const isValid = (field: string) => touched[field] && !errors[field];
 
-  // ============ LOADING STATE ============
   if (permissionsLoading || loading) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -464,7 +452,6 @@ export default function EditPOPage() {
     );
   }
 
-  // ============ ACCESO DENEGADO ============
   if (permissionsError || !permissions.hasAccountingAccess || accessDenied) {
     return (
       <div className={`min-h-screen bg-white flex items-center justify-center ${inter.className}`}>
@@ -491,23 +478,10 @@ export default function EditPOPage() {
     <div className={`min-h-screen bg-white ${inter.className}`}>
       {/* Header */}
       <div className="mt-[4.5rem]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="mb-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-              <Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
-                <ArrowLeft size={12} />
-                Proyectos
-              </Link>
-              <span className="text-slate-300">·</span>
-              <Link href={`/project/${id}/accounting/pos`} className="hover:text-slate-900 transition-colors">Órdenes de compra</Link>
-              <span className="text-slate-300">·</span>
-              <span className="uppercase text-slate-500">{projectName}</span>
-            </div>
-          </div>
-
+        <div className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6">
           <div className="flex items-start justify-between border-b border-slate-200 pb-6">
             <div className="flex items-center gap-3">
-              <FileText size={24} className="text-indigo-600" />
+              <FileText size={24} className="text-slate-400" />
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold text-slate-900">Editar orden de compra</h1>
                 <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono font-medium">
@@ -550,7 +524,7 @@ export default function EditPOPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 md:px-12 py-8">
+      <main className="px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-24 py-8">
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3">
             <CheckCircle size={18} className="text-emerald-600" />
@@ -597,7 +571,6 @@ export default function EditPOPage() {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Departamento *
-                      {/* ============ INDICADOR DE DEPARTAMENTO FIJO ============ */}
                       {permissions.fixedDepartment && (
                         <span className="ml-2 text-xs text-slate-400 font-normal">(asignado)</span>
                       )}
@@ -613,7 +586,6 @@ export default function EditPOPage() {
                         <option value="">Seleccionar...</option>
                         {availableDepartments.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
                       </select>
-                      {/* ============ ICONO DE CANDADO SI ESTÁ FIJO ============ */}
                       {permissions.fixedDepartment && (
                         <Lock size={14} className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400" />
                       )}
@@ -682,7 +654,6 @@ export default function EditPOPage() {
               <div className="p-6 space-y-4">
                 {items.map((item, index) => {
                   const itemHasAllFields = item.description.trim() && item.subAccountId && item.quantity > 0 && item.unitPrice > 0;
-                  // ============ BUSCAR CUENTA PARA MOSTRAR PRESUPUESTO ============
                   const selectedAccount = subAccounts.find((a) => a.id === item.subAccountId);
 
                   return (
@@ -717,7 +688,6 @@ export default function EditPOPage() {
                             )}
                             <Search size={14} className="text-slate-400" />
                           </button>
-                          {/* ============ INFO PRESUPUESTO - SOLO ROLES DE PROYECTO ============ */}
                           {permissions.isProjectRole && selectedAccount && (
                             <div className="mt-2 p-2 bg-slate-50 rounded-lg flex items-center justify-between text-xs">
                               <span className="text-slate-500">Disponible:</span>
@@ -1095,7 +1065,6 @@ export default function EditPOPage() {
                             <p className="text-xs text-slate-500 mt-1">{subAccount.accountCode} - {subAccount.accountDescription}</p>
                           </div>
                         </div>
-                        {/* ============ INFO PRESUPUESTO - SOLO ROLES DE PROYECTO ============ */}
                         {permissions.isProjectRole && (
                           <div className="grid grid-cols-4 gap-3 text-xs">
                             <div className="bg-slate-50 rounded-lg p-2"><p className="text-slate-500">Presupuestado</p><p className="font-semibold text-slate-900">{formatCurrency(subAccount.budgeted)} €</p></div>
