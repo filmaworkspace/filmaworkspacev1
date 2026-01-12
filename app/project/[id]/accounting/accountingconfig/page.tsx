@@ -1474,6 +1474,7 @@ export default function AccountingConfigPage() {
           </div>
         </div>
       </div>
+    </div>
   );
 
   // Render de la sección de aprobaciones
