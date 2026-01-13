@@ -307,7 +307,7 @@ export default function InvoiceDetailPage() {
         {toast && <div className="fixed top-4 right-4 z-50"><div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"} text-white text-sm font-medium`}>{toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}{toast.message}</div></div>}
         
         {/* Coding Header */}
-        <div className="bg-violet-600 text-white px-6 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div className="bg-violet-600 text-white px-6 py-3 flex items-center justify-between fixed top-[4.5rem] left-0 right-0 z-40">
           <div className="flex items-center gap-4">
             <button onClick={() => setCodingMode(false)} className="p-2 hover:bg-violet-700 rounded-lg"><X size={20} /></button>
             <div className="flex items-center gap-3">
@@ -318,14 +318,14 @@ export default function InvoiceDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-violet-200 text-sm">Total: <span className="font-bold text-white">{formatCurrency(totals.total)} €</span></span>
-            <button onClick={handleSaveCoding} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-white text-violet-700 rounded-xl text-sm font-semibold hover:bg-violet-50 disabled:opacity-50">
-              {saving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-              {saving ? "Guardando..." : "Guardar y cerrar"}
+            <button onClick={handleSaveCoding} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-white text-violet-700 rounded-xl text-sm font-semibold hover:bg-violet-50 disabled:opacity-50 shadow-lg">
+              {saving ? <RefreshCw size={16} className="animate-spin" /> : <FileCheck size={16} />}
+              {saving ? "Guardando..." : "Completar codificación"}
             </button>
           </div>
         </div>
 
-        <div className="flex h-[calc(100vh-52px)]">
+        <div className="flex h-[calc(100vh-4.5rem-52px)] mt-[4.5rem]">
           {/* Left: Document Preview */}
           <div className="w-1/2 bg-slate-800 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-3">
@@ -537,15 +537,11 @@ export default function InvoiceDetailPage() {
             <div className="bg-white rounded-2xl p-5 shadow-sm">
               <h3 className="font-semibold text-slate-900 mb-4">Información adicional</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="col-span-2">
                   <label className="text-xs text-slate-500 block mb-1">Método de pago</label>
                   <select value={codingForm.paymentMethod} onChange={(e) => setCodingForm({ ...codingForm, paymentMethod: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none">
                     {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 block mb-1">Nº Asiento contable</label>
-                  <input value={codingForm.accountingEntry} onChange={(e) => setCodingForm({ ...codingForm, accountingEntry: e.target.value })} placeholder="Ej: 17289" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 outline-none font-mono" />
                 </div>
                 <div className="col-span-2">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -662,7 +658,6 @@ export default function InvoiceDetailPage() {
                 <div className="flex items-center gap-2 mb-3"><FileCheck size={16} className="text-violet-600" /><span className="text-sm font-semibold text-violet-900">Codificada</span></div>
                 <div className="text-xs text-violet-700 space-y-1">
                   <p>Por {invoice.codedByName} · {formatDateTime(invoice.codedAt)}</p>
-                  {invoice.accountingEntry && <p>Asiento: <span className="font-mono">{invoice.accountingEntry}</span></p>}
                   {invoice.paymentMethod && <p>Método: {PAYMENT_METHODS.find((m) => m.value === invoice.paymentMethod)?.label}</p>}
                 </div>
               </div>
