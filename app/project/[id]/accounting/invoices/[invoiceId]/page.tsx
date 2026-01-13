@@ -307,7 +307,7 @@ export default function InvoiceDetailPage() {
         {toast && <div className="fixed top-4 right-4 z-50"><div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"} text-white text-sm font-medium`}>{toast.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}{toast.message}</div></div>}
         
         {/* Coding Header */}
-        <div className="bg-violet-600 text-white px-6 py-3 flex items-center justify-between fixed top-[4.5rem] left-0 right-0 z-40">
+        <div className="bg-violet-600 text-white px-6 py-3 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
           <div className="flex items-center gap-4">
             <button onClick={() => setCodingMode(false)} className="p-2 hover:bg-violet-700 rounded-lg"><X size={20} /></button>
             <div className="flex items-center gap-3">
@@ -325,7 +325,7 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        <div className="flex h-[calc(100vh-4.5rem-52px)] mt-[4.5rem]">
+        <div className="flex pt-[52px]" style={{ height: "100vh" }}>
           {/* Left: Document Preview */}
           <div className="w-1/2 bg-slate-800 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-3">
