@@ -737,15 +737,13 @@ export default function InvoicesPage() {
                     const isDueSoon = daysUntilDue <= 7 && daysUntilDue > 0 && invoice.status === "pending";
                     const needsReplacement = invoice.requiresReplacement && invoice.status === "paid" && !invoice.replacedByInvoiceId;
                     return (
-                      <tr key={invoice.id} className={`hover:bg-slate-50 transition-colors ${needsReplacement ? "bg-amber-50/50" : ""}`}>
+                      <tr 
+                        key={invoice.id} 
+                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${needsReplacement ? "bg-amber-50/50" : ""}`}
+                        onClick={() => router.push(`/project/${id}/accounting/invoices/${invoice.id}`)}
+                      >
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => {
-                              setSelectedInvoice(invoice);
-                              setShowDetailModal(true);
-                            }}
-                            className="text-left group/inv"
-                          >
+                          <div className="text-left group/inv">
                             <div className="flex items-center gap-2">
                               {getDocumentTypeBadge(invoice.documentType)}
                               <p className="font-semibold text-slate-900 font-mono group-hover/inv:text-[#2F52E0] transition-colors">{invoice.displayNumber}</p>
@@ -762,7 +760,7 @@ export default function InvoicesPage() {
                               )}
                             </div>
                             {invoice.poNumber && <p className="text-xs text-slate-500 mt-0.5 font-mono">PO-{invoice.poNumber}</p>}
-                          </button>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm text-slate-900 font-medium">{invoice.supplier}</p>
@@ -827,17 +825,14 @@ export default function InvoicesPage() {
               const needsReplacement = invoice.requiresReplacement && invoice.status === "paid" && !invoice.replacedByInvoiceId;
               return (
                 <>
-                  <button
-                    onClick={() => {
-                      setSelectedInvoice(invoice);
-                      setShowDetailModal(true);
-                      closeMenu();
-                    }}
+                  <Link
+                    href={`/project/${id}/accounting/invoices/${invoice.id}`}
+                    onClick={closeMenu}
                     className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3"
                   >
                     <Eye size={15} className="text-slate-400" />
                     Ver detalles
-                  </button>
+                  </Link>
                   {invoice.attachmentUrl && (
                     <a href={invoice.attachmentUrl} target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
                       <FileText size={15} className="text-slate-400" />
