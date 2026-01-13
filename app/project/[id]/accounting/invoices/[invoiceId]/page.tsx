@@ -599,7 +599,7 @@ export default function InvoiceDetailPage() {
                 <button onClick={() => navigateInvoice("next")} disabled={currentIndex >= allInvoiceIds.length - 1} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg disabled:opacity-30"><ChevronRight size={18} /></button>
               </div>
 
-              {canCode() && !["paid", "cancelled"].includes(invoice.status) && (
+              {canCode() && invoice.status !== "cancelled" && (
                 <button onClick={() => setCodingMode(true)} className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 text-sm font-medium">
                   <Code size={16} />Codificar
                 </button>
