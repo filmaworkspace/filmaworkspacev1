@@ -586,6 +586,11 @@ export default function InvoiceDetailPage() {
                   <h1 className="text-2xl font-semibold text-slate-900">{docConfig.label}</h1>
                   <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-sm font-mono">{invoice.displayNumber}</span>
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium text-sm ${config.bg} ${config.text}`}><StatusIcon size={14} />{config.label}</span>
+                  {invoice.codedAt && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-100 text-violet-700 rounded-lg font-medium text-sm">
+                      <FileCheck size={14} />Codificada
+                    </span>
+                  )}
                   {invoice.poNumber && <Link href={`/project/${projectId}/accounting/pos/${invoice.poId}`} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium hover:bg-indigo-100"><LinkIcon size={12} />PO-{invoice.poNumber}</Link>}
                 </div>
                 <p className="text-slate-500 text-sm mt-1">{invoice.supplier}{invoice.department && <span className="ml-2 text-slate-400">· {invoice.department}</span>}</p>
@@ -600,8 +605,9 @@ export default function InvoiceDetailPage() {
               </div>
 
               {canCode() && invoice.status !== "cancelled" && (
-                <button onClick={() => setCodingMode(true)} className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl hover:bg-violet-700 text-sm font-medium">
-                  <Code size={16} />Codificar
+                <button onClick={() => setCodingMode(true)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${invoice.codedAt ? "bg-violet-100 text-violet-700 hover:bg-violet-200" : "bg-violet-600 text-white hover:bg-violet-700"}`}>
+                  <Code size={16} />
+                  {invoice.codedAt ? "Editar codificación" : "Codificar"}
                 </button>
               )}
 
