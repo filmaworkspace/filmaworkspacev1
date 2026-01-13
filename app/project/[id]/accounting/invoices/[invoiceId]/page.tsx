@@ -128,6 +128,7 @@ export default function InvoiceDetailPage() {
   const [processing, setProcessing] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+  const [subAccountsBudget, setSubAccountsBudget] = useState<Record<string, { committed: number; actual: number; budgeted: number }>>({});
 
   useEffect(() => {
     if (projectId && invoiceId && !permissionsLoading) loadData();
@@ -211,6 +212,24 @@ export default function InvoiceDetailPage() {
       const ids = invoicesSnapshot.docs.map((d) => d.id);
       setAllInvoiceIds(ids);
       setCurrentIndex(ids.indexOf(invoiceId));
+
+      // Load subaccounts budget info
+      const subAccountIds = new Set<string>();
+      (data.items || []).forEach((item: any) => { if (item.subAccountId) subAccountIds.add(item.subAccountId); });
+      if (subAccountIds.size > 0) {
+        const accountsSnapshot = await getDocs(collection(db, `projects/${projectId}/accounts`));
+        const budgetInfo: Record<string, { committed: number; actual: number; budgeted: number }> = {};
+        for (const accountDoc of accountsSnapshot.docs) {
+          const subAccountsSnapshot = await getDocs(collection(db, `projects/${projectId}/accounts/${accountDoc.id}/subaccounts`));
+          for (const subDoc of subAccountsSnapshot.docs) {
+            if (subAccountIds.has(subDoc.id)) {
+              const subData = subDoc.data();
+              budgetInfo[subDoc.id] = { committed: subData.committed || 0, actual: subData.actual || 0, budgeted: subData.budgeted || 0 };
+            }
+          }
+        }
+        setSubAccountsBudget(budgetInfo);
+      }
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -478,6 +497,14 @@ export default function InvoiceDetailPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Columna izquierda - Vista previa del documento */}
           <div className="space-y-6">
+            {/* Descripción - arriba */}
+            {invoice.description && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                <h3 className="font-semibold text-slate-900 mb-2">Descripción</h3>
+                <p className="text-slate-700">{invoice.description}</p>
+              </div>
+            )}
+
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900">Documento</h3>
@@ -535,14 +562,6 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
             </div>
-
-            {/* Descripción */}
-            {invoice.description && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-6">
-                <h3 className="font-semibold text-slate-900 mb-3">Descripción</h3>
-                <p className="text-slate-600">{invoice.description}</p>
-              </div>
-            )}
 
             {/* Notas */}
             {invoice.notes && (
@@ -624,24 +643,43 @@ export default function InvoiceDetailPage() {
                 <h3 className="font-semibold text-slate-900">Items</h3>
                 <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium">{invoice.items.length}</span>
               </div>
-              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-                {invoice.items.map((item, index) => (
-                  <div key={index} className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{item.description}</p>
-                        <p className="text-sm text-slate-500 mt-0.5">{item.subAccountCode} · {item.subAccountDescription}</p>
+              <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                {invoice.items.map((item, index) => {
+                  const budget = subAccountsBudget[item.subAccountId];
+                  return (
+                    <div key={index} className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-900">{item.description}</p>
+                          <p className="text-sm text-slate-500 mt-0.5">{item.subAccountCode} · {item.subAccountDescription}</p>
+                        </div>
+                        <p className="font-bold text-slate-900">{formatCurrency(item.baseAmount)} €</p>
                       </div>
-                      <p className="font-bold text-slate-900">{formatCurrency(item.baseAmount)} €</p>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>{item.quantity} × {formatCurrency(item.unitPrice)} €</span>
+                        {item.vatRate > 0 && <span>IVA {item.vatRate}%</span>}
+                        {item.irpfRate > 0 && <span className="text-red-500">IRPF {item.irpfRate}%</span>}
+                        {item.isNewItem && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Extra</span>}
+                      </div>
+                      {budget && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-4 text-xs">
+                          <span className="text-slate-400">Partida:</span>
+                          <span className="text-amber-600">Comprometido: {formatCurrency(budget.committed)} €</span>
+                          <span className="text-emerald-600">Realizado: {formatCurrency(budget.actual)} €</span>
+                          <span className="text-slate-500">Presup: {formatCurrency(budget.budgeted)} €</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>{item.quantity} × {formatCurrency(item.unitPrice)} €</span>
-                      {item.vatRate > 0 && <span>IVA {item.vatRate}%</span>}
-                      {item.irpfRate > 0 && <span className="text-red-500">IRPF {item.irpfRate}%</span>}
-                      {item.isNewItem && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Extra</span>}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+
+              {/* Totales por tipo */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Total base imponible (coste)</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(invoice.baseAmount)} €</span>
+                </div>
               </div>
             </div>
 
