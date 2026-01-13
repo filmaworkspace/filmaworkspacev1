@@ -400,8 +400,65 @@ export default function InvoiceDetailPage() {
             <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-slate-900">Líneas de codificación</h3>
-                <button onClick={addCodingItem} className="flex items-center gap-1 px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg text-xs font-medium hover:bg-violet-200"><Plus size={14} />Añadir línea</button>
+                <div className="flex items-center gap-2">
+                  {linkedPO && linkedPO.items && linkedPO.items.length > 0 && (
+                    <button 
+                      onClick={() => {
+                        const poItems = linkedPO.items!.map((poItem: any, idx: number) => ({
+                          description: poItem.description || "",
+                          subAccountId: poItem.subAccountId || "",
+                          subAccountCode: poItem.subAccountCode || "",
+                          subAccountDescription: poItem.subAccountDescription || "",
+                          quantity: poItem.quantity || 1,
+                          unitPrice: poItem.unitPrice || 0,
+                          vatRate: poItem.vatRate ?? 21,
+                          irpfRate: poItem.irpfRate ?? 0,
+                          poItemIndex: idx,
+                          isNewItem: false,
+                        }));
+                        setCodingItems(poItems);
+                      }} 
+                      className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium hover:bg-indigo-200"
+                    >
+                      <LinkIcon size={14} />Importar de PO
+                    </button>
+                  )}
+                  <button onClick={addCodingItem} className="flex items-center gap-1 px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg text-xs font-medium hover:bg-violet-200"><Plus size={14} />Añadir línea</button>
+                </div>
               </div>
+
+              {/* PO Items selector */}
+              {linkedPO && linkedPO.items && linkedPO.items.length > 0 && (
+                <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <p className="text-xs font-medium text-indigo-800 mb-2">Añadir línea desde PO-{linkedPO.number}:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {linkedPO.items.map((poItem: any, idx: number) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setCodingItems([...codingItems, {
+                            description: poItem.description || "",
+                            subAccountId: poItem.subAccountId || "",
+                            subAccountCode: poItem.subAccountCode || "",
+                            subAccountDescription: poItem.subAccountDescription || "",
+                            quantity: poItem.quantity || 1,
+                            unitPrice: poItem.unitPrice || 0,
+                            vatRate: poItem.vatRate ?? 21,
+                            irpfRate: poItem.irpfRate ?? 0,
+                            poItemIndex: idx,
+                            isNewItem: false,
+                          }]);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-xs hover:bg-indigo-100 transition-colors"
+                      >
+                        <span className="font-medium text-indigo-700">#{idx + 1}</span>
+                        <span className="text-slate-600 truncate max-w-[150px]">{poItem.description || "Sin descripción"}</span>
+                        <span className="font-mono text-slate-500">{formatCurrency(poItem.unitPrice || 0)}€</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {codingItems.map((item, idx) => (
@@ -641,6 +698,61 @@ export default function InvoiceDetailPage() {
 
           {/* Right: Info */}
           <div className="space-y-6">
+            {/* Coding Status */}
+            {invoice.codedAt ? (
+              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileCheck size={18} className="text-violet-600" />
+                  <span className="font-semibold text-violet-900">Codificada</span>
+                  <span className="text-xs text-violet-600 ml-auto">por {invoice.codedByName} · {formatDateTime(invoice.codedAt)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {invoice.supplierNumber && (
+                    <div>
+                      <p className="text-violet-600 text-xs mb-0.5">Nº Factura proveedor</p>
+                      <p className="font-medium text-slate-900 font-mono">{invoice.supplierNumber}</p>
+                    </div>
+                  )}
+                  {invoice.invoiceDate && (
+                    <div>
+                      <p className="text-violet-600 text-xs mb-0.5">Fecha factura</p>
+                      <p className="font-medium text-slate-900">{formatDate(invoice.invoiceDate)}</p>
+                    </div>
+                  )}
+                  {invoice.supplierTaxId && (
+                    <div>
+                      <p className="text-violet-600 text-xs mb-0.5">CIF/NIF</p>
+                      <p className="font-medium text-slate-900 font-mono">{invoice.supplierTaxId}</p>
+                    </div>
+                  )}
+                  {invoice.paymentMethod && (
+                    <div>
+                      <p className="text-violet-600 text-xs mb-0.5">Método de pago</p>
+                      <p className="font-medium text-slate-900">{PAYMENT_METHODS.find((m) => m.value === invoice.paymentMethod)?.label}</p>
+                    </div>
+                  )}
+                  {invoice.supplierIban && (
+                    <div className="col-span-2">
+                      <p className="text-violet-600 text-xs mb-0.5">IBAN</p>
+                      <p className="font-medium text-slate-900 font-mono text-xs">{invoice.supplierIban}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <Clock size={20} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-amber-900">Pendiente de codificación</p>
+                    <p className="text-xs text-amber-700">Esta factura necesita ser codificada por contabilidad</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Summary */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6">
               <h3 className="font-semibold text-slate-900 mb-4">Resumen</h3>
@@ -651,17 +763,6 @@ export default function InvoiceDetailPage() {
                 <div className="pt-3 border-t border-slate-200 flex justify-between"><span className="font-medium">Total</span><span className="text-xl font-bold">{formatCurrency(invoice.totalAmount)} €</span></div>
               </div>
             </div>
-
-            {/* Coding Info */}
-            {invoice.codedAt && (
-              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3"><FileCheck size={16} className="text-violet-600" /><span className="text-sm font-semibold text-violet-900">Codificada</span></div>
-                <div className="text-xs text-violet-700 space-y-1">
-                  <p>Por {invoice.codedByName} · {formatDateTime(invoice.codedAt)}</p>
-                  {invoice.paymentMethod && <p>Método: {PAYMENT_METHODS.find((m) => m.value === invoice.paymentMethod)?.label}</p>}
-                </div>
-              </div>
-            )}
 
             {/* Linked PO */}
             {linkedPO && (
