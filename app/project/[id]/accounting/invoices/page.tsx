@@ -78,6 +78,8 @@ interface Invoice {
   requiresReplacement?: boolean;
   replacedByInvoiceId?: string;
   linkedDocumentId?: string;
+  codedAt?: Date;
+  codedByName?: string;
 }
 
 interface CompanyData {
@@ -161,6 +163,8 @@ export default function InvoicesPage() {
           dueDate: data.dueDate?.toDate() || new Date(),
           paymentDate: data.paymentDate?.toDate(),
           rejectedAt: data.rejectedAt?.toDate(),
+          codedAt: data.codedAt?.toDate(),
+          codedByName: data.codedByName,
         };
       }) as Invoice[];
 
@@ -575,6 +579,10 @@ export default function InvoicesPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button onClick={exportInvoices} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                <Download size={16} />
+                Exportar
+              </button>
               {permissions.canCreatePO && (
                 <Link 
                   href={`/project/${id}/accounting/invoices/new`} 
@@ -741,6 +749,11 @@ export default function InvoicesPage() {
                             <div className="flex items-center gap-2">
                               {getDocumentTypeBadge(invoice.documentType)}
                               <p className="font-semibold text-slate-900 font-mono group-hover/inv:text-[#2F52E0] transition-colors">{invoice.displayNumber}</p>
+                              {invoice.codedAt && (
+                                <span className="flex items-center gap-1 text-xs text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded" title={`Codificada por ${invoice.codedByName}`}>
+                                  <FileCheck size={10} />
+                                </span>
+                              )}
                               {needsReplacement && (
                                 <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
                                   <Clock size={10} />
