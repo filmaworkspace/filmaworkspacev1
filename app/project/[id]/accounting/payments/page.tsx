@@ -488,6 +488,7 @@ export default function PaymentsPage() {
               <CreditCard size={24} style={{ color: "#2F52E0" }} />
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Previsiones de pago</h1>
+                <p className="text-sm text-slate-500 mt-0.5">{forecasts.length} previsiones · {formatCurrency(forecasts.reduce((s, f) => s + f.totalAmount, 0))} € total</p>
               </div>
             </div>
             <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity" style={{ backgroundColor: "#2F52E0" }}>
@@ -705,7 +706,7 @@ export default function PaymentsPage() {
                                 <button onClick={() => { setShowForecastDetail(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Eye size={14} /> Ver detalles</button>
                                 <button onClick={() => { exportForecastPDF(forecast); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Download size={14} /> Exportar PDF</button>
                                 {forecast.status === "draft" && (<><button onClick={() => { setSelectedForecastId(forecast.id); setShowAddPaymentModal(true); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Plus size={14} /> Añadir pago</button>{forecast.items.length > 0 && (<button onClick={() => { handleSendForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"><Send size={14} /> Enviar</button>)}</>)}
-                                {forecast.status === "pending" && (<button onClick={() => { router.push("/project/" + id + "/accounting/payments/" + forecast.id + "/pay"); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><Banknote size={14} /> Ir a pagar</button>)}
+                                {(forecast.status === "pending" || forecast.status === "completed") && (<button onClick={() => { router.push("/project/" + id + "/accounting/payments/" + forecast.id + "/pay"); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"><Banknote size={14} /> {forecast.status === "completed" ? "Ver pagos" : "Ir a pagar"}</button>)}
                                 <div className="border-t border-slate-100 my-1" />
                                 <button onClick={() => { handleDeleteForecast(forecast.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Eliminar</button>
                               </div>
@@ -1007,6 +1008,9 @@ export default function PaymentsPage() {
               )}
               {showForecastDetail.status === "pending" && (
                 <button onClick={() => router.push("/project/" + id + "/accounting/payments/" + showForecastDetail.id + "/pay")} className="px-4 py-2 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg flex items-center gap-2"><Banknote size={14} />Ir a pagar</button>
+              )}
+              {showForecastDetail.status === "completed" && (
+                <button onClick={() => router.push("/project/" + id + "/accounting/payments/" + showForecastDetail.id + "/pay")} className="px-4 py-2 text-sm bg-slate-700 text-white hover:bg-slate-800 rounded-lg flex items-center gap-2"><Eye size={14} />Ver pagos</button>
               )}
               <button onClick={() => setShowForecastDetail(null)} className="px-4 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-white rounded-lg">Cerrar</button>
             </div>
