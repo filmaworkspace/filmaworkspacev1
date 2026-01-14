@@ -19,6 +19,7 @@ interface Invoice { id: string; documentType: DocumentType; number: string; disp
 interface LinkedPO { id: string; number: string; supplier: string; baseAmount: number; invoicedAmount: number; status: string; items?: any[]; }
 interface Supplier { id: string; name: string; taxId?: string; iban?: string; bic?: string; }
 interface SubAccount { id: string; code: string; description: string; accountId: string; committed: number; actual: number; budgeted: number; }
+interface PaymentRecord { id: string; forecastId: string; forecastName: string; amount: number; paidAt: Date; paidByName: string; receiptUrl?: string; receiptName?: string; }
 
 const STATUS_CONFIG: Record<InvoiceStatus, { bg: string; text: string; label: string; icon: typeof Clock }> = {
   draft: { bg: "bg-slate-100", text: "text-slate-700", label: "Borrador", icon: Edit },
@@ -70,6 +71,7 @@ export default function InvoiceDetailPage() {
   const [processing, setProcessing] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   
   // Coding mode states
   const [codingMode, setCodingMode] = useState(false);
@@ -157,6 +159,30 @@ export default function InvoiceDetailPage() {
         });
       }
       setSubAccounts(subs.sort((a, b) => a.code.localeCompare(b.code)));
+
+      // Load payments for this invoice
+      const forecastsSnap = await getDocs(collection(db, `projects/${projectId}/paymentForecasts`));
+      const invoicePayments: PaymentRecord[] = [];
+      for (const forecastDoc of forecastsSnap.docs) {
+        const fData = forecastDoc.data();
+        const items = fData.items || [];
+        for (const item of items) {
+          if (item.invoiceId === invoiceId && item.status === "completed") {
+            invoicePayments.push({
+              id: item.id,
+              forecastId: forecastDoc.id,
+              forecastName: fData.name || "Remesa",
+              amount: item.partialAmount || item.amount,
+              paidAt: item.completedAt?.toDate ? item.completedAt.toDate() : new Date(item.completedAt),
+              paidByName: item.completedByName || "Usuario",
+              receiptUrl: item.receiptUrl,
+              receiptName: item.receiptName,
+            });
+          }
+        }
+      }
+      setPayments(invoicePayments.sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime()));
+
       setLoading(false);
     } catch (error) { console.error("Error:", error); setLoading(false); }
   };
@@ -763,6 +789,74 @@ export default function InvoiceDetailPage() {
                 <div className="pt-3 border-t border-slate-200 flex justify-between"><span className="font-medium">Total</span><span className="text-xl font-bold">{formatCurrency(invoice.totalAmount)} €</span></div>
               </div>
             </div>
+
+            {/* Payments Section */}
+            {(invoice.status === "paid" || payments.length > 0) && (
+              <div className={`border rounded-2xl p-5 ${payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={18} className={payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "text-emerald-600" : "text-amber-600"} />
+                    <span className={`font-semibold ${payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "text-emerald-900" : "text-amber-900"}`}>
+                      {payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "Pagada completamente" : "Pago parcial"}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-bold ${payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "text-emerald-700" : "text-amber-700"}`}>
+                      {formatCurrency(payments.reduce((sum, p) => sum + p.amount, 0))} €
+                    </p>
+                    {payments.reduce((sum, p) => sum + p.amount, 0) < invoice.totalAmount * 0.99 && (
+                      <p className="text-xs text-amber-600">de {formatCurrency(invoice.totalAmount)} € ({Math.round((payments.reduce((sum, p) => sum + p.amount, 0) / invoice.totalAmount) * 100)}%)</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress bar for partial payments */}
+                {payments.reduce((sum, p) => sum + p.amount, 0) < invoice.totalAmount * 0.99 && (
+                  <div className="w-full h-2 bg-amber-100 rounded-full overflow-hidden mb-4">
+                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${Math.min(100, (payments.reduce((sum, p) => sum + p.amount, 0) / invoice.totalAmount) * 100)}%` }} />
+                  </div>
+                )}
+
+                {/* Individual payments */}
+                {payments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className={`text-xs font-medium mb-2 ${payments.reduce((sum, p) => sum + p.amount, 0) >= invoice.totalAmount * 0.99 ? "text-emerald-700" : "text-amber-700"}`}>
+                      {payments.length} pago{payments.length > 1 ? "s" : ""} registrado{payments.length > 1 ? "s" : ""}
+                    </p>
+                    {payments.map((payment, idx) => (
+                      <div key={idx} className="bg-white rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <CheckCircle size={14} className="text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900">{formatCurrency(payment.amount)} €</p>
+                          <p className="text-xs text-slate-500">{payment.forecastName} · {formatDate(payment.paidAt)} · {payment.paidByName}</p>
+                        </div>
+                        {payment.receiptUrl && (
+                          <a href={payment.receiptUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200">
+                            <FileCheck size={12} />
+                            Justificante
+                            <ExternalLink size={10} />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {payments.length === 0 && invoice.paidAt && (
+                  <div className="bg-white rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <CheckCircle size={14} className="text-emerald-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">{formatCurrency(invoice.paidAmount || invoice.totalAmount)} €</p>
+                      <p className="text-xs text-slate-500">Pagado el {formatDate(invoice.paidAt)}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Linked PO */}
             {linkedPO && (
