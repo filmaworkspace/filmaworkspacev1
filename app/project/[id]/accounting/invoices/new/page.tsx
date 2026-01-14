@@ -6,7 +6,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, getDoc, collection, getDocs, addDoc, query, orderBy, Timestamp, where, updateDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, addDoc, query, orderBy, Timestamp, where, updateDoc, runTransaction } from "firebase/firestore";
 import { Receipt, ArrowLeft, Building2, AlertCircle, Info, Upload, X, Plus, Trash2, Search, Calendar, Hash, FileText, ShoppingCart, CheckCircle, CheckCircle2, AlertTriangle, Send, Shield, FileCheck, Clock, Users, ChevronRight, Circle, ShieldAlert, RefreshCw, ArrowRight, Lock } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
@@ -85,21 +85,22 @@ export default function NewInvoicePage() {
 
   const currentDocType = DOCUMENT_TYPES[documentType];
   const DocIcon = currentDocType.icon;
-  const getDocumentNumber = function() { return currentDocType.code + "-" + nextNumber; };
+  const getDocumentNumber = function() { 
+    if (nextNumber === "NUEVO") return currentDocType.code + "-NUEVO";
+    return currentDocType.code + "-" + nextNumber; 
+  };
 
   useEffect(function() { if (!permissionsLoading && permissions.userId && id) loadData(); }, [permissionsLoading, permissions.userId, id]);
   useEffect(function() { calculateTotals(); }, [items]);
   useEffect(function() { if (selectedPO) { calculatePOStats(); loadPOItemsInvoiced(); } }, [selectedPO]);
   useEffect(function() { if (selectedPO && poItemsWithInvoiced.length > 0) updateAvailableWithCurrentItems(); }, [items, poItemsWithInvoiced.length]);
-  useEffect(function() { if (id) updateNextNumber(); }, [documentType, id]);
+  useEffect(function() { if (id) setNextNumber("NUEVO"); }, [id]);
   useEffect(function() { if (Object.keys(touched).length > 0) validateForm(); }, [formData, items, uploadedFile, selectedPO]);
   useEffect(function() { if (replaceMode && selectedPendingDoc) { var diff = totals.totalAmount - selectedPendingDoc.totalAmount; setAmountDifference(diff); setSameAmount(Math.abs(diff) < 0.01); } }, [totals.totalAmount, selectedPendingDoc, replaceMode]);
 
   var updateNextNumber = async function() {
-    try {
-      var snap = await getDocs(query(collection(db, "projects/" + id + "/invoices"), where("documentType", "==", documentType)));
-      setNextNumber(String(snap.size + 1).padStart(4, "0"));
-    } catch (e) { setNextNumber("0001"); }
+    // Ya no mostramos número hasta el envío - numeración correlativa global
+    setNextNumber("NUEVO");
   };
 
   var loadData = async function() {
@@ -282,10 +283,20 @@ export default function NewInvoicePage() {
     if (!validateForm()) return;
     setSaving(true);
     try {
+      // Obtener siguiente número correlativo global (para todos los tipos de documento)
+      var invoicesSnap = await getDocs(collection(db, "projects/" + id + "/invoices"));
+      var maxNumber = 0;
+      invoicesSnap.docs.forEach(function(d) {
+        var num = parseInt(d.data().number || "0", 10);
+        if (num > maxNumber) maxNumber = num;
+      });
+      var finalNumber = String(maxNumber + 1).padStart(4, "0");
+      var finalDisplayNumber = currentDocType.code + "-" + finalNumber;
+      
       var fileUrl = "";
-      if (uploadedFile) { var fileRef = ref(storage, "projects/" + id + "/invoices/" + getDocumentNumber() + "/" + uploadedFile.name); await uploadBytes(fileRef, uploadedFile); fileUrl = await getDownloadURL(fileRef); }
+      if (uploadedFile) { var fileRef = ref(storage, "projects/" + id + "/invoices/" + finalDisplayNumber + "/" + uploadedFile.name); await uploadBytes(fileRef, uploadedFile); fileUrl = await getDownloadURL(fileRef); }
       var itemsData = items.map(function(i) { return { description: i.description.trim(), poItemId: i.poItemId || null, poItemIndex: i.poItemIndex !== undefined ? i.poItemIndex : null, isNewItem: i.isNewItem || false, subAccountId: i.subAccountId || "", subAccountCode: i.subAccountCode || "", subAccountDescription: i.subAccountDescription || "", quantity: i.quantity || 0, unitPrice: i.unitPrice || 0, baseAmount: i.baseAmount || 0, vatRate: i.vatRate || 0, vatAmount: i.vatAmount || 0, irpfRate: i.irpfRate || 0, irpfAmount: i.irpfAmount || 0, totalAmount: i.totalAmount || 0 }; });
-      var invoiceData: any = { documentType: documentType || "invoice", number: nextNumber || "0001", displayNumber: getDocumentNumber() || "FAC-0001", supplier: formData.supplierName || "", supplierId: formData.supplier || "", department: formData.department || selectedPO?.department || permissions.fixedDepartment || "", poId: selectedPO?.id || null, poNumber: selectedPO?.number || null, description: (formData.description || "").trim(), notes: (formData.notes || "").trim(), items: itemsData, baseAmount: totals.baseAmount || 0, vatAmount: totals.vatAmount || 0, irpfAmount: totals.irpfAmount || 0, totalAmount: totals.totalAmount || 0, dueDate: Timestamp.fromDate(new Date(formData.dueDate || new Date())), attachmentUrl: fileUrl || "", attachmentFileName: uploadedFile?.name || "", createdAt: Timestamp.now(), createdBy: permissions.userId || "", createdByName: permissions.userName || "", requiresReplacement: currentDocType?.requiresReplacement || false, replacedByInvoiceId: null, linkedDocumentId: linkedDocumentId || null };
+      var invoiceData: any = { documentType: documentType || "invoice", number: finalNumber, displayNumber: finalDisplayNumber, supplier: formData.supplierName || "", supplierId: formData.supplier || "", department: formData.department || selectedPO?.department || permissions.fixedDepartment || "", poId: selectedPO?.id || null, poNumber: selectedPO?.number || null, description: (formData.description || "").trim(), notes: (formData.notes || "").trim(), items: itemsData, baseAmount: totals.baseAmount || 0, vatAmount: totals.vatAmount || 0, irpfAmount: totals.irpfAmount || 0, totalAmount: totals.totalAmount || 0, dueDate: Timestamp.fromDate(new Date(formData.dueDate || new Date())), attachmentUrl: fileUrl || "", attachmentFileName: uploadedFile?.name || "", createdAt: Timestamp.now(), createdBy: permissions.userId || "", createdByName: permissions.userName || "", requiresReplacement: currentDocType?.requiresReplacement || false, replacedByInvoiceId: null, linkedDocumentId: linkedDocumentId || null };
       if (replaceMode && selectedPendingDoc) { invoiceData.isReplacement = true; invoiceData.replacesDocumentId = selectedPendingDoc.id; invoiceData.replacesDocumentNumber = selectedPendingDoc.displayNumber; invoiceData.originalAmount = selectedPendingDoc.totalAmount; invoiceData.amountDifference = amountDifference; invoiceData.hasDifference = !sameAmount; if (!sameAmount) { invoiceData.differenceReason = differenceReason.trim(); invoiceData.pendingAmount = amountDifference; } }
       var steps = generateApprovalSteps();
       if (shouldAutoApprove(steps)) { invoiceData.status = "pending"; invoiceData.approvalStatus = "approved"; invoiceData.autoApproved = true; } else { invoiceData.status = "pending_approval"; invoiceData.approvalStatus = "pending"; invoiceData.approvalSteps = steps; invoiceData.currentApprovalStep = 0; }
