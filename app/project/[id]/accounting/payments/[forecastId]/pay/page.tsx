@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { auth, db, storage } from "@/lib/firebase";
 import { doc, getDoc, getDocs, collection, updateDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { CheckCircle2, AlertCircle, Receipt, FileText, Wallet, PiggyBank, Shield, CircleDollarSign, Download, Upload, X, Clock, Banknote, FileCheck, ExternalLink, AlertTriangle, Landmark, Trash2, Info, Euro, FileUp, CheckCircle, XCircle, CreditCard } from "lucide-react";
+import { CheckCircle2, AlertCircle, Receipt, FileText, Wallet, PiggyBank, Shield, CircleDollarSign, Download, Upload, X, Clock, Banknote, FileCheck, ExternalLink, AlertTriangle, Landmark, Trash2, Info, Euro, FileUp, CheckCircle, XCircle, CreditCard, Undo2, ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -100,26 +100,225 @@ export default function PaymentPayPage() {
     setSaving(true);
     try {
       const updatedItems = [...forecast.items];
+      const newPendingItems: PaymentItem[] = [];
+      
       for (const itemId of itemIds) {
         const idx = updatedItems.findIndex((i) => i.id === itemId);
         if (idx === -1) continue;
         const item = updatedItems[idx];
         const receipt = itemReceipts[itemId];
         const payingAmount = tempAmounts[itemId] || item.partialAmount || item.amount;
+        const isPartialPayment = payingAmount < item.amount * 0.99;
+        
         let receiptUrl = "", receiptName = "";
-        if (receipt) { const storageRef = ref(storage, `projects/${id}/receipts/${forecastId}/${itemId}_${receipt.file.name}`); await uploadBytes(storageRef, receipt.file); receiptUrl = await getDownloadURL(storageRef); receiptName = receipt.file.name; }
-        updatedItems[idx] = { ...item, status: "completed" as const, partialAmount: payingAmount, receiptUrl, receiptName, completedAt: new Date(), completedBy: userId || "", completedByName: userName };
-        if (item.invoiceId) { const isPaidInFull = payingAmount >= item.amount * 0.99; await updateDoc(doc(db, `projects/${id}/invoices`, item.invoiceId), { status: isPaidInFull ? "paid" : "partial_paid", paidAmount: payingAmount, paidAt: Timestamp.now(), paymentForecastId: forecastId }); }
+        if (receipt) { 
+          const storageRef = ref(storage, `projects/${id}/receipts/${forecastId}/${itemId}_${receipt.file.name}`); 
+          await uploadBytes(storageRef, receipt.file); 
+          receiptUrl = await getDownloadURL(storageRef); 
+          receiptName = receipt.file.name; 
+        }
+        
+        // Mark current item as completed with the paid amount
+        updatedItems[idx] = { 
+          ...item, 
+          status: "completed" as const, 
+          partialAmount: payingAmount, 
+          receiptUrl, 
+          receiptName, 
+          completedAt: new Date(), 
+          completedBy: userId || "", 
+          completedByName: userName 
+        };
+        
+        // If partial payment, create a new pending item for the remaining amount
+        if (isPartialPayment) {
+          const remainingAmount = item.amount - payingAmount;
+          const newItem: PaymentItem = {
+            id: `${item.id}_remaining_${Date.now()}`,
+            type: item.type,
+            invoiceId: item.invoiceId,
+            invoiceNumber: item.invoiceNumber,
+            supplier: item.supplier,
+            supplierId: item.supplierId,
+            description: `${item.description} (restante)`,
+            amount: remainingAmount,
+            addedAt: new Date(),
+            status: "pending",
+            iban: item.iban,
+            bic: item.bic,
+            attachmentUrl: item.attachmentUrl,
+          } as PaymentItem;
+          newPendingItems.push(newItem);
+        }
+        
+        // Update invoice status
+        if (item.invoiceId) { 
+          await updateDoc(doc(db, `projects/${id}/invoices`, item.invoiceId), { 
+            status: isPartialPayment ? "partial_paid" : "paid", 
+            paidAmount: payingAmount, 
+            paidAt: Timestamp.now(), 
+            paymentForecastId: forecastId 
+          }); 
+        }
       }
-      const allCompleted = updatedItems.every((item) => item.status === "completed");
-      await updateDoc(doc(db, `projects/${id}/paymentForecasts`, forecastId), { items: updatedItems.map((item) => ({ ...item, addedAt: item.addedAt instanceof Date ? Timestamp.fromDate(item.addedAt) : item.addedAt, completedAt: item.completedAt instanceof Date ? Timestamp.fromDate(item.completedAt) : item.completedAt })), status: allCompleted ? "completed" : forecast.status });
+      
+      // Add new pending items for partial payments
+      const allItems = [...updatedItems, ...newPendingItems];
+      
+      const allCompleted = allItems.every((item) => item.status === "completed");
+      const newTotalAmount = allItems.reduce((sum, item) => sum + (item.partialAmount || item.amount), 0);
+      
+      await updateDoc(doc(db, `projects/${id}/paymentForecasts`, forecastId), { 
+        items: allItems.map((item) => ({ 
+          ...item, 
+          addedAt: item.addedAt instanceof Date ? Timestamp.fromDate(item.addedAt) : item.addedAt, 
+          completedAt: item.completedAt instanceof Date ? Timestamp.fromDate(item.completedAt) : item.completedAt 
+        })), 
+        status: allCompleted ? "completed" : forecast.status,
+        totalAmount: newTotalAmount
+      });
+      
       itemIds.forEach((itemId) => { if (itemReceipts[itemId]?.url) URL.revokeObjectURL(itemReceipts[itemId].url); });
-      setForecast({ ...forecast, items: updatedItems, status: allCompleted ? "completed" : forecast.status });
+      setForecast({ ...forecast, items: allItems, status: allCompleted ? "completed" : forecast.status, totalAmount: newTotalAmount });
       setItemReceipts((prev) => { const n = { ...prev }; itemIds.forEach((i) => delete n[i]); return n; });
-      const nextPending = updatedItems.find((i) => i.status === "pending");
+      setTempAmounts((prev) => { const n = { ...prev }; newPendingItems.forEach((item) => { n[item.id] = item.amount; }); return n; });
+      
+      const nextPending = allItems.find((i) => i.status === "pending");
       setSelectedPaymentId(nextPending?.id || null);
-      showToast("success", `${itemIds.length} pago(s) completado(s)`);
+      
+      if (newPendingItems.length > 0) {
+        showToast("success", `Pago parcial completado. Creado item pendiente por ${formatCurrency(newPendingItems.reduce((sum, i) => sum + i.amount, 0))} €`);
+      } else {
+        showToast("success", `${itemIds.length} pago(s) completado(s)`);
+      }
     } catch (error) { console.error("Error:", error); showToast("error", "Error al procesar pagos"); } finally { setSaving(false); }
+  };
+
+  const handleUndoPayment = async (itemId: string) => {
+    if (!forecast) return;
+    setSaving(true);
+    try {
+      let updatedItems = [...forecast.items];
+      const idx = updatedItems.findIndex((i) => i.id === itemId);
+      if (idx === -1) { setSaving(false); return; }
+      
+      const item = updatedItems[idx];
+      const originalAmount = item.amount;
+      
+      // Check if this item has a "remaining" counterpart (was a partial payment)
+      // The remaining item would have an ID like "{itemId}_remaining_*"
+      const baseItemId = itemId.replace(/_remaining_\d+$/, "");
+      const remainingItemIdx = updatedItems.findIndex((i) => i.id.startsWith(`${itemId}_remaining_`));
+      
+      // If there's a remaining item, we need to consolidate back
+      if (remainingItemIdx !== -1) {
+        const remainingItem = updatedItems[remainingItemIdx];
+        // Restore full amount to original item
+        updatedItems[idx] = { 
+          ...item, 
+          status: "pending" as const, 
+          amount: item.amount + remainingItem.amount, // Combine amounts
+          partialAmount: undefined,
+          receiptUrl: undefined, 
+          receiptName: undefined, 
+          completedAt: undefined, 
+          completedBy: undefined, 
+          completedByName: undefined 
+        };
+        // Remove the remaining item
+        updatedItems = updatedItems.filter((_, i) => i !== remainingItemIdx);
+      } else {
+        // Simple undo - just reset to pending
+        updatedItems[idx] = { 
+          ...item, 
+          status: "pending" as const, 
+          partialAmount: undefined,
+          receiptUrl: undefined, 
+          receiptName: undefined, 
+          completedAt: undefined, 
+          completedBy: undefined, 
+          completedByName: undefined 
+        };
+      }
+      
+      // Update invoice status back to pending if it was paid
+      if (item.invoiceId) {
+        // Check if there are other completed payments for this invoice
+        const otherPaymentsForInvoice = updatedItems.filter(
+          (i) => i.invoiceId === item.invoiceId && i.status === "completed" && i.id !== itemId
+        );
+        
+        if (otherPaymentsForInvoice.length > 0) {
+          // There are still other payments, calculate total paid
+          const totalPaid = otherPaymentsForInvoice.reduce((sum, i) => sum + (i.partialAmount || i.amount), 0);
+          await updateDoc(doc(db, `projects/${id}/invoices`, item.invoiceId), { 
+            status: "partial_paid", 
+            paidAmount: totalPaid
+          });
+        } else {
+          // No other payments, reset to pending
+          await updateDoc(doc(db, `projects/${id}/invoices`, item.invoiceId), { 
+            status: "pending", 
+            paidAmount: 0, 
+            paidAt: null, 
+            paymentForecastId: null 
+          });
+        }
+      }
+      
+      const newTotalAmount = updatedItems.reduce((sum, it) => sum + (it.status === "pending" ? it.amount : (it.partialAmount || it.amount)), 0);
+      
+      // Update forecast
+      await updateDoc(doc(db, `projects/${id}/paymentForecasts`, forecastId), { 
+        items: updatedItems.map((it) => ({ 
+          ...it, 
+          addedAt: it.addedAt instanceof Date ? Timestamp.fromDate(it.addedAt) : it.addedAt, 
+          completedAt: it.completedAt instanceof Date ? Timestamp.fromDate(it.completedAt) : it.completedAt 
+        })), 
+        status: "pending",
+        totalAmount: newTotalAmount
+      });
+      
+      setForecast({ ...forecast, items: updatedItems, status: "pending", totalAmount: newTotalAmount });
+      setSelectedPaymentId(itemId);
+      setTempAmounts((prev) => ({ ...prev, [itemId]: updatedItems[idx].amount }));
+      showToast("success", "Pago deshecho correctamente");
+    } catch (error) { 
+      console.error("Error:", error); 
+      showToast("error", "Error al deshacer pago"); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const handleUpdateReceipt = async (itemId: string, file: File) => {
+    if (!forecast) return;
+    setSaving(true);
+    try {
+      const storageRef = ref(storage, `projects/${id}/receipts/${forecastId}/${itemId}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const receiptUrl = await getDownloadURL(storageRef);
+      
+      const updatedItems = forecast.items.map((item) => 
+        item.id === itemId ? { ...item, receiptUrl, receiptName: file.name } : item
+      );
+      
+      await updateDoc(doc(db, `projects/${id}/paymentForecasts`, forecastId), { 
+        items: updatedItems.map((it) => ({ 
+          ...it, 
+          addedAt: it.addedAt instanceof Date ? Timestamp.fromDate(it.addedAt) : it.addedAt, 
+          completedAt: it.completedAt instanceof Date ? Timestamp.fromDate(it.completedAt) : it.completedAt 
+        }))
+      });
+      
+      setForecast({ ...forecast, items: updatedItems });
+      showToast("success", "Justificante actualizado");
+    } catch (error) { 
+      console.error("Error:", error); 
+      showToast("error", "Error al actualizar justificante"); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const handleBulkUpload = (files: FileList) => {
@@ -355,20 +554,105 @@ export default function PaymentPayPage() {
                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg">{completedItems.length}</span>
               </div>
               <div className="divide-y divide-slate-100">
-                {completedItems.map((item) => (
-                  <div key={item.id} className="px-4 py-3 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><CheckCircle2 size={14} className="text-emerald-600" /></div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-slate-900 text-sm">{item.supplier}</span>
-                      <p className="text-xs text-slate-500">{item.description}</p>
+                {completedItems.map((item) => {
+                  const isSelected = selectedPaymentId === item.id;
+                  const isPartialPayment = item.partialAmount && item.partialAmount < item.amount;
+                  
+                  return (
+                    <div key={item.id}>
+                      <button
+                        onClick={() => setSelectedPaymentId(isSelected ? null : item.id)}
+                        className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${isSelected ? "bg-slate-50" : "hover:bg-slate-50"}`}
+                      >
+                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <CheckCircle2 size={14} className="text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900 text-sm">{item.supplier}</span>
+                            {item.invoiceNumber && <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">FAC-{item.invoiceNumber}</span>}
+                            {isPartialPayment && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Parcial</span>}
+                          </div>
+                          <p className="text-xs text-slate-500">{item.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-emerald-600 text-sm">{formatCurrency(item.partialAmount || item.amount)} €</p>
+                          {isPartialPayment && <p className="text-[10px] text-amber-600">de {formatCurrency(item.amount)} €</p>}
+                          {item.completedAt && !isPartialPayment && <p className="text-[10px] text-slate-400">{formatDate(item.completedAt)}</p>}
+                        </div>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${isSelected ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {isSelected && (
+                        <div className="px-4 pb-4 bg-slate-50 border-t border-slate-100">
+                          <div className="bg-white rounded-xl p-4 mt-3 space-y-4">
+                            {/* Info */}
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-xs text-slate-500 mb-1">Pagado el</p>
+                                <p className="font-medium">{item.completedAt ? formatDate(item.completedAt) : "-"}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 mb-1">Por</p>
+                                <p className="font-medium">{item.completedByName || "-"}</p>
+                              </div>
+                              {isPartialPayment && (
+                                <>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">Importe pagado</p>
+                                    <p className="font-medium text-emerald-600">{formatCurrency(item.partialAmount!)} €</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">Pendiente restante</p>
+                                    <p className="font-medium text-amber-600">{formatCurrency(item.amount - item.partialAmount!)} €</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Receipt */}
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-2">Justificante</label>
+                              {item.receiptUrl ? (
+                                <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                  <FileCheck size={18} className="text-emerald-600" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 truncate">{item.receiptName || "Justificante"}</p>
+                                  </div>
+                                  <a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-emerald-100 rounded-lg">
+                                    <ExternalLink size={14} className="text-emerald-600" />
+                                  </a>
+                                  <label className="p-1.5 hover:bg-emerald-100 rounded-lg cursor-pointer" title="Cambiar justificante">
+                                    <Upload size={14} className="text-emerald-600" />
+                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpdateReceipt(item.id, f); }} />
+                                  </label>
+                                </div>
+                              ) : (
+                                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-emerald-300 hover:bg-emerald-50">
+                                  <Upload size={18} className="text-slate-400" />
+                                  <span className="text-sm text-slate-600">Añadir justificante</span>
+                                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpdateReceipt(item.id, f); }} />
+                                </label>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                              <button
+                                onClick={() => handleUndoPayment(item.id)}
+                                disabled={saving}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                              >
+                                <Undo2 size={14} />
+                                Deshacer pago
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-emerald-600 text-sm">{formatCurrency(item.partialAmount || item.amount)} €</p>
-                      {item.completedAt && <p className="text-[10px] text-slate-400">{formatDate(item.completedAt)}</p>}
-                    </div>
-                    {item.receiptUrl && <a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-slate-100 rounded-lg"><ExternalLink size={14} className="text-slate-400" /></a>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
