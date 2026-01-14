@@ -344,8 +344,8 @@ export default function NewPOPage() {
       }
       setSubAccounts(allSubAccounts);
 
-      const posSnapshot = await getDocs(collection(db, "projects/" + id + "/pos"));
-      setNextPONumber(String(posSnapshot.size + 1).padStart(4, "0"));
+      // No asignamos número hasta el envío - mostramos NUEVO
+      setNextPONumber("NUEVO");
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -563,9 +563,18 @@ export default function NewPOPage() {
     if (status === "pending" && !validateForm()) return;
     setSaving(true);
     try {
+      // Obtener siguiente número correlativo global
+      const posSnapshot = await getDocs(collection(db, "projects/" + id + "/pos"));
+      let maxNumber = 0;
+      posSnapshot.docs.forEach((d) => {
+        const num = parseInt(d.data().number || "0", 10);
+        if (num > maxNumber) maxNumber = num;
+      });
+      const finalNumber = String(maxNumber + 1).padStart(4, "0");
+
       let fileUrl = "";
       if (uploadedFile) {
-        const fileRef = ref(storage, "projects/" + id + "/pos/" + nextPONumber + "/" + uploadedFile.name);
+        const fileRef = ref(storage, "projects/" + id + "/pos/PO-" + finalNumber + "/" + uploadedFile.name);
         await uploadBytes(fileRef, uploadedFile);
         fileUrl = await getDownloadURL(fileRef);
       }
@@ -587,7 +596,7 @@ export default function NewPOPage() {
       }));
 
       const poData: any = {
-        number: nextPONumber,
+        number: finalNumber,
         supplier: formData.supplierName,
         supplierId: formData.supplier,
         department: formData.department,
@@ -971,7 +980,7 @@ export default function NewPOPage() {
                       value={formData.generalDescription}
                       onChange={(e) => setFormData({ ...formData, generalDescription: e.target.value.toUpperCase() })}
                       onBlur={() => handleBlur("generalDescription")}
-                      placeholder="Descripción general"
+                      placeholder="DESCRIBE EL PROPÓSITO DE ESTA ORDEN DE COMPRA..."
                       rows={3}
                       className={cx(
                         "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10 uppercase",
