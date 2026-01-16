@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import { useState, useEffect, useCallback } from "react";
@@ -244,7 +244,9 @@ const IRPF_RATES = [
 export default function NewInvoicePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
+  const linkToId = searchParams.get("linkTo");
   const { loading: permissionsLoading, error: permissionsError, permissions } = useAccountingPermissions(id);
 
   // Estados básicos
@@ -370,6 +372,9 @@ export default function NewInvoicePage() {
       setSameAmount(Math.abs(diff) < 0.01);
     }
   }, [totals.totalAmount, selectedPendingDoc, replaceMode]);
+
+  // Estado para trackear si ya se procesó el linkTo
+  const [linkToProcessed, setLinkToProcessed] = useState(false);
 
   // Funciones de carga de datos
   const loadData = async () => {
@@ -871,6 +876,17 @@ export default function NewInvoicePage() {
     setAmountDifference(0);
     setDifferenceReason("");
   };
+
+  // Effect para procesar linkTo desde URL
+  useEffect(() => {
+    if (linkToId && pendingDocuments.length > 0 && !linkToProcessed && !replaceMode) {
+      const docToReplace = pendingDocuments.find((pd) => pd.id === linkToId);
+      if (docToReplace) {
+        startReplacement(docToReplace);
+        setLinkToProcessed(true);
+      }
+    }
+  }, [linkToId, pendingDocuments, linkToProcessed, replaceMode]);
 
   // Funciones de archivo
   const handleFileUpload = (file: File) => {
@@ -1653,7 +1669,7 @@ export default function NewInvoicePage() {
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
                       onBlur={() => handleBlur("description")}
-                      placeholder={"Descripción general " + currentDocType.article + " " + currentDocType.label.charAt(0).toUpperCase() + currentDocType.label.slice(1).toLowerCase()}
+                      placeholder={"Concepto " + currentDocType.article + " " + currentDocType.label.charAt(0).toLowerCase() + currentDocType.label.slice(1).toLowerCase()}
                       rows={2}
                       className={cx(
                         "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm pr-10 uppercase",
