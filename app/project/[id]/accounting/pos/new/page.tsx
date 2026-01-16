@@ -840,7 +840,7 @@ export default function NewPOPage() {
                         <span className="font-medium text-slate-900">{formData.supplierName}</span>
                       </div>
                     ) : (
-                      <span className="text-slate-400">Seleccionar proveedor...</span>
+                      <span className="text-slate-400">Seleccionar proveedor</span>
                     )}
                     <Search size={16} className="text-slate-400" />
                   </button>
@@ -872,7 +872,7 @@ export default function NewPOPage() {
                         )}
                       >
                         <span className={formData.department ? "text-slate-900" : "text-slate-400"}>
-                          {formData.department || "Seleccionar..."}
+                          {formData.department || "Seleccionar"}
                         </span>
                         <div className="flex items-center gap-2">
                           {permissions.fixedDepartment && <Lock size={14} className="text-slate-400" />}
@@ -980,7 +980,7 @@ export default function NewPOPage() {
                       value={formData.generalDescription}
                       onChange={(e) => setFormData({ ...formData, generalDescription: e.target.value.toUpperCase() })}
                       onBlur={() => handleBlur("generalDescription")}
-                      placeholder="DESCRIBE EL PROPÓSITO DE ESTA ORDEN DE COMPRA..."
+                      placeholder="DESCRIBE EL PROPÓSITO DE ESTA ORDEN DE COMPRA"
                       rows={3}
                       className={cx(
                         "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm pr-10 uppercase",
@@ -1056,7 +1056,7 @@ export default function NewPOPage() {
                           value={item.description}
                           onChange={(e) => updateItem(index, "description", e.target.value)}
                           onBlur={() => handleBlur("item_" + index + "_description")}
-                          placeholder="Descripción del item..."
+                          placeholder="Descripción del item"
                           className={cx(
                             "w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white",
                             hasError("item_" + index + "_description") ? "border-red-300 bg-red-50" : item.description.trim() ? "border-emerald-200" : "border-slate-200"
@@ -1077,7 +1077,7 @@ export default function NewPOPage() {
                                 <span className="font-mono text-slate-900">{item.subAccountCode} - {item.subAccountDescription}</span>
                               </div>
                             ) : (
-                              <span className="text-slate-400">Seleccionar cuenta...</span>
+                              <span className="text-slate-400">Seleccionar cuenta</span>
                             )}
                             <Search size={14} className="text-slate-400" />
                           </button>
@@ -1249,7 +1249,7 @@ export default function NewPOPage() {
                     type="text"
                     value={formData.paymentTerms}
                     onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                    placeholder="Ej: Transferencia 30 días..."
+                    placeholder="Ej: Transferencia 30 días"
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"
                   />
                 </div>
@@ -1259,7 +1259,7 @@ export default function NewPOPage() {
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Notas adicionales..."
+                    placeholder="Notas adicionales"
                     rows={2}
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white resize-none text-sm"
                   />
@@ -1455,7 +1455,7 @@ export default function NewPOPage() {
                   type="text"
                   value={supplierSearch}
                   onChange={(e) => setSupplierSearch(e.target.value)}
-                  placeholder="Buscar por nombre o NIF..."
+                  placeholder="Buscar por nombre o NIF"
                   className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"
                   autoFocus
                 />
@@ -1517,7 +1517,7 @@ export default function NewPOPage() {
                   type="text"
                   value={accountSearch}
                   onChange={(e) => setAccountSearch(e.target.value)}
-                  placeholder="Buscar por código o descripción..."
+                  placeholder="Buscar por código o descripción"
                   className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"
                   autoFocus
                 />
