@@ -589,8 +589,8 @@ export default function InvoicesPage() {
                   className="flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: '#2F52E0' }}
                 >
-                  <Plus size={18} />
-                  Nuevo documento
+                  <Upload size={18} />
+                  Subir documento
                 </Link>
               )}
             </div>
@@ -712,8 +712,8 @@ export default function InvoicesPage() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                 style={{ backgroundColor: '#2F52E0' }}
               >
-                <Plus size={18} />
-                Nuevo documento
+                <Upload size={18} />
+                Subir documento
               </Link>
             )}
           </div>
