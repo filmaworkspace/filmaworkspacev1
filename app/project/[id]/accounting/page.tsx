@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
-import { FileText, Receipt, ArrowRight, Settings, Bell, ChevronRight, Plus, Upload, Clock, AlertCircle, CreditCard } from "lucide-react";
+import { FileText, Receipt, ArrowRight, Settings, Bell, ChevronRight, Plus, Upload, Clock, AlertCircle, CreditCard, FolderDown } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -129,6 +129,13 @@ export default function AccountingPage() {
                   <button className="relative p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200">
                     <Bell size={18} />
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{pendingApprovalsCount}</span>
+                  </button>
+                </Link>
+              )}
+              {(userRole === "EP" || userRole === "PM" || userRole === "Controller") && (
+                <Link href={`/project/${id}/accounting/document-center`}>
+                  <button className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors" title="Centro de documentación">
+                    <FolderDown size={18} />
                   </button>
                 </Link>
               )}
