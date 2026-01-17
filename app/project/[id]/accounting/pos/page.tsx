@@ -279,15 +279,10 @@ export default function POsPage() {
     const button = menuButtonRefs.current.get(poId);
     if (!button) return;
     const rect = button.getBoundingClientRect();
-    const menuHeight = 280;
-    const viewportHeight = window.innerHeight;
-    const spaceBelow = viewportHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const openUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
     setMenuPosition({
-      top: openUpward ? rect.top - 8 : rect.bottom + 4,
-      left: Math.max(8, rect.right - 192),
-      openUpward,
+      top: rect.bottom + 4,
+      left: rect.right - 192,
+      openUpward: false,
     });
   };
 
@@ -979,11 +974,8 @@ export default function POsPage() {
             ref={menuRef}
             className="fixed w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] py-1 menu-container"
             style={{
-              top: menuPosition.openUpward ? "auto" : menuPosition.top,
-              bottom: menuPosition.openUpward ? `calc(100vh - ${menuPosition.top}px)` : "auto",
+              top: menuPosition.top,
               left: menuPosition.left,
-              maxHeight: "calc(100vh - 32px)",
-              overflowY: "auto",
             }}
           >
             {(() => {
@@ -1032,7 +1024,7 @@ export default function POsPage() {
                           Cerrar PO
                         </button>
                       )}
-                      {poPerms.canCancel && po.invoicedAmount === 0 && (
+                      {poPerms.canCancel && (po.invoicedAmount || 0) === 0 && (
                         <button onClick={() => handleCancelPO(po)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3">
                           <XCircle size={15} />
                           Anular PO
