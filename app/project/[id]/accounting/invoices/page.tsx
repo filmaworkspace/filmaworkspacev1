@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, deleteDoc, query, orderBy, updateDoc, Timestamp } from "firebase/firestore";
-import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, Building2, ShieldAlert, User, ChevronDown, Filter, HelpCircle, Upload } from "lucide-react";
+import { Receipt, Plus, Search, Download, Trash2, X, CheckCircle, XCircle, Calendar, FileText, Eye, MoreHorizontal, Shield, FileCheck, AlertTriangle, Link as LinkIcon, Clock, Building2, ShieldAlert, User, ChevronDown, Filter, HelpCircle, Upload, Code } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -108,6 +108,7 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [showUncodedOnly, setShowUncodedOnly] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -119,13 +120,16 @@ export default function InvoicesPage() {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Verificar si el usuario puede codificar (contabilidad o contabilidad ampliada)
+  const canCodeInvoices = permissions.accountingAccessLevel === "accounting" || permissions.accountingAccessLevel === "accounting_extended";
+
   useEffect(() => {
     if (!permissionsLoading && permissions.userId && id) loadData();
   }, [permissionsLoading, permissions.userId, id]);
 
   useEffect(() => {
     filterInvoices();
-  }, [searchTerm, statusFilter, typeFilter, invoices]);
+  }, [searchTerm, statusFilter, typeFilter, showUncodedOnly, invoices]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -208,6 +212,7 @@ export default function InvoicesPage() {
     }
     if (statusFilter !== "all") filtered = filtered.filter((inv) => inv.status === statusFilter);
     if (typeFilter !== "all") filtered = filtered.filter((inv) => inv.documentType === typeFilter);
+    if (showUncodedOnly) filtered = filtered.filter((inv) => !inv.codedAt);
     setFilteredInvoices(filtered);
   };
 
@@ -682,10 +687,31 @@ export default function InvoicesPage() {
             )}
           </div>
 
-          {statusFilter !== "all" && (
+          {/* Uncoded Filter Button - Solo para usuarios de contabilidad */}
+          {canCodeInvoices && (
+            <button
+              onClick={() => setShowUncodedOnly(!showUncodedOnly)}
+              className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-medium transition-colors ${
+                showUncodedOnly 
+                  ? "border-violet-300 bg-violet-50 text-violet-700" 
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <Code size={15} className={showUncodedOnly ? "text-violet-600" : "text-slate-400"} />
+              Sin codificar
+              {showUncodedOnly && (
+                <span className="ml-1 px-1.5 py-0.5 bg-violet-200 text-violet-700 rounded text-xs font-semibold">
+                  {invoices.filter(inv => !inv.codedAt).length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {(statusFilter !== "all" || showUncodedOnly) && (
             <button
               onClick={() => {
                 setStatusFilter("all");
+                setShowUncodedOnly(false);
               }}
               className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
             >
@@ -700,9 +726,9 @@ export default function InvoicesPage() {
             <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Receipt size={28} className="text-slate-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "No se encontraron resultados" : "Sin documentos"}</h3>
-            <p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || typeFilter !== "all" ? "Prueba a ajustar los filtros de búsqueda" : "Sube tu primer documento para empezar"}</p>
-            {!searchTerm && statusFilter === "all" && typeFilter === "all" && permissions.canCreatePO && (
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">{searchTerm || statusFilter !== "all" || typeFilter !== "all" || showUncodedOnly ? "No se encontraron resultados" : "Sin documentos"}</h3>
+            <p className="text-slate-500 text-sm mb-6">{searchTerm || statusFilter !== "all" || typeFilter !== "all" || showUncodedOnly ? "Prueba a ajustar los filtros de búsqueda" : "Sube tu primer documento para empezar"}</p>
+            {!searchTerm && statusFilter === "all" && typeFilter === "all" && !showUncodedOnly && permissions.canCreatePO && (
               <Link 
                 href={`/project/${id}/accounting/invoices/new`} 
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
