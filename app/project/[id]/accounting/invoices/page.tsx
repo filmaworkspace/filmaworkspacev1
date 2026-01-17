@@ -579,10 +579,6 @@ export default function InvoicesPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={exportInvoices} className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                <Download size={16} />
-                Exportar
-              </button>
               {permissions.canCreatePO && (
                 <Link 
                   href={`/project/${id}/accounting/invoices/new`} 
@@ -794,10 +790,7 @@ export default function InvoicesPage() {
                                   setMenuPosition(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const menuHeight = 220;
-                                  const spaceBelow = window.innerHeight - rect.bottom;
-                                  const showAbove = spaceBelow < menuHeight;
-                                  setMenuPosition({ top: showAbove ? rect.top - menuHeight : rect.bottom + 4, left: rect.right - 192 });
+                                  setMenuPosition({ top: rect.bottom + 4, left: rect.right - 208 });
                                   setOpenMenuId(invoice.id);
                                 }
                               }}
@@ -848,20 +841,14 @@ export default function InvoicesPage() {
                       </Link>
                     </>
                   )}
-                  {canMarkAsPaid(invoice) && (
+                  {canEditInvoice(invoice) && (invoice.status === "pending" || invoice.status === "overdue") && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
-                      <button onClick={() => handleMarkAsPaid(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-3">
-                        <CheckCircle size={15} />
-                        Marcar pagada
+                      <button onClick={() => handleCancelInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-3">
+                        <XCircle size={15} />
+                        Cancelar
                       </button>
                     </>
-                  )}
-                  {canEditInvoice(invoice) && (invoice.status === "pending" || invoice.status === "overdue") && (
-                    <button onClick={() => handleCancelInvoice(invoice.id)} className="w-full px-4 py-2.5 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-3">
-                      <XCircle size={15} />
-                      Cancelar
-                    </button>
                   )}
                   {canDeleteInvoice(invoice) && (
                     <>
