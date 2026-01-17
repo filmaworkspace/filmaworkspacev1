@@ -48,10 +48,22 @@ import {
   RefreshCw,
   ArrowRight,
   Lock,
+  Split,
+  Percent,
+  Euro,
 } from "lucide-react";
 import { useAccountingPermissions } from "@/hooks/useAccountingPermissions";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+
+// Interface para vencimientos múltiples
+interface DueDateEntry {
+  id: string;
+  date: string;
+  type: "percentage" | "amount";
+  percentage: number;
+  amount: number;
+}
 
 // Helper para clases condicionales
 function cx(...args: (string | boolean | null | undefined)[]): string {
@@ -297,6 +309,10 @@ export default function NewInvoicePage() {
     notes: "",
   });
 
+  // Estado para vencimientos múltiples
+  const [multipleDueDates, setMultipleDueDates] = useState(false);
+  const [dueDates, setDueDates] = useState<DueDateEntry[]>([]);
+
   const [items, setItems] = useState<InvoiceItem[]>([]);
 
   const [totals, setTotals] = useState({
@@ -372,6 +388,16 @@ export default function NewInvoicePage() {
       setSameAmount(Math.abs(diff) < 0.01);
     }
   }, [totals.totalAmount, selectedPendingDoc, replaceMode]);
+
+  // Actualizar importes de vencimientos cuando cambia el total
+  useEffect(() => {
+    if (multipleDueDates && dueDates.length > 0 && totals.totalAmount > 0) {
+      setDueDates(dueDates.map(d => ({
+        ...d,
+        amount: totals.totalAmount * (d.percentage / 100)
+      })));
+    }
+  }, [totals.totalAmount]);
 
   // Estado para trackear si ya se procesó el linkTo
   const [linkToProcessed, setLinkToProcessed] = useState(false);
@@ -768,6 +794,59 @@ export default function NewInvoicePage() {
     setItems(items.filter((_, idx) => idx !== i));
   };
 
+  // Funciones de vencimientos múltiples
+  const initDueDates = () => {
+    const defaultDate = formData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    setDueDates([
+      { id: "1", date: defaultDate, type: "percentage", percentage: 50, amount: totals.totalAmount * 0.5 },
+      { id: "2", date: defaultDate, type: "percentage", percentage: 50, amount: totals.totalAmount * 0.5 },
+    ]);
+  };
+
+  const addDueDate = () => {
+    const remaining = 100 - dueDates.reduce((sum, d) => sum + d.percentage, 0);
+    const defaultDate = dueDates.length > 0 ? dueDates[dueDates.length - 1].date : formData.dueDate;
+    setDueDates([
+      ...dueDates,
+      { id: String(Date.now()), date: defaultDate, type: "percentage", percentage: Math.max(0, remaining), amount: totals.totalAmount * (Math.max(0, remaining) / 100) },
+    ]);
+  };
+
+  const removeDueDate = (i: number) => {
+    if (dueDates.length <= 2) return;
+    setDueDates(dueDates.filter((_, idx) => idx !== i));
+  };
+
+  const updateDueDate = (i: number, field: keyof DueDateEntry, value: any) => {
+    const newDueDates = [...dueDates];
+    newDueDates[i] = { ...newDueDates[i], [field]: value };
+    
+    // Si cambia el tipo, recalcular
+    if (field === "type") {
+      if (value === "percentage") {
+        newDueDates[i].amount = totals.totalAmount * (newDueDates[i].percentage / 100);
+      } else {
+        newDueDates[i].percentage = totals.totalAmount > 0 ? (newDueDates[i].amount / totals.totalAmount) * 100 : 0;
+      }
+    }
+    
+    // Si cambia el porcentaje, recalcular importe
+    if (field === "percentage") {
+      newDueDates[i].amount = totals.totalAmount * (value / 100);
+    }
+    
+    // Si cambia el importe, recalcular porcentaje
+    if (field === "amount") {
+      newDueDates[i].percentage = totals.totalAmount > 0 ? (value / totals.totalAmount) * 100 : 0;
+    }
+    
+    setDueDates(newDueDates);
+  };
+
+  const getDueDatesTotal = () => dueDates.reduce((sum, d) => sum + d.amount, 0);
+  const getDueDatesPercentage = () => dueDates.reduce((sum, d) => sum + d.percentage, 0);
+  const isDueDatesValid = () => Math.abs(getDueDatesPercentage() - 100) < 0.1;
+
   // Funciones de selección
   const selectPO = (po: PO) => {
     setSelectedPO(po);
@@ -917,7 +996,19 @@ export default function NewInvoicePage() {
     if (formData.invoiceType === "with-po" && !selectedPO && !replaceMode) e.po = "Selecciona una PO";
     if (formData.invoiceType === "without-po" && !formData.supplier && !linkedDocumentId) e.supplier = "Selecciona proveedor";
     if (!formData.description.trim()) e.description = "Obligatorio";
-    if (!formData.dueDate) e.dueDate = "Obligatorio";
+    
+    // Validación de vencimientos
+    if (multipleDueDates) {
+      if (dueDates.length < 2) e.dueDates = "Mínimo 2 vencimientos";
+      if (!isDueDatesValid()) e.dueDates = "Los porcentajes deben sumar 100%";
+      dueDates.forEach((d, i) => {
+        if (!d.date) e["dueDate_" + i] = "Fecha obligatoria";
+        if (d.percentage <= 0) e["dueDate_" + i + "_percentage"] = "> 0";
+      });
+    } else {
+      if (!formData.dueDate) e.dueDate = "Obligatorio";
+    }
+    
     if (items.length === 0) e.items = "Añade al menos un ítem";
 
     items.forEach((it, i) => {
@@ -1058,7 +1149,6 @@ export default function NewInvoicePage() {
         vatAmount: totals.vatAmount || 0,
         irpfAmount: totals.irpfAmount || 0,
         totalAmount: totals.totalAmount || 0,
-        dueDate: Timestamp.fromDate(new Date(formData.dueDate || new Date())),
         attachmentUrl: fileUrl || "",
         attachmentFileName: uploadedFile?.name || "",
         createdAt: Timestamp.now(),
@@ -1068,6 +1158,20 @@ export default function NewInvoicePage() {
         replacedByInvoiceId: null,
         linkedDocumentId: linkedDocumentId || null,
       };
+
+      // Datos de vencimientos
+      if (multipleDueDates && dueDates.length > 0) {
+        invoiceData.hasMultipleDueDates = true;
+        invoiceData.dueDates = dueDates.map((d) => ({
+          date: Timestamp.fromDate(new Date(d.date)),
+          percentage: d.percentage,
+          amount: d.amount,
+        }));
+        invoiceData.dueDate = Timestamp.fromDate(new Date(dueDates[0].date));
+      } else {
+        invoiceData.hasMultipleDueDates = false;
+        invoiceData.dueDate = Timestamp.fromDate(new Date(formData.dueDate || new Date()));
+      }
 
       // Datos de reemplazo
       if (replaceMode && selectedPendingDoc) {
@@ -1152,7 +1256,7 @@ export default function NewInvoicePage() {
     if (uploadedFile) c++;
     if (formData.invoiceType === "with-po" ? selectedPO : formData.supplier || linkedDocumentId) c++;
     if (formData.description.trim()) c++;
-    if (formData.dueDate) c++;
+    if (multipleDueDates ? (isDueDatesValid() && dueDates.every(d => d.date)) : formData.dueDate) c++;
     if (items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0)) c++;
     return Math.round((c / 5) * 100);
   };
@@ -1669,7 +1773,7 @@ export default function NewInvoicePage() {
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
                       onBlur={() => handleBlur("description")}
-                      placeholder={"Descripción general " + currentDocType.article + " " + currentDocType.label.charAt(0).toLowerCase() + currentDocType.label.slice(1).toLowerCase()}
+                      placeholder={"Concepto " + currentDocType.article + " " + currentDocType.label.charAt(0).toLowerCase() + currentDocType.label.slice(1).toLowerCase()}
                       rows={2}
                       className={cx(
                         "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none text-sm pr-10 uppercase",
@@ -1690,43 +1794,152 @@ export default function NewInvoicePage() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      <span className="flex items-center gap-2">
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                         <Calendar size={14} />
-                        Fecha de vencimiento *
-                      </span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={formData.dueDate}
-                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                        onBlur={() => handleBlur("dueDate")}
+                        Vencimiento *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!multipleDueDates) {
+                            initDueDates();
+                          }
+                          setMultipleDueDates(!multipleDueDates);
+                        }}
                         className={cx(
-                          "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm",
-                          hasError("dueDate") ? "border-red-300 bg-red-50" : formData.dueDate ? "border-emerald-300 bg-emerald-50" : "border-slate-200"
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                          multipleDueDates
+                            ? "bg-violet-100 text-violet-700 border border-violet-200"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         )}
-                      />
-                      {formData.dueDate && <CheckCircle2 size={16} className="absolute right-10 top-1/2 -translate-y-1/2 text-emerald-600" />}
+                      >
+                        <Split size={12} />
+                        {multipleDueDates ? "Vencimiento único" : "Dividir vencimiento"}
+                      </button>
                     </div>
-                    {hasError("dueDate") && (
-                      <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
-                        <AlertCircle size={12} />
-                        {errors.dueDate}
-                      </p>
+
+                    {!multipleDueDates ? (
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={formData.dueDate}
+                          onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                          onBlur={() => handleBlur("dueDate")}
+                          className={cx(
+                            "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm",
+                            hasError("dueDate") ? "border-red-300 bg-red-50" : formData.dueDate ? "border-emerald-300 bg-emerald-50" : "border-slate-200"
+                          )}
+                        />
+                        {formData.dueDate && <CheckCircle2 size={16} className="absolute right-10 top-1/2 -translate-y-1/2 text-emerald-600" />}
+                        {hasError("dueDate") && (
+                          <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                            <AlertCircle size={12} />
+                            {errors.dueDate}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {dueDates.map((dueDate, idx) => (
+                          <div
+                            key={dueDate.id}
+                            className={cx(
+                              "p-4 border rounded-xl",
+                              isDueDatesValid() && dueDate.date ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-slate-50/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs font-medium text-slate-500">Vencimiento {idx + 1}</span>
+                              {dueDates.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeDueDate(idx)}
+                                  className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Fecha</label>
+                                <input
+                                  type="date"
+                                  value={dueDate.date}
+                                  onChange={(e) => updateDueDate(idx, "date", e.target.value)}
+                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Porcentaje</label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={dueDate.percentage}
+                                    onChange={(e) => updateDueDate(idx, "percentage", parseFloat(e.target.value) || 0)}
+                                    className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+                                  />
+                                  <Percent size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Importe</label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={Math.round(dueDate.amount * 100) / 100}
+                                    onChange={(e) => updateDueDate(idx, "amount", parseFloat(e.target.value) || 0)}
+                                    className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+                                  />
+                                  <Euro size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="flex items-center justify-between pt-2">
+                          <button
+                            type="button"
+                            onClick={addDueDate}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-violet-600 hover:bg-violet-50 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Plus size={14} />
+                            Añadir vencimiento
+                          </button>
+                          <div className={cx(
+                            "text-xs font-medium px-3 py-1.5 rounded-lg",
+                            isDueDatesValid() ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          )}>
+                            Total: {Math.round(getDueDatesPercentage() * 100) / 100}% = {formatCurrency(getDueDatesTotal())} €
+                          </div>
+                        </div>
+                        {errors.dueDates && (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <AlertCircle size={12} />
+                            {errors.dueDates}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Notas</label>
-                    <input
-                      type="text"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Notas opcionales"
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm"
-                    />
-                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Notas</label>
+                  <input
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Notas opcionales"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm"
+                  />
                 </div>
               </div>
             </div>
@@ -2019,8 +2232,14 @@ export default function NewInvoicePage() {
                     <span className={formData.description.trim() ? "text-slate-700" : "text-slate-400"}>Descripción</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    {formData.dueDate ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Circle size={12} className="text-slate-300" />}
-                    <span className={formData.dueDate ? "text-slate-700" : "text-slate-400"}>Vencimiento</span>
+                    {(multipleDueDates ? isDueDatesValid() && dueDates.every(d => d.date) : formData.dueDate) ? (
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    ) : (
+                      <Circle size={12} className="text-slate-300" />
+                    )}
+                    <span className={(multipleDueDates ? isDueDatesValid() && dueDates.every(d => d.date) : formData.dueDate) ? "text-slate-700" : "text-slate-400"}>
+                      Vencimiento{multipleDueDates ? ` (${dueDates.length})` : ""}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     {items.some((i) => i.description.trim() && i.subAccountId && i.quantity > 0 && i.unitPrice > 0) ? (
