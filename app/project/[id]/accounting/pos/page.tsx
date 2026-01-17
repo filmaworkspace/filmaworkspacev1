@@ -228,16 +228,9 @@ export default function POsPage() {
   };
 
   const getPOPermissions = (po: PO) => {
-    const poData = { id: po.id, department: po.department || "", createdBy: po.createdBy, status: po.status };
-    const fullPerms = getFullPOPermissions(poData);
+    const perms = getFullPOPermissions(po);
     return {
-      canView: fullPerms.canView,
-      canEdit: fullPerms.canEdit,
-      canDelete: fullPerms.canDelete,
-      canClose: fullPerms.canClose,
-      canReopen: fullPerms.canReopen,
-      canCancel: fullPerms.canCancel,
-      canCreateInvoice: fullPerms.canCreateInvoice,
+      ...perms,
       isOwn: po.createdBy === permissions.userId,
     };
   };
@@ -348,11 +341,6 @@ export default function POsPage() {
 
   const handleClosePO = (po: PO) => {
     if (po.status !== "approved") return;
-    const perms = getPOPermissions(po);
-    if (!perms.canClose) {
-      alert("No tienes permisos para cerrar esta PO");
-      return;
-    }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -423,11 +411,6 @@ export default function POsPage() {
 
   const handleReopenPO = (po: PO) => {
     if (po.status !== "closed") return;
-    const perms = getPOPermissions(po);
-    if (!perms.canReopen) {
-      alert("No tienes permisos para reabrir esta PO");
-      return;
-    }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -501,17 +484,7 @@ export default function POsPage() {
 
   const handleCancelPO = (po: PO) => {
     if (po.status !== "approved" && po.status !== "draft") return;
-    if (po.invoicedAmount > 0) return;
-
-    const perms = getPOPermissions(po);
-    if (po.status === "approved" && !perms.canCancel) {
-      alert("No tienes permisos para anular esta PO");
-      return;
-    }
-    if (po.status === "draft" && !perms.canEdit) {
-      alert("No tienes permisos para anular esta PO");
-      return;
-    }
+    if ((po.invoicedAmount || 0) > 0) return;
     closeMenu();
     setSelectedPO(po);
     resetModalState();
@@ -566,10 +539,6 @@ export default function POsPage() {
 
   const handleModifyPO = (po: PO) => {
     if (po.status !== "approved") return;
-    if (!permissions.isProjectRole) {
-      alert("No tienes permisos para modificar esta PO");
-      return;
-    }
     closeMenu();
     setSelectedPO(po);
     resetModalState();
