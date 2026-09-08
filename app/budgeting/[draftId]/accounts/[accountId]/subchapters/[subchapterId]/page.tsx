@@ -8,7 +8,7 @@ import Link from "next/link";
 // ─── Firebase ────────────────────────────────────────────────────────────────
 import { db } from "@/lib/firebase";
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch,
+  addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch,
 } from "firebase/firestore";
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -1005,6 +1005,29 @@ export default function BudgetingSubchapterPage() {
 
   const lineRef = (lineId: string) => doc(db, `budgetingDrafts/${draftId}/accounts/${accountId}/subchapters/${subchapterId}/detailLines`, lineId);
 
+  /** Aplica un incremento de `receivedTotal` a cada Cuenta destino ("Sumar
+   * en") del mapa {chapterId/subchapterId: delta} dentro de `batch` — pero
+   * solo a las que siguen existiendo. Una línea puede llevar guardada una
+   * redirección hacia una Cuenta que ya se borró (routedTo queda "colgado"
+   * apuntando a un documento que ya no está): si se intentara `update`
+   * sobre ese documento inexistente, Firestore lanza "No document to
+   * update" y TODO el batch falla de golpe —incluida la operación que de
+   * verdad importaba, como borrar la línea—, sin ningún aviso visible en
+   * pantalla (por eso a veces "no borraba nada"). Se comprueba antes de
+   * añadir cada `update` al batch, en vez de darlo por hecho. */
+  const applyReceivedTotalDeltas = async (batch: ReturnType<typeof writeBatch>, deltas: Map<string, number>) => {
+    const entries = Array.from(deltas.entries());
+    if (entries.length === 0) return;
+    const refs = entries.map(([key]) => {
+      const [chapterId, subId] = key.split("/");
+      return doc(db, `budgetingDrafts/${draftId}/accounts/${chapterId}/subchapters`, subId);
+    });
+    const snaps = await Promise.all(refs.map((r) => getDoc(r)));
+    snaps.forEach((snap, i) => {
+      if (snap.exists()) batch.update(refs[i], { receivedTotal: increment(entries[i][1]) });
+    });
+  };
+
   const buildPayload = (fields: LineFields) => {
     const unitsEval = evaluateFieldExpr(fields.units, globalResolution.values);
     const multEval = evaluateFieldExpr(fields.multiplier, globalResolution.values);
@@ -1037,8 +1060,8 @@ export default function BudgetingSubchapterPage() {
     if (line.routedTo && total !== line.total) {
       const batch = writeBatch(db);
       batch.update(ref, payload);
-      const targetRef = doc(db, `budgetingDrafts/${draftId}/accounts/${line.routedTo.chapterId}/subchapters`, line.routedTo.subchapterId);
-      batch.update(targetRef, { receivedTotal: increment(total - (line.total || 0)) });
+      const key = `${line.routedTo.chapterId}/${line.routedTo.subchapterId}`;
+      await applyReceivedTotalDeltas(batch, new Map([[key, total - (line.total || 0)]]));
       await batch.commit();
     } else {
       await updateDoc(ref, payload);
@@ -1113,8 +1136,8 @@ export default function BudgetingSubchapterPage() {
       if (line.routedTo) {
         const batch = writeBatch(db);
         batch.set(newRef, payload);
-        const targetRef = doc(db, `budgetingDrafts/${draftId}/accounts/${line.routedTo.chapterId}/subchapters`, line.routedTo.subchapterId);
-        batch.update(targetRef, { receivedTotal: increment(line.total || 0) });
+        const key = `${line.routedTo.chapterId}/${line.routedTo.subchapterId}`;
+        await applyReceivedTotalDeltas(batch, new Map([[key, line.total || 0]]));
         await batch.commit();
       } else {
         await addDoc(collection(db, `budgetingDrafts/${draftId}/accounts/${accountId}/subchapters/${subchapterId}/detailLines`), payload);
@@ -1157,13 +1180,10 @@ export default function BudgetingSubchapterPage() {
         batch.delete(lineRef(line.id));
         if (line.routedTo) {
           const key = `${line.routedTo.chapterId}/${line.routedTo.subchapterId}`;
-          decrements.set(key, (decrements.get(key) || 0) + (line.total || 0));
+          decrements.set(key, (decrements.get(key) || 0) - (line.total || 0));
         }
       }
-      for (const [key, amount] of decrements) {
-        const [chapterId, subId] = key.split("/");
-        batch.update(doc(db, `budgetingDrafts/${draftId}/accounts/${chapterId}/subchapters`, subId), { receivedTotal: increment(-amount) });
-      }
+      await applyReceivedTotalDeltas(batch, decrements);
       await batch.commit();
       await touchDraft();
       setSelectedLineIds(new Set());
@@ -1218,10 +1238,7 @@ export default function BudgetingSubchapterPage() {
       }
       if (routedIncrements.size > 0) {
         const batch = writeBatch(db);
-        for (const [key, amount] of routedIncrements) {
-          const [chapterId, subId] = key.split("/");
-          batch.update(doc(db, `budgetingDrafts/${draftId}/accounts/${chapterId}/subchapters`, subId), { receivedTotal: increment(amount) });
-        }
+        await applyReceivedTotalDeltas(batch, routedIncrements);
         await batch.commit();
       }
       await touchDraft();
@@ -1321,14 +1338,10 @@ export default function BudgetingSubchapterPage() {
         batch.delete(lineRef(target.id));
         if (target.routedTo) {
           const key = `${target.routedTo.chapterId}/${target.routedTo.subchapterId}`;
-          decrements.set(key, (decrements.get(key) || 0) + (target.total || 0));
+          decrements.set(key, (decrements.get(key) || 0) - (target.total || 0));
         }
       }
-      for (const [key, amount] of decrements) {
-        const [chapterId, subchapterId] = key.split("/");
-        const targetRef = doc(db, `budgetingDrafts/${draftId}/accounts/${chapterId}/subchapters`, subchapterId);
-        batch.update(targetRef, { receivedTotal: increment(-amount) });
-      }
+      await applyReceivedTotalDeltas(batch, decrements);
       await batch.commit();
       await touchDraft();
       setDeleteTarget(null);
@@ -1352,14 +1365,16 @@ export default function BudgetingSubchapterPage() {
     } : null;
     const batch = writeBatch(db);
     batch.update(lineRef(line.id), { routedTo: newRoute });
+    const deltas = new Map<string, number>();
     if (line.routedTo) {
-      const oldRef = doc(db, `budgetingDrafts/${draftId}/accounts/${line.routedTo.chapterId}/subchapters`, line.routedTo.subchapterId);
-      batch.update(oldRef, { receivedTotal: increment(-(line.total || 0)) });
+      const oldKey = `${line.routedTo.chapterId}/${line.routedTo.subchapterId}`;
+      deltas.set(oldKey, (deltas.get(oldKey) || 0) - (line.total || 0));
     }
     if (newRoute) {
-      const newTargetRef = doc(db, `budgetingDrafts/${draftId}/accounts/${newRoute.chapterId}/subchapters`, newRoute.subchapterId);
-      batch.update(newTargetRef, { receivedTotal: increment(line.total || 0) });
+      const newKey = `${newRoute.chapterId}/${newRoute.subchapterId}`;
+      deltas.set(newKey, (deltas.get(newKey) || 0) + (line.total || 0));
     }
+    await applyReceivedTotalDeltas(batch, deltas);
     await batch.commit();
     await touchDraft();
   };
